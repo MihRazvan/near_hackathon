@@ -1,0 +1,10 @@
+# Upload only the website build inputs.
+*
+!vercel.json
+!prototype
+!prototype/package.json
+!prototype/package-lock.json
+!prototype/index.html
+!prototype/vite.config.mjs
+!prototype/src
+!prototype/src/**

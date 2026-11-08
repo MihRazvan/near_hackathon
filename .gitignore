@@ -9,3 +9,15 @@
 *.log
 proofs/**/artifacts/private/
 proofs/intents-compatibility/artifacts/*.wasm
+
+# Local planning, research, and operational evidence
+/HACKATHON.md
+/NEAR_STRATEGY.md
+/RESEARCH.md
+/docs/product/
+/docs/research/
+/docs/proofs/
+
+# Deployment metadata and generated output
+.vercel/
+dist/

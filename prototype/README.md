@@ -51,4 +51,12 @@ The first script visits all 63 destinations at desktop and mobile widths, checki
 
 This is a design-review prototype. Authentication and financial transitions are local simulations, phone capture is a browser handoff preview, AI generation uses an editable illustration, and reports contain sample values. It has no real service/API integration or multi-user backend. Exported notes are local files; they are not sent to another person automatically. A teammate can clone the pushed repository, run the commands above and review the same starting story.
 
-The approved direction and complete screen inventory are recorded in `docs/product/` at the repository root. The review-window duration in sample dates is illustrative; it is not an agreed commercial policy.
+The complete screen inventory is available at `/_screens`. The review-window duration in sample dates is illustrative; it is not an agreed commercial policy.
+
+## Vercel
+
+Deploy from the repository root. The root `vercel.json` installs and builds this directory, serves `prototype/dist`, and rewrites deep links to the app entry point. `.vercelignore` limits CLI uploads to website build inputs. No environment variables or wallet keys are needed.
+
+```sh
+vercel deploy --prod
+```

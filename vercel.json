@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "npm ci --prefix prototype --ignore-scripts",
+  "buildCommand": "npm run build --prefix prototype",
+  "outputDirectory": "prototype/dist",
+  "devCommand": "npm run dev --prefix prototype",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
