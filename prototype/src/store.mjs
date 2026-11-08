@@ -4,11 +4,11 @@ let current;
 try{current=JSON.parse(localStorage.getItem(KEY));}catch{}
 if(!current||current.version!==1)current=initialState();
 export const state=current;
-export const person=()=>PERSONAS[state.persona]??PERSONAS.visitor;
+export const person=()=>({...PERSONAS[state.persona]??PERSONAS.visitor,...state.profiles?.[state.persona]});
 export const asset=id=>state.assets.find(x=>x.id===id);
 export const sale=id=>state.sales.find(x=>x.id===id);
 export const booking=id=>state.bookings.find(x=>x.id===id);
-export const ownerAssets=()=>state.assets.filter(x=>x.ownerId===(person().ownerId??'mara'));
+export const ownerAssets=()=>state.assets.filter(x=>x.ownerId===(person().ownerId??person().id));
 export const myBookings=()=>state.bookings.filter(x=>x.buyerId===person().id);
 export const myCampaigns=()=>state.campaigns.filter(x=>x.buyerId===person().id);
 export const effectiveTakeover=(s,p)=>p.rule==='on'||(p.rule!=='off'&&s.takeovers);

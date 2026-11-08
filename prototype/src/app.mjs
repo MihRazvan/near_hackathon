@@ -4,7 +4,9 @@ import {PERSONAS} from './seed.mjs';
 import {routes,matchRoute} from './routes.mjs';
 import {icon,esc,short,heading,link,button,card,empty,modal,closeModal,banner} from './ui.mjs';
 import {publicPage,publicActions,publicForms} from './public.mjs';
-const extensions=[];
+import {accountPage,accountActions,accountForms} from './account.mjs';
+import {buyerPage,buyerActions,buyerForms} from './buyer.mjs';
+const extensions=[{render:accountPage,actions:accountActions,forms:accountForms},{render:buyerPage,actions:buyerActions,forms:buyerForms}];
 export function registerPages(extension){extensions.push(extension);render();}
 const app=document.querySelector('#app');let currentRoute,toastTimer;
 const navs={buyer:[['/buy','Overview','grid'],['/buy/campaigns','Campaigns','file'],['/buy/saved','Saved spaces','heart'],['/settings/workspace?tab=brand','Brand assets','upload'],['/buy/money','Money & credits','wallet']],owner:[['/host','Overview','grid'],['/host/assets','My assets','car'],['/host/sales','Sales','file'],['/host/bookings','Bookings','shield'],['/host/calendar','Calendar','calendar'],['/host/analytics','Analytics','chart'],['/host/earnings','Earnings','wallet']],ops:[['/ops','Review queue','grid'],['/ops/listings/alpine','Listings','car'],['/ops/cases/case-101','Cases','file'],['/ops/payments/sample-payment','Payments','wallet'],['/ops/audit','Audit history','clock']]};
