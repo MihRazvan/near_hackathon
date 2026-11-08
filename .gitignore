@@ -1,0 +1,11 @@
+/target/
+/node_modules/
+.local/
+.playwright-cli/
+.DS_Store
+.env
+.env.*
+!.env.example
+*.log
+proofs/**/artifacts/private/
+proofs/intents-compatibility/artifacts/*.wasm
