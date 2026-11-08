@@ -2,6 +2,8 @@
 
 An isolated, local website for reviewing the advertising marketplace before final design. **Everywhere is a working name.** All records, vehicle illustrations, authentication, transactions, AI outputs and analytics are sample values. This app does not connect to wallets or the technical proof server.
 
+Hosted preview: **https://everywhere-near.vercel.app**. Screen index: **https://everywhere-near.vercel.app/_screens**.
+
 ```sh
 cd prototype
 npm ci --ignore-scripts
@@ -47,7 +49,7 @@ playwright-cli -s=everywhere --raw run-code --filename=prototype/tests/browser-r
 playwright-cli -s=everywhere --raw run-code --filename=prototype/tests/browser-flows.js
 ```
 
-The first script visits all 63 destinations at desktop and mobile widths, checking headings, JavaScript errors, unfinished scaffolds, horizontal overflow and external requests. The second walks asset creation/publication, buyer authentication/payment recovery, creative revisions, installation proof, held earnings, payout, takeover/credits and operator review. Browser screenshots go to ignored `prototype/artifacts/`.
+The scripts use the origin of the page opened in the browser, so the same checks can run against the hosted preview. The first script visits all 63 destinations at desktop and mobile widths, checking headings, JavaScript errors, unfinished scaffolds, horizontal overflow and external requests. The second walks asset creation/publication, buyer authentication/payment recovery, creative revisions, installation proof, held earnings, payout, takeover/credits and operator review. Browser screenshots go to ignored `prototype/artifacts/`.
 
 This is a design-review prototype. Authentication and financial transitions are local simulations, phone capture is a browser handoff preview, AI generation uses an editable illustration, and reports contain sample values. It has no real service/API integration or multi-user backend. Exported notes are local files; they are not sent to another person automatically. A teammate can clone the pushed repository, run the commands above and review the same starting story.
 

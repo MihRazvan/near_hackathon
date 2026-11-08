@@ -1,5 +1,5 @@
 async (page) => {
-  const base = "http://127.0.0.1:4173",
+  const base = new URL(page.url()).origin,
     errors = [],
     external = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -10,8 +10,11 @@ async (page) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto(base + "/_screens");
   await page.locator("[data-control=review-state]").selectOption("populated");
-  const routes = await page.evaluate(
-    async () => (await import("/src/routes.mjs")).routes,
+  const routes = await page.locator(".screen-item").evaluateAll((items) =>
+    items.map((item) => {
+      const [id, scope] = item.querySelector(".eyebrow").textContent.split(" / ");
+      return { id, scope, sample: item.getAttribute("href") };
+    }),
   );
   const failures = [],
     reviewed = [];

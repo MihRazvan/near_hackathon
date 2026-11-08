@@ -1,5 +1,5 @@
 async (page) => {
-  const base = "http://127.0.0.1:4173",
+  const base = new URL(page.url()).origin,
     errors = [],
     external = [];
   page.on("pageerror", (e) => errors.push(e.message));
