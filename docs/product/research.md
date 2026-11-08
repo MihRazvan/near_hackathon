@@ -49,9 +49,11 @@ Important limits for the design discussion:
 
 ## Recommended product decisions
 
-Decision update, **8 November 2026**: the user confirmed fixed campaign dates with takeovers ending before installation, owner-managed printing/installation with proof upload, and buyer campaigns spanning spaces from multiple owners. The corresponding recommendations below are now product requirements. Payment bundling, removal/cost treatment and exact delivery-review/settlement rules remain open.
+Decision update, **8 November 2026**: the user confirmed fixed campaign dates with takeovers ending before installation, owner-managed printing/installation with proof upload, and buyer campaigns spanning spaces from multiple owners. The corresponding recommendations below are now product requirements. Combined payment bundling and precise delivery-review rules remain open.
 
 Further confirmed: buyers book immediately under published rules with artwork review afterward; sign-in is wallet-only; takeover settings apply per spot with a sale-wide default. These choices supersede the earlier familiar-login recommendation and any suggestion of routine owner acceptance before payment.
+
+Also confirmed: the spot price includes printing and installation, and owner campaign earnings become available after the campaign ends and its issue-review window closes. Removal responsibility, platform fee treatment, review-window length and exact dispute-resolution terms remain open.
 
 ### Public first, identity when an action requires it
 
@@ -89,7 +91,9 @@ The owner needs to accept or request changes to permitted artwork, finalize an a
 
 Instant booking is confirmed: eligible purchases are accepted under published terms, without a routine owner-request stage before payment. The post-purchase review concerns the artwork and fulfillment. Corrections, policy failures and their financial consequences must have explicit visible states.
 
-Printing and installation costs need visible price treatment even though the owner arranges the work. Removal responsibility and costs remain open. Any printable production package must use verified dimensions and approved revisions; the prototype's vehicle visualization alone is insufficient.
+The confirmed advertised price includes placement, printing and installation. Public details, checkout and receipts use that same service scope; there is no extra mandatory production invoice after purchase. Applicable network/conversion charges are disclosed as payment costs. Removal responsibility and costs remain open. Any printable production package must use verified dimensions and approved revisions; the prototype's vehicle visualization alone is insufficient.
+
+Owner earnings stay held until the campaign ends and its issue-review window closes. This means the owner arranges and covers production before those proceeds are available. Show campaign/review dates and separate held funds from available earnings; approving installation evidence is not an early payout milestone. Disputed cases need a visible review state, with exact resolution and review-window duration still to be agreed.
 
 ### Make the dashboards useful without fabricated measurement
 

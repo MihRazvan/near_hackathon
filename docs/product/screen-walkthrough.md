@@ -4,7 +4,20 @@
 
 This describes the functional composition of the main screens before building the navigable mock. The [experience map](experience-map.md) remains the complete destination/state inventory. Visual styling is for the designer; these notes define what users see and can do.
 
-Confirmed foundation: dated sales, instant booking, owner-managed printing/installation and proof upload, buyer campaigns across owners, wallet-only sign-in, and per-spot takeover controls inheriting a sale-wide default. Production-cost presentation and owner earnings-release timing are still awaiting decisions.
+Confirmed foundation: dated sales, instant booking, owner-managed printing/installation and proof upload, buyer campaigns across owners, wallet-only sign-in, per-spot takeover controls inheriting a sale-wide default, one spot price including printing/installation, and owner earnings available after the campaign and issue-review window end.
+
+## The whole journey at a glance
+
+| Stage | Space owner | Buyer |
+|---|---|---|
+| Discover/create | Wallet sign-in; photograph or describe an asset; review and edit its spots. | Browse publicly; compare assets, periods, spot modes and included prices. |
+| Offer/select | Choose fixed dates, all-in spot prices and takeover default/overrides; preview and publish. | Select a spot; wallet sign-in; choose a campaign that can span several owners. |
+| Book | See accepted purchases and provisional holders; published rules govern eligibility. | Pay and book immediately; track the payment and accepted placement. |
+| Finalize | Resolve final holders at close; review artwork and lock the production revision. | Manage artwork, takeover updates/credits and the final placement pass. |
+| Fulfill | Arrange and cover printing/installation; upload actual proof. | Review installation proof and follow the service period or report an issue. |
+| Settle | After campaign end and issue review, see eligible earnings become available and request payout. | Keep receipts, campaign reports and original-wallet claims; follow any open case. |
+
+This is the consolidated flow for review. Routine presentation choices share the layouts below; exact policy parameters such as the issue-review duration remain open.
 
 ## 1. Marketplace: find an appropriate space
 
@@ -12,7 +25,7 @@ Confirmed foundation: dated sales, instant booking, owner-managed printing/insta
 
 **Search area:** operating area, campaign dates, asset type and budget; secondary filters include available spots and fixed/takeover-enabled spots. Filter and sort choices stay visible as removable chips. Use a grid first; approximate coverage map is optional.
 
-**Card:** useful real photo, asset title, owner, coverage area, sale/service dates, matching available spot count, price for that period, Fixed / Takeovers / Mixed indicator. When filtering for fixed spots, the card price/count must describe matching spots rather than a cheaper takeover spot on the same asset.
+**Card:** useful real photo, asset title, owner, coverage area, sale/service dates, matching available spot count, price for that period with “Printing & installation included,” and Fixed / Takeovers / Mixed indicator. When filtering for fixed spots, the card price/count must describe matching spots rather than a cheaper takeover spot on the same asset.
 
 **Click:** opens the public asset page with the selected sale period preserved. Save prompts wallet sign-in when needed and returns to the same item.
 
@@ -31,7 +44,7 @@ Confirmed foundation: dated sales, instant booking, owner-managed printing/insta
 3. Available, provisional holder, fixed-booked or final/closed status.
 4. Price to purchase now and the effective takeover rule.
 5. Buy spot or Take over action when permitted.
-6. Compact production/cost and cancellation details, with full terms accessible.
+6. Printing/installation included, owner fulfillment responsibility and compact cancellation/review details, with full terms accessible.
 
 An occupied takeover-enabled spot can show the provisional brand artwork as a **preview**. It must not imply that a physical ad is already installed. A fixed-booked spot exposes its status without another purchase action.
 
@@ -57,13 +70,14 @@ An occupied takeover-enabled spot can show the provisional brand artwork as a **
 
 - Sale-wide Takeovers enabled/disabled default.
 - Spot table with photo marker/name, price for the entire period and takeover selection: Use sale default / Enabled / Disabled.
+- Each price includes placement, printing and installation. Optional internal production-cost estimates help the owner plan costs without adding a buyer surcharge.
 - Effective-rule badge on every row, so inheritance is visible without opening settings.
 - Clear reset-to-default action for an override.
 - Published takeover economics explanation where relevant; a custom formula editor is not part of the proposed first mock.
 
 **Schedule:** sale close, artwork due, production/installation window and service start/end. The suggested order leaves production time after the final holder is determined. Owner availability conflicts are visible before publication.
 
-**Fulfillment:** the owner confirms arranging printing and installation and submitting proof. Price presentation depends on the pending cost decision. Removal, content standards, evidence and review terms must also be visible.
+**Fulfillment:** the owner confirms arranging and covering printing and installation within the advertised price and submitting proof. Show the campaign-end and issue-review milestones before earnings become available. Removal, content standards, evidence and review terms must also be visible; precise remaining policy parameters stay marked as such in the mock notes.
 
 **Publish preview:** show exactly the public page and selected-spot checkout terms. After publication, a changed default cannot alter a funded spot's effective rules. A new sale can reuse the asset with new dates and terms.
 
@@ -79,7 +93,7 @@ An occupied takeover-enabled spot can show the provisional brand artwork as a **
 
 ## 6. Checkout: instant booking under published rules
 
-**Summary:** vehicle and spot preview, owner, service dates, spot mode, price and full amount payable. The selected spot and sale remain visible throughout.
+**Summary:** vehicle and spot preview, owner, service dates, spot mode and one spot price including printing and installation. Separately disclose applicable payment/network/conversion costs in the full payable review. The selected spot and sale remain visible throughout; no additional mandatory printing/installation charge appears later.
 
 **Buyer details:** choose/create the campaign and brand; reuse brand assets or save artwork for the next step. The same buyer campaign can contain placements with several owners. The first proposed real checkout remains placement-specific; combined payment is not yet decided.
 
@@ -112,7 +126,7 @@ For a displaced booking, replace the next-action card with what changed, the ori
 
 **Production:** confirm the final holder and approved revision, lock it for printing, arrange printing/installation, then upload actual proof for the relevant spots. The owner sees review results and any rework required.
 
-**Money:** held funds and potential earnings are distinguished from available proceeds. The exact release milestone follows the pending user decision; no receipt or image automatically makes funds withdrawable in the mock's model.
+**Money:** held funds and potential earnings are distinguished from available proceeds. Show campaign end and issue-review status, with eligible earnings becoming available after both milestones. Installation proof approval leaves earnings held during the campaign/review period. The owner covers earlier production costs; an unresolved case has a separate review state rather than appearing as an ordinary completed payout.
 
 ## 9. Campaign and dashboard views
 
@@ -121,6 +135,8 @@ For a displaced booking, replace the next-action card with what changed, the ori
 **Buyer overview:** next actions first; then provisional/live placements, approaching deadlines, campaign summary and available credits. Empty state leads directly to discovery or campaign creation.
 
 **Owner overview:** next actions first; then assets/sales, spots booked for the selected period, upcoming production tasks and money summary. Existing assets lead to another dated sale. Analytics explain measured versus declared/sample information.
+
+**Owner earnings page:** group Held during campaign, Held during issue review, Available, Processing and Paid. Each sale links to its dates, proof and any support case. Show estimated availability from the published schedule without inventing an approved review-window duration or treating it as guaranteed during a dispute.
 
 Inbox, notifications and support open the relevant booking or task. Financial and physical progress use the same coherent sample records across all these pages.
 

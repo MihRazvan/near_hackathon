@@ -6,6 +6,8 @@ Confirmed decisions: fixed campaign dates with takeovers ending before installat
 
 Also confirmed: instant booking under published rules followed by artwork review; wallet-only sign-in; per-spot takeover controls with a sale-wide default.
 
+Pricing and settlement: the advertised spot price includes printing and installation. Owner campaign earnings become available after the campaign ends and its issue-review window closes. Owners cover production before that release; the exact review-window duration and dispute rules remain open.
+
 The next deliverable is a complete, navigable mock of an advertising marketplace: people browse physical advertising inventory, buy placements, manage artwork and delivery, and list and operate their own assets. Vehicles are the initial inventory type; the product language is **advertise on everything**.
 
 Read in this order:
@@ -15,4 +17,4 @@ Read in this order:
 3. [Commit and delivery plan](delivery-plan.md): how to preserve the existing proof work and deliver the mock in coherent increments.
 4. [Key screen walkthrough](screen-walkthrough.md): proposed content and actions for the screens that determine the main experience.
 
-The product mock should begin after the outstanding experience decisions are resolved. This documentation does not authorize new payments, deployments or changes to the existing funded campaign. Earlier technical experiments remain separate from the proposed product.
+Next, review the complete screen walkthrough before building the mock. The high-impact decision round is complete; remaining UX recommendations can be discussed together, and precise policy parameters remain explicitly open. Earlier technical experiments are separate from the proposed product.
