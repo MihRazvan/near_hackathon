@@ -49,6 +49,8 @@ Important limits for the design discussion:
 
 ## Recommended product decisions
 
+Decision update, **8 November 2026**: the user confirmed fixed campaign dates with takeovers ending before installation, owner-managed printing/installation with proof upload, and buyer campaigns spanning spaces from multiple owners. The corresponding recommendations below are now product requirements. Payment bundling, removal/cost treatment and exact delivery-review/settlement rules remain open.
+
 ### Public first, identity when an action requires it
 
 Let visitors browse and inspect spaces without an account or wallet. Preserve the selected listing, spots, campaign and uploaded work through sign-in. Use one account with buyer and owner areas. Connect wallets when paying, claiming or doing an action that requires wallet authority; keep the active payer visible. Connecting an app account and proving control of a payment wallet are different tasks.
@@ -57,13 +59,13 @@ For the mock, use explicit sample personas and simulated wallets. The production
 
 ### Model time before adding an auction
 
-Recommendation: an owner publishes a sale for a stated service period. A physical spot may be sold at a fixed price or allow takeovers **before a closing time**. Artwork is finalized and production starts afterward. A running physical campaign is not displaced by a new bid. The owner may create another sale for a later period without drawing the asset again.
+Confirmed: an owner publishes a sale for a stated service period, and takeovers end before installation. The recommended sequence closes intake before printing, then finalizes artwork and starts production. A running physical campaign is not displaced by a new bid. The owner may create another sale for a later period without drawing the asset again.
 
-The close time, artwork due date, production/installation window, service start/end and settlement milestones are distinct. Represent them in both public details and private timelines. If the user chooses continuously replaceable advertising instead, it needs a different physical fulfillment and cost model; do not silently use digital-screen assumptions for stickers.
+The close time, artwork due date, production/installation window, service start/end and settlement milestones are distinct. Represent them in both public details and private timelines.
 
 ### Keep multiple placements manageable
 
-Recommendation: a buyer campaign groups placements across owners. For the initial real implementation, each placement can retain a separate payment and fulfillment status. A campaign builder and shortlist need not promise one atomic cross-owner cart. The mock should show partially purchased, partially displaced and partially delivered campaigns, as well as the ideal case.
+Confirmed: a buyer campaign groups placements across owners. Each placement retains its own fulfillment and payment status. Recommend separate placement payments for the initial real implementation; a campaign builder and shortlist need not promise one atomic cross-owner cart. The mock should show partially purchased, partially displaced and partially delivered campaigns, as well as the ideal case.
 
 ### Preserve the takeover, make its consequences explicit
 
@@ -81,9 +83,9 @@ The essential editor is a photo-based surface editor with selectable shapes, lab
 
 ### Make fulfillment part of the product
 
-The owner needs to accept or request changes to permitted artwork, finalize an approved production revision, arrange installation under the selected policy, upload proof and manage problems. The buyer needs to see the same milestones, review evidence and report a delivery issue. Content review cannot become a hidden way to pick a different financial winner after accepting payment.
+The owner needs to accept or request changes to permitted artwork, finalize an approved production revision, arrange printing and installation, upload proof and manage problems. Owner responsibility for printing/installation and proof upload is confirmed. The buyer needs to see the same milestones, review evidence and report a delivery issue. Content review cannot become a hidden way to pick a different financial winner after accepting payment.
 
-Printing, installation and removal costs need a visible owner and price treatment. The user has been asked to choose the initial responsibility model. Any printable production package must use verified dimensions and approved revisions; the prototype's vehicle visualization alone is insufficient.
+Printing and installation costs need visible price treatment even though the owner arranges the work. Removal responsibility and costs remain open. Any printable production package must use verified dimensions and approved revisions; the prototype's vehicle visualization alone is insufficient.
 
 ### Make the dashboards useful without fabricated measurement
 

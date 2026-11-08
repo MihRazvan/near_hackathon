@@ -1,6 +1,6 @@
 # End-to-end experience and page inventory
 
-Version 0.1 · **8 November 2026** · **Proposed for discussion**
+Version 0.2 · **8 November 2026** · **D01–D03 confirmed; remaining UX proposed for discussion**
 
 This maps the complete product for a navigable mock and a designer handoff. The routes are proposed destinations, not a chosen framework, implemented API or promise that the existing contracts support every behavior. Several destinations share a layout. Tabs, dialogs and states are specified separately so “every page” does not become a collection of disconnected static screens.
 
@@ -26,6 +26,14 @@ Public positioning: **Advertise on everything. Start with vehicles.**
 One account can buy and list space. Businesses use workspaces; role switching changes navigation, not wallet ownership. Buying from a different connected wallet does not silently merge or transfer the previous wallet's claims. Linking a wallet in a live product requires proving control.
 
 Relationship: **Owner → Asset → Spots → Dated sale → Placement bookings**. Separately: **Buyer → Brand → Campaign → Placement bookings**. A booking connects the two sides. Reusing a car in next month's sale does not create a second car record; a campaign buying two cars does not combine their independent delivery promises into one booking.
+
+### Confirmed product decisions
+
+The user confirmed these on **8 November 2026**:
+
+- **D01 — Fixed campaign dates.** Owners offer a defined service period, and takeovers end before installation. The proposed operational sequence closes intake before production begins so the final artwork can be prepared once.
+- **D02 — Owner-managed production and installation.** The space owner arranges printing and installation and uploads proof. The buyer follows delivery and reviews the submitted evidence. Removal responsibility, included charges and the precise review/release policy still need definition.
+- **D03 — Campaigns across owners.** One buyer campaign can purchase multiple spaces from different owners. It groups placements, artwork, spend and results while retaining each placement's own status. Separate payment transactions are a recommendation for the first implementation; this decision alone does not establish a single atomic cart.
 
 ## 2. Navigation and shared layout
 
@@ -89,7 +97,7 @@ Recommendation to confirm: email/passkey-style app sign-in with wallet linking w
 
 Checkout is a route even if desktop presents it as a focused panel. This permits reload, deep links and phone handoff. Source funding and purchase authorization can take separate wallet prompts; present them as explained stages of one checkout. Never describe a mere source transfer as a completed placement.
 
-Recommendation: allow one campaign to contain several placements, purchased individually in the initial live version. A multi-owner atomic checkout or guaranteed bundle needs separate decisions. Do not clear the entire campaign when one placement is displaced or its payment fails.
+Confirmed: one campaign can contain several placements across different owners. The campaign detail must summarize those purchases and expose each owner's creative and delivery tasks. Recommend individual placement purchases initially; a multi-owner atomic checkout or guaranteed bundle needs a separate decision. Do not clear the entire campaign when one placement is displaced or its payment fails.
 
 ## 6. Owner pages
 
@@ -110,7 +118,7 @@ Recommendation: allow one campaign to contain several placements, purchased indi
 | O13 | `/host/bookings` | All bookings across sales, filters by asset, buyer, period and required action; retain displaced history. | Open O14. |
 | O14 | `/host/bookings/:id` | Counterparty, spot, dates, terms, artwork/proof status, conversation and receipts. Clearly identify current versus displaced holder. | Review artwork O15; fulfill O16; contact buyer; open case. |
 | O15 | `/host/bookings/:id/artwork` | Buyer revision, vehicle preview, production specifications, notes, prior feedback and approved version. | Approve or request specific changes; later lock the final production revision under the agreed sequence. |
-| O16 | `/host/sales/:id/fulfillment` | Production checklist; install date/location privately; installer responsibility, approved artwork, upload actual photos, spot coverage and delivery updates; buyer-review results and rework. | Submit installation proof; resolve rework; complete/removal evidence. |
+| O16 | `/host/sales/:id/fulfillment` | Owner-managed printing and installation checklist; install date/location privately; approved artwork, actual proof photos, spot coverage and delivery updates; buyer-review results and rework. Removal duties remain a policy decision. | Arrange printing/install, submit installation proof and resolve rework. |
 | O17 | `/host/calendar` | Asset/spot availability, sale close, artwork due, installation window, service dates and maintenance blocks; conflicts visible. | Create a non-overlapping sale or open its task. |
 | O18 | `/host/analytics` | Listing visits, saved/booked spots, period occupancy, revenue and transaction activity; filter asset/sale/date. Separate genuine measurement from declarations/sample data. | Open contributing sales or export. |
 | O19 | `/host/earnings` | Held sale proceeds, available owner earnings, pending payouts, expenses/fees and history. Held customer money is not available revenue. | Request an eligible payout → O20. |
@@ -130,7 +138,7 @@ Recommendation: allow one campaign to contain several placements, purchased indi
 1. **Pick asset and spots:** choose a saved layout version; define exclusivity/conflicting surfaces.
 2. **Set the schedule:** open/close, artwork due, installation window, service start/end, review/settlement milestones. Require time for physical production.
 3. **Set commercial terms:** price per spot for the entire service period; takeover on/off. Recommend a published fixed multiplier/reward policy for the first release, rather than a free-form financial formula editor.
-4. **Set fulfillment/content terms:** printing, installation and removal responsibility; visible included/extra charges; permitted content; promised deliverables and evidence.
+4. **Set fulfillment/content terms:** confirm the owner's printing/installation responsibility; define included/extra charges and proposed removal duties; permitted content; promised deliverables and required proof.
 5. **Preview and publish:** desktop/mobile public preview, readiness checklist, confirm frozen commercial terms, publication progress and a shareable link. A failed publication preserves the draft.
 
 Owner branding can configure title, description, cover image and public profile in the mock. A fully arbitrary page builder is a separate product; the first design uses one well-defined, customizable listing template.
@@ -190,7 +198,9 @@ Do not create a separate page for every toast or every transaction status. These
 
 **Fixed booking:** owner disables takeovers before publication → buyer purchases → spot becomes unavailable for another buyer for that sale → artwork and fulfillment continue. No takeover CTA is shown.
 
-**Production and fulfillment:** owner reviews buyer revision → changes requested and resubmitted, or approved → final production version locked → installation arranged → actual photos submitted → buyer reviews proof or raises a case → completion/settlement follows the agreed policy → owner sees released proceeds rather than held escrow.
+**Production and fulfillment:** owner reviews buyer revision → changes requested and resubmitted, or approved → final production version locked → owner arranges printing and installation → owner uploads actual proof photos → buyer reviews proof or raises a case → completion/settlement follows the agreed policy → owner sees released proceeds rather than held escrow.
+
+**Campaign across owners:** buyer creates one campaign → adds a car spot from owner A and a motorcycle spot from owner B → purchases the placements → reuses brand assets with separate surface-specific revisions → sees creative, installation and money status per placement in the campaign summary. A takeover or delivery issue on one placement leaves the other placement intact.
 
 **Interrupted payment:** close/reload during routing or a wallet timeout → return to saved payment page → inspect existing evidence → continue authorization when funds are available or track the existing send. Never restart the transfer merely because a response was lost. Money received after the spot becomes unavailable gets a recoverable credit/refund path.
 
@@ -234,15 +244,15 @@ Review content hierarchy and interaction before visual styling. Typography, colo
 
 ## 13. Decisions for the user
 
-Confirmed direction: advertise on everything; vehicles first; visual spot selection; optional takeover capability for owners; multiple owner pages/sales; buyer and owner dashboards; final NFT at bidding close; delayed refunds are acceptable; different buyer wallet addresses can own different placements.
+Confirmed direction: advertise on everything; vehicles first; visual spot selection; optional takeover capability for owners; multiple owner pages/sales; buyer and owner dashboards; final NFT at bidding close; delayed refunds are acceptable; different buyer wallet addresses can own different placements. D01–D03 below are also confirmed.
 
-All items below remain proposals unless the user answers them:
+Confirmed decisions are marked explicitly. The remaining rows are proposals:
 
 | ID | Decision | Recommendation | Why it changes the experience |
 |---|---|---|---|
-| D01 | Fixed service periods or continuously replaced ads? | Fixed dates; takeovers close before production. | Determines calendar, checkout promise, lock and removal workflows. |
-| D02 | Who arranges print/install/removal? | Owner arranges and uploads evidence; the listing discloses included costs. | Determines production tasks, pricing, proof and dispute responsibilities. |
-| D03 | One buyer campaign or separate purchases only? | A campaign groups multiple placements, with separate initial checkout transactions. | Determines buyer dashboard, creative reuse and partial-success states. |
+| D01 | Fixed service periods or continuously replaced ads? | **Confirmed:** fixed campaign dates; takeovers close before installation. Closing before production is the proposed operational sequence. | Calendar, booking and takeover UI use a dated service period and a finalization milestone. |
+| D02 | Who arranges printing and installation? | **Confirmed:** the owner arranges printing/installation and uploads proof. Removal, cost treatment and release policy remain open. | Owner production/proof tasks and buyer delivery review are required. |
+| D03 | Can a buyer campaign span multiple owners? | **Confirmed:** one campaign can buy multiple spaces from different owners. Separate initial checkout transactions remain a recommendation. | Campaign dashboard aggregates independent placement, creative, delivery and money states. |
 | D04 | Purchase acceptance or a manual request first? | Buy published eligible inventory directly; review content against published rules separately. | Prevents an owner from arbitrarily choosing the winner after payment; restricted inventory may need a pre-approval path. |
 | D05 | One account for both roles? | Yes; individual/business workspace and role navigation. | Avoids duplicate identities; linked wallets retain their own financial authority. |
 | D06 | Wallet-only app login or familiar app account plus wallet linking? | Familiar sign-in plus wallet linking for payment/authority, subject to a qualified live provider. | Changes sign-in, recovery and first-time owner onboarding. |
@@ -253,4 +263,4 @@ All items below remain proposals unless the user answers them:
 | D11 | Production permission to edit artwork vs NFT delivery? | Stage drafts before close; final placement pass at close; production locks approved revision. | Requires a clear delivery-wallet state and alignment with supported on-chain artwork authority. |
 | D12 | Bundles and exclusivity across spots? | Independent spots with explicit conflict groups first; no mixed bundle guarantee. | Prevents selling overlapping surfaces or promising atomic multi-owner purchases. |
 
-Resolve D01–D03 first, then walk through P03, the owner wizard, checkout and both booking workspaces. Record decisions here before implementing the mock.
+Next resolve D04 (instant booking or request approval), D06 (sign-in experience) and D07 (takeover setting scope), then walk through P03, the owner wizard, checkout and both booking workspaces. Continue recording decisions here before implementing the mock.

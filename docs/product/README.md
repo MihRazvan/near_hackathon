@@ -2,6 +2,8 @@
 
 Research date: **8 November 2026**. Status: **proposal for discussion, not an approved specification or an implemented application**.
 
+Confirmed decisions: fixed campaign dates with takeovers ending before installation; the space owner arranges printing/installation and uploads proof; one buyer campaign can purchase spaces across different owners. The experience map marks these separately from remaining proposals.
+
 The next deliverable is a complete, navigable mock of an advertising marketplace: people browse physical advertising inventory, buy placements, manage artwork and delivery, and list and operate their own assets. Vehicles are the initial inventory type; the product language is **advertise on everything**.
 
 Read in this order:
