@@ -1,50 +1,517 @@
-import './style.css';
-import {state,person,update,navigate,toast,reset,persist} from './store.mjs';
-import {PERSONAS} from './seed.mjs';
-import {routes,matchRoute} from './routes.mjs';
-import {icon,esc,short,heading,link,button,card,empty,modal,closeModal,banner} from './ui.mjs';
-import {publicPage,publicActions,publicForms} from './public.mjs';
-import {accountPage,accountActions,accountForms} from './account.mjs';
-import {buyerPage,buyerActions,buyerForms} from './buyer.mjs';
-const extensions=[{render:accountPage,actions:accountActions,forms:accountForms},{render:buyerPage,actions:buyerActions,forms:buyerForms}];
-export function registerPages(extension){extensions.push(extension);render();}
-const app=document.querySelector('#app');let currentRoute,toastTimer;
-const navs={buyer:[['/buy','Overview','grid'],['/buy/campaigns','Campaigns','file'],['/buy/saved','Saved spaces','heart'],['/settings/workspace?tab=brand','Brand assets','upload'],['/buy/money','Money & credits','wallet']],owner:[['/host','Overview','grid'],['/host/assets','My assets','car'],['/host/sales','Sales','file'],['/host/bookings','Bookings','shield'],['/host/calendar','Calendar','calendar'],['/host/analytics','Analytics','chart'],['/host/earnings','Earnings','wallet']],ops:[['/ops','Review queue','grid'],['/ops/listings/alpine','Listings','car'],['/ops/cases/case-101','Cases','file'],['/ops/payments/sample-payment','Payments','wallet'],['/ops/audit','Audit history','clock']]};
-function active(path){return location.pathname===path.split('?')[0]||(path!=='/buy'&&path!=='/host'&&path!=='/ops'&&location.pathname.startsWith(path+'/'));}
-function topbar(){return`<div class="prototype-bar"><span class="prototype-label"><i class="prototype-dot"></i><strong>INTERACTIVE PROTOTYPE</strong> <span class="reset-label">/ SAMPLE DATA · EVERYWHERE IS A WORKING NAME</span></span><div class="prototype-tools"><label><span class="sr-only">Review persona</span><select data-control="persona" aria-label="Review persona">${Object.entries(PERSONAS).map(([k,p])=>`<option value="${k}" ${state.persona===k?'selected':''}>${p.name}${p.role==='public'?'':' · '+p.role}</option>`).join('')}</select></label><select class="state-select" data-control="review-state" aria-label="Preview page state">${['populated','empty','loading','error'].map(v=>`<option ${state.reviewState===v?'selected':''}>${v}</option>`).join('')}</select>${link('/_screens','All screens ↗','')}${button('demo-controls','Demo controls','','')}${button('reset-demo','Reset','','reset-label')}</div></div>`;}
-function publicShell(body){return`${topbar()}<header class="site-header"><a class="brand" href="/"><span class="brand-mark">≡</span>everywhere<span style="font-size:10px;color:#a3ac96;font-weight:400;letter-spacing:0">®</span></a><nav class="site-nav"><a href="/explore">Explore spaces</a><a href="/how-it-works/buy">How it works</a><a href="/how-it-works/list">For space owners</a></nav><div class="header-end">${link('/host/assets/new',`List a space ${icon('plus')}`,'button small')}${link(person().role==='public'?'/sign-in':person().role==='owner'?'/host':'/buy',person().role==='public'?'Sign in':person().name.split(' ')[0]+' ↗','text-link')}</div></header><nav class="mobile-nav-links"><a href="/explore">Explore</a><a href="/buy">Buyer workspace</a><a href="/host">Owner workspace</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">everywhere</a><span>Advertise on everything. Start with vehicles.</span><nav><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/_screens">Prototype index</a></nav></footer>`;}
-function workspaceShell(body,scope){const role=scope==='owner'?'owner':scope==='ops'?'ops':scope==='shared'?(person().role==='owner'?'owner':person().role==='ops'?'ops':'buyer'):'buyer';const nav=navs[role];return`${topbar()}<div class="workspace"><aside class="sidebar"><a class="brand" href="/"><span class="brand-mark">≡</span>everywhere</a><div class="workspace-switch"><a href="/buy" class="${role==='buyer'?'active':''}">Buy space</a><a href="/host" class="${role==='owner'?'active':''}">List space</a></div><div><div class="nav-section-label">${role==='ops'?'PLATFORM OPERATIONS':role==='owner'?'OWNER WORKSPACE':'BUYER WORKSPACE'}</div><nav>${nav.map(([url,title,i])=>`<a href="${url}" class="${active(url)?'active':''}">${icon(i)}${title}</a>`).join('')}</nav></div><div><div class="nav-section-label">YOUR WORKSPACE</div><nav>${[['/inbox','Inbox','mail'],['/notifications','Notifications','bell'],['/settings/profile','Settings','settings']].map(([url,t,i])=>`<a href="${url}" class="${active(url)?'active':''}">${icon(i)}${t}</a>`).join('')}</nav></div><div class="sidebar-bottom"><nav><a href="/explore">${icon('arrow')}Explore marketplace</a><a href="/help">${icon('file')}Help & support</a></nav><div class="sidebar-person"><span class="avatar">${esc(person().name.split(' ').map(x=>x[0]).slice(0,2).join(''))}</span><div><strong>${esc(person().name)}</strong><small>${esc(person().brand||'Sample workspace')}</small></div></div></div></aside><div class="workspace-main"><header class="workspace-topbar"><div class="workspace-breadcrumb"><a href="${role==='owner'?'/host':role==='ops'?'/ops':'/buy'}">${role==='owner'?'Owner':role==='ops'?'Operations':'Buyer'}</a><span>/</span><strong>${esc(currentRoute.title)}</strong></div><div class="actions"><a class="wallet-label" href="/settings/wallets">${icon('wallet')}${esc(short(person().wallet)||'Connect wallet')}</a>${link('/notifications',icon('bell'),'icon-button')}${link('/settings/profile','<span class="avatar">'+esc(person().name[0])+'</span>','')}</div></header><nav class="mobile-workspace-nav">${[...nav,['/buy','Buy','grid'],['/host','List','car'],['/_screens','All screens','file']].map(([url,title])=>`<a href="${url}" class="${active(url)?'active':''}">${title}</a>`).join('')}</nav><main class="workspace-content" id="main">${body}<div class="screenshot-notes"><span>${currentRoute.id} / ${esc(currentRoute.title)} · Interactive sample data</span><a href="/_screens">Browse all screens ↗</a></div></main></div></div>`;}
-function screenIndex(){const groups=[['public','Public marketplace'],['account','Sign-in & onboarding'],['buyer','Buyer workspace'],['owner','Owner studio & operations'],['shared','Shared settings & support'],['ops','Platform operations'],['global','Global states']];return`<div style="padding:40px 0 20px">${heading('THE DESIGN REVIEW INDEX','The whole product, in one place.','63 destinations, reusable layouts and one connected set of sample data. Choose a page to inspect it as the appropriate persona.',button('review-guide','How to review','','button primary'))}</div>${banner('A working model, before the final design','All transactions, authentication, AI generation and analytics are simulated. The demo saves changes in this browser. Use Reset to return to the starting story.')}<div class="actions" style="margin:20px 0 35px">${link('/explore','Start as a buyer','button primary')}${link('/host/assets/new','Start a new listing','button')}${button('demo-controls','Try a full scenario','','button')}${button('export-feedback','Export review notes','','button')}</div>${groups.map(([key,title])=>`<section style="margin:32px 0"><div class="section-heading"><h2>${title}</h2>${badge(routes.filter(r=>r.scope===key).length+' screens')}</div><div class="screen-grid">${routes.filter(r=>r.scope===key).map(r=>`<a class="screen-item" href="${esc(r.sample)}" data-persona="${key==='owner'?'owner':key==='ops'?'operator':['buyer','shared'].includes(key)?'buyer':key==='account'?'visitor':state.persona}"><span class="eyebrow">${r.id} / ${key}</span><strong>${r.title} ↗</strong><code>${r.path}</code></a>`).join('')}</div></section>`).join('')}<section class="panel"><h2>State & scenario review</h2><p class="muted">Use the top bar to inspect populated, empty, loading and error views. Demo controls advance the sample sale to bidding closed, campaign live, issue review or completed. Capture notes against the current page and export them as JSON.</p>${button('add-feedback','Add a review note','','button')}</section>`;}
-function scaffold(r){return heading(`${r.id} / ${r.scope}`,r.title,'This destination is part of the agreed product map.')+empty('This screen is being assembled.','Use the index to explore the completed public marketplace.',link('/_screens','View the screen index'));}
-function globalPage(r){if(r.id==='G01')return empty('This space took a different turn.','The page may have moved. Your existing bookings stay in your workspace.',link('/explore','Explore spaces','button primary'));if(r.id==='G02')return empty('This belongs to another workspace.','Switch to an authorized wallet or open your own workspace.',link('/sign-in','Choose a wallet','button primary'));return empty('Taking a short pause.','Your saved drafts and existing payment records are retained. Try again or contact support.',button('retry-page','Try again','','button primary')+' '+link('/support/new','Contact support'));}
-function render(){
- currentRoute=location.pathname==='/_screens'?{id:'INDEX',title:'Screen index',scope:'public',params:{}}:matchRoute(location.pathname);
- let body;if(currentRoute.id==='INDEX')body=screenIndex();else if(currentRoute.scope==='global')body=globalPage(currentRoute);else{
-  body=publicPage(currentRoute);for(const x of extensions){if(!body)body=x.render?.(currentRoute)||'';}if(!body)body=scaffold(currentRoute);
-  if(state.reviewState==='empty')body=heading(currentRoute.id,currentRoute.title)+empty('A fresh start.','This is the empty-state preview for this screen. Return to populated to inspect the sample records.',button('populated-state','Show sample data','','button primary'));
-  if(state.reviewState==='loading')body=heading(currentRoute.id,currentRoute.title,'Loading-state preview')+'<div class="skeleton"></div><div class="grid two"><div class="skeleton large"></div><div class="skeleton large"></div></div>'+button('populated-state','Finish loading','','button');
-  if(state.reviewState==='error')body=heading(currentRoute.id,currentRoute.title)+banner('We could not load this page.','Your saved progress is still here. Try the request again or open a support case.','orange')+button('populated-state','Try again','','button primary');
- }
- document.title=`${currentRoute.title} · Everywhere prototype`;
- app.innerHTML=['public','account','global'].includes(currentRoute.scope)?publicShell(body):workspaceShell(body,currentRoute.scope);
- for(const x of extensions)x.mount?.(currentRoute);
+import "./style.css";
+import {
+  state,
+  person,
+  update,
+  navigate,
+  toast,
+  reset,
+  persist,
+} from "./store.mjs";
+import { PERSONAS } from "./seed.mjs";
+import { routes, matchRoute } from "./routes.mjs";
+import {
+  icon,
+  esc,
+  short,
+  heading,
+  link,
+  button,
+  card,
+  empty,
+  modal,
+  closeModal,
+  banner,
+  badge,
+  download,
+} from "./ui.mjs";
+import { publicPage, publicActions, publicForms } from "./public.mjs";
+import { accountPage, accountActions, accountForms } from "./account.mjs";
+import { buyerPage, buyerActions, buyerForms } from "./buyer.mjs";
+import { ownerPage, ownerActions, ownerForms, ownerMount } from "./owner.mjs";
+import {
+  operationsPage,
+  operationsActions,
+  operationsForms,
+} from "./operations.mjs";
+const extensions = [
+  { render: accountPage, actions: accountActions, forms: accountForms },
+  { render: buyerPage, actions: buyerActions, forms: buyerForms },
+  {
+    render: ownerPage,
+    actions: ownerActions,
+    forms: ownerForms,
+    mount: ownerMount,
+  },
+  {
+    render: operationsPage,
+    actions: operationsActions,
+    forms: operationsForms,
+  },
+];
+export function registerPages(extension) {
+  extensions.push(extension);
+  render();
 }
-const baseActions={
- 'close-modal':closeModal,'reset-demo':()=>modal('Return to the starting story?',`<p>Reset sample assets, purchases, uploads, drafts and review notes in this browser.</p><div class="actions">${button('confirm-reset','Reset sample data','','button primary')}${button('close-modal','Keep exploring','','button')}</div>`),
- 'confirm-reset':()=>{closeModal();reset();navigate('/');toast('Sample story reset.');},'retry-page':()=>{update(s=>s.reviewState='populated');navigate('/explore');},'populated-state':()=>update(s=>s.reviewState='populated'),
- 'review-guide':()=>modal('A quick way to review',`<ol class="prose"><li>Browse the marketplace and choose a vehicle spot.</li><li>Use a sample wallet to book or take over a spot.</li><li>Switch to Mara to review artwork and upload installation proof.</li><li>Use Demo controls to advance the sample sale’s calendar.</li><li>Leave page-specific notes and export them for the team.</li></ol>${banner('All sample, all local','No real wallet requests, payments, scans or AI calls are made.')}`),
- 'demo-controls':()=>modal('Explore a scenario',`<p>Advance the Alpine Electric sample sale to inspect its later stages. This changes the connected sample records.</p><div class="stack">${[['locked','Bidding closed','Final holder and placement pass'],['live','Campaign live','Artwork locked; installation proof ready'],['review','Issue-review window','Campaign ended; earnings remain held'],['completed','Campaign & review completed','Eligible owner earnings become available']].map(([id,t,d])=>button('advance-scenario',`<span><strong>${t}</strong><small style="display:block;font-weight:400">${d}</small></span>${icon('arrow')}`,`data-id="${id}"`,'wallet-option')).join('')}${button('add-feedback','Leave a note on this screen','','button')}</div><p class="tiny muted">The three-day review period shown in sample data is illustrative, not an agreed platform policy.</p>`),
- 'advance-scenario':el=>{update(s=>{const sale=s.sales.find(x=>x.id==='sale-alpine');sale.phase=el.dataset.id;for(const b of s.bookings.filter(b=>b.saleId===sale.id&&!['displaced','cancelled'].includes(b.status))){b.status=el.dataset.id==='completed'?'completed':el.dataset.id==='live'?'live':'final';b.pass='issued';if(['live','review','completed'].includes(el.dataset.id)){b.artwork='locked';b.proof='submitted';}}s.clock=el.dataset.id==='locked'?'2026-11-26':el.dataset.id==='live'?'2026-12-10':el.dataset.id==='review'?'2027-01-01':'2027-01-04';});closeModal();toast('Sample calendar advanced. Related pages now show the new stage.');},
- 'add-feedback':()=>modal('Leave a note for this page',`<form data-form="feedback"><p class="tiny muted">${esc(currentRoute.id)} · ${esc(location.pathname)}</p><label class="field"><span>What should change?</span><textarea name="note" required rows="5" placeholder="Describe the flow, content or layout you would change…"></textarea></label><button class="button primary" type="submit">Save review note</button></form>`),
- 'export-feedback':async()=>{const {download}=await import('./ui.mjs');download('everywhere-review-notes.json',JSON.stringify(state.feedback,null,2),'application/json');toast('Review notes exported.');}
+const app = document.querySelector("#app");
+let currentRoute, toastTimer;
+const navs = {
+  buyer: [
+    ["/buy", "Overview", "grid"],
+    ["/buy/campaigns", "Campaigns", "file"],
+    ["/buy/saved", "Saved spaces", "heart"],
+    ["/settings/workspace?tab=brand", "Brand assets", "upload"],
+    ["/buy/money", "Money & credits", "wallet"],
+  ],
+  owner: [
+    ["/host", "Overview", "grid"],
+    ["/host/assets", "My assets", "car"],
+    ["/host/sales", "Sales", "file"],
+    ["/host/bookings", "Bookings", "shield"],
+    ["/host/calendar", "Calendar", "calendar"],
+    ["/host/analytics", "Analytics", "chart"],
+    ["/host/earnings", "Earnings", "wallet"],
+  ],
+  ops: [
+    ["/ops", "Review queue", "grid"],
+    ["/ops/listings/alpine", "Listings", "car"],
+    ["/ops/cases/case-101", "Cases", "file"],
+    ["/ops/payments/sample-payment", "Payments", "wallet"],
+    ["/ops/audit", "Audit history", "clock"],
+  ],
 };
-document.addEventListener('click',async event=>{
- const target=event.target.closest('[data-action]');if(target){event.preventDefault();try{const handler=baseActions[target.dataset.action]??publicActions[target.dataset.action]??extensions.map(x=>x.actions?.[target.dataset.action]).find(Boolean);if(!handler)throw new Error('This interaction is not connected yet.');await handler(target,event);}catch(error){toast(error.message);}return;}
- const a=event.target.closest('a[href]');if(!a||event.metaKey||event.ctrlKey||event.shiftKey||a.download||a.target==='_blank')return;const url=new URL(a.href,location.href);if(url.origin!==location.origin||url.hash&&url.pathname===location.pathname)return;event.preventDefault();if(a.dataset.persona)update(s=>{s.persona=a.dataset.persona;s.reviewState='populated';},{render:false});navigate(url.pathname+url.search+url.hash);
+function active(path) {
+  return (
+    location.pathname === path.split("?")[0] ||
+    (path !== "/buy" &&
+      path !== "/host" &&
+      path !== "/ops" &&
+      location.pathname.startsWith(path + "/"))
+  );
+}
+function topbar() {
+  return `<div class="prototype-bar"><span class="prototype-label"><i class="prototype-dot"></i><strong>INTERACTIVE PROTOTYPE</strong> <span class="reset-label">/ SAMPLE DATA · EVERYWHERE IS A WORKING NAME</span></span><div class="prototype-tools"><label><span class="sr-only">Review persona</span><select data-control="persona" aria-label="Review persona">${Object.entries(
+    PERSONAS,
+  )
+    .map(
+      ([k, p]) =>
+        `<option value="${k}" ${state.persona === k ? "selected" : ""}>${p.name}${p.role === "public" ? "" : " · " + p.role}</option>`,
+    )
+    .join(
+      "",
+    )}</select></label><select class="state-select" data-control="review-state" aria-label="Preview page state">${["populated", "empty", "loading", "error"].map((v) => `<option ${state.reviewState === v ? "selected" : ""}>${v}</option>`).join("")}</select>${link("/_screens", "All screens ↗", "")}${button("demo-controls", "Demo controls", "", "")}${button("reset-demo", "Reset", "", "reset-label")}</div></div>`;
+}
+function publicShell(body) {
+  return `${topbar()}<header class="site-header"><a class="brand" href="/"><span class="brand-mark">≡</span>everywhere<span style="font-size:10px;color:#a3ac96;font-weight:400;letter-spacing:0">®</span></a><nav class="site-nav"><a href="/explore">Explore spaces</a><a href="/how-it-works/buy">How it works</a><a href="/how-it-works/list">For space owners</a></nav><div class="header-end">${link("/host/assets/new", `List a space ${icon("plus")}`, "button small")}${link(person().role === "public" ? "/sign-in" : person().role === "owner" ? "/host" : "/buy", person().role === "public" ? "Sign in" : person().name.split(" ")[0] + " ↗", "text-link")}</div></header><nav class="mobile-nav-links"><a href="/explore">Explore</a><a href="/buy">Buyer workspace</a><a href="/host">Owner workspace</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">everywhere</a><span>Advertise on everything. Start with vehicles.</span><nav><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/_screens">Prototype index</a></nav></footer>`;
+}
+function workspaceShell(body, scope) {
+  const role =
+    scope === "owner"
+      ? "owner"
+      : scope === "ops"
+        ? "ops"
+        : scope === "shared"
+          ? person().role === "owner"
+            ? "owner"
+            : person().role === "ops"
+              ? "ops"
+              : "buyer"
+          : "buyer";
+  const nav = navs[role];
+  return `${topbar()}<div class="workspace"><aside class="sidebar"><a class="brand" href="/"><span class="brand-mark">≡</span>everywhere</a><div class="workspace-switch"><a href="/buy" class="${role === "buyer" ? "active" : ""}">Buy space</a><a href="/host" class="${role === "owner" ? "active" : ""}">List space</a></div><div><div class="nav-section-label">${role === "ops" ? "PLATFORM OPERATIONS" : role === "owner" ? "OWNER WORKSPACE" : "BUYER WORKSPACE"}</div><nav>${nav.map(([url, title, i]) => `<a href="${url}" class="${active(url) ? "active" : ""}">${icon(i)}${title}</a>`).join("")}</nav></div><div><div class="nav-section-label">YOUR WORKSPACE</div><nav>${[
+    ["/inbox", "Inbox", "mail"],
+    ["/notifications", "Notifications", "bell"],
+    ["/settings/profile", "Settings", "settings"],
+  ]
+    .map(
+      ([url, t, i]) =>
+        `<a href="${url}" class="${active(url) ? "active" : ""}">${icon(i)}${t}</a>`,
+    )
+    .join(
+      "",
+    )}</nav></div><div class="sidebar-bottom"><nav><a href="/explore">${icon("arrow")}Explore marketplace</a><a href="/help">${icon("file")}Help & support</a></nav><div class="sidebar-person"><span class="avatar">${esc(
+    person()
+      .name.split(" ")
+      .map((x) => x[0])
+      .slice(0, 2)
+      .join(""),
+  )}</span><div><strong>${esc(person().name)}</strong><small>${esc(person().brand || "Sample workspace")}</small></div></div></div></aside><div class="workspace-main"><header class="workspace-topbar"><div class="workspace-breadcrumb"><a href="${role === "owner" ? "/host" : role === "ops" ? "/ops" : "/buy"}">${role === "owner" ? "Owner" : role === "ops" ? "Operations" : "Buyer"}</a><span>/</span><strong>${esc(currentRoute.title)}</strong></div><div class="actions"><a class="wallet-label" href="/settings/wallets">${icon("wallet")}${esc(short(person().wallet) || "Connect wallet")}</a>${link("/notifications", icon("bell"), "icon-button")}${link("/settings/profile", '<span class="avatar">' + esc(person().name[0]) + "</span>", "")}</div></header><nav class="mobile-workspace-nav">${[...nav, ["/buy", "Buy", "grid"], ["/host", "List", "car"], ["/_screens", "All screens", "file"]].map(([url, title]) => `<a href="${url}" class="${active(url) ? "active" : ""}">${title}</a>`).join("")}</nav><main class="workspace-content" id="main">${body}<div class="screenshot-notes"><span>${currentRoute.id} / ${esc(currentRoute.title)} · Interactive sample data</span><a href="/_screens">Browse all screens ↗</a></div></main></div></div>`;
+}
+function screenIndex() {
+  const groups = [
+    ["public", "Public marketplace"],
+    ["account", "Sign-in & onboarding"],
+    ["buyer", "Buyer workspace"],
+    ["owner", "Owner studio & operations"],
+    ["shared", "Shared settings & support"],
+    ["ops", "Platform operations"],
+    ["global", "Global states"],
+  ];
+  return `<div style="padding:40px 0 20px">${heading("THE DESIGN REVIEW INDEX", "The whole product, in one place.", "63 destinations, reusable layouts and one connected set of sample data. Choose a page to inspect it as the appropriate persona.", button("review-guide", "How to review", "", "button primary"))}</div>${banner("A working model, before the final design", "All transactions, authentication, AI generation and analytics are simulated. The demo saves changes in this browser. Use Reset to return to the starting story.")}<div class="actions" style="margin:20px 0 35px">${link("/explore", "Start as a buyer", "button primary")}${link("/host/assets/new", "Start a new listing", "button")}${button("demo-controls", "Try a full scenario", "", "button")}${button("export-feedback", "Export review notes", "", "button")}</div>${groups
+    .map(
+      ([key, title]) =>
+        `<section style="margin:32px 0"><div class="section-heading"><h2>${title}</h2>${badge(routes.filter((r) => r.scope === key).length + " screens")}</div><div class="screen-grid">${routes
+          .filter((r) => r.scope === key)
+          .map(
+            (r) =>
+              `<a class="screen-item" href="${esc(r.sample)}" data-persona="${key === "owner" ? "owner" : key === "ops" ? "operator" : ["buyer", "shared"].includes(key) ? "buyer" : key === "account" ? "visitor" : state.persona}"><span class="eyebrow">${r.id} / ${key}</span><strong>${r.title} ↗</strong><code>${r.path}</code></a>`,
+          )
+          .join("")}</div></section>`,
+    )
+    .join(
+      "",
+    )}<section class="panel"><h2>State & scenario review</h2><p class="muted">Use the top bar to inspect populated, empty, loading and error views. Demo controls advance the sample sale to bidding closed, campaign live, issue review or completed. Capture notes against the current page and export them as JSON.</p>${button("add-feedback", "Add a review note", "", "button")}</section>`;
+}
+function scaffold(r) {
+  return (
+    heading(
+      `${r.id} / ${r.scope}`,
+      r.title,
+      "This destination is part of the agreed product map.",
+    ) +
+    empty(
+      "This screen is being assembled.",
+      "Use the index to explore the completed public marketplace.",
+      link("/_screens", "View the screen index"),
+    )
+  );
+}
+function globalPage(r) {
+  if (r.id === "G01")
+    return empty(
+      "This space took a different turn.",
+      "The page may have moved. Your existing bookings stay in your workspace.",
+      link("/explore", "Explore spaces", "button primary"),
+    );
+  if (r.id === "G02")
+    return empty(
+      "This belongs to another workspace.",
+      "Switch to an authorized wallet or open your own workspace.",
+      link("/sign-in", "Choose a wallet", "button primary"),
+    );
+  return empty(
+    "Taking a short pause.",
+    "Your saved drafts and existing payment records are retained. Try again or contact support.",
+    button("retry-page", "Try again", "", "button primary") +
+      " " +
+      link("/support/new", "Contact support"),
+  );
+}
+function render() {
+  currentRoute =
+    location.pathname === "/_screens"
+      ? { id: "INDEX", title: "Screen index", scope: "public", params: {} }
+      : matchRoute(location.pathname);
+  let body;
+  if (currentRoute.id === "INDEX") body = screenIndex();
+  else if (currentRoute.scope === "global") body = globalPage(currentRoute);
+  else {
+    body = publicPage(currentRoute);
+    for (const x of extensions) {
+      if (!body) body = x.render?.(currentRoute) || "";
+    }
+    if (!body) body = scaffold(currentRoute);
+    if (state.reviewState === "empty")
+      body =
+        heading(currentRoute.id, currentRoute.title) +
+        empty(
+          "A fresh start.",
+          "This is the empty-state preview for this screen. Return to populated to inspect the sample records.",
+          button("populated-state", "Show sample data", "", "button primary"),
+        );
+    if (state.reviewState === "loading")
+      body =
+        heading(currentRoute.id, currentRoute.title, "Loading-state preview") +
+        '<div class="skeleton"></div><div class="grid two"><div class="skeleton large"></div><div class="skeleton large"></div></div>' +
+        button("populated-state", "Finish loading", "", "button");
+    if (state.reviewState === "error")
+      body =
+        heading(currentRoute.id, currentRoute.title) +
+        banner(
+          "We could not load this page.",
+          "Your saved progress is still here. Try the request again or open a support case.",
+          "orange",
+        ) +
+        button("populated-state", "Try again", "", "button primary");
+  }
+  if (!body.includes("<h1"))
+    body = body
+      .replace("<h2>", '<h1 tabindex="-1" class="empty-title">')
+      .replace("</h2>", "</h1>");
+  document.title = `${currentRoute.title} · Everywhere prototype`;
+  app.innerHTML = ["public", "account", "global"].includes(currentRoute.scope)
+    ? publicShell(body)
+    : workspaceShell(body, currentRoute.scope);
+  for (const x of extensions) x.mount?.(currentRoute);
+}
+const baseActions = {
+  "close-modal": closeModal,
+  "reset-demo": () =>
+    modal(
+      "Return to the starting story?",
+      `<p>Reset sample assets, purchases, uploads, drafts and review notes in this browser.</p><div class="actions">${button("confirm-reset", "Reset sample data", "", "button primary")}${button("close-modal", "Keep exploring", "", "button")}</div>`,
+    ),
+  "confirm-reset": () => {
+    closeModal();
+    reset();
+    navigate("/");
+    toast("Sample story reset.");
+  },
+  "retry-page": () => {
+    update((s) => (s.reviewState = "populated"));
+    navigate("/explore");
+  },
+  "populated-state": () => update((s) => (s.reviewState = "populated")),
+  "review-guide": () =>
+    modal(
+      "A quick way to review",
+      `<ol class="prose"><li>Browse the marketplace and choose a vehicle spot.</li><li>Use a sample wallet to book or take over a spot.</li><li>Switch to Mara to review artwork and upload installation proof.</li><li>Use Demo controls to advance the sample sale’s calendar.</li><li>Leave page-specific notes and export them for the team.</li></ol>${banner("All sample, all local", "No real wallet requests, payments, scans or AI calls are made.")}`,
+    ),
+  "demo-controls": () => {
+    const routeId = currentRoute.params?.id,
+      related = state.bookings.find((b) => b.id === routeId);
+    const selected =
+      related?.saleId ??
+      state.sales.find((s) => s.id === routeId)?.id ??
+      (currentRoute.id === "P03"
+        ? state.sales.find(
+            (s) => s.assetId === currentRoute.params.slug && s.phase === "open",
+          )?.id
+        : null) ??
+      "sale-alpine";
+    modal(
+      "Explore a scenario",
+      `<p>Advance a sample sale and inspect its connected booking, production and money states.</p><label class="field"><span>Sample sale to advance</span><select id="demo-sale-picker">${state.sales.map((s) => `<option value="${s.id}" ${s.id === selected ? "selected" : ""}>${esc(s.title)} · ${esc(state.assets.find((a) => a.id === s.assetId)?.title)}</option>`).join("")}</select></label><div class="stack">${[
+        ["locked", "Bidding closed", "Final holder and placement pass"],
+        ["live", "Campaign live", "Artwork locked; installation proof ready"],
+        [
+          "review",
+          "Issue-review window",
+          "Campaign ended; earnings remain held",
+        ],
+        [
+          "completed",
+          "Campaign & review completed",
+          "Eligible owner earnings become available",
+        ],
+      ]
+        .map(([id, t, d]) =>
+          button(
+            "advance-scenario",
+            `<span><strong>${t}</strong><small style="display:block;font-weight:400">${d}</small></span>${icon("arrow")}`,
+            `data-id="${id}"`,
+            "wallet-option",
+          ),
+        )
+        .join(
+          "",
+        )}</div><hr class="divider"/><h3>Page state</h3><div class="actions">${["populated", "empty", "loading", "error"].map((value) => button("set-page-state", value, `data-id="${value}"`, "button small")).join("")}</div><div style="margin-top:18px">${button("add-feedback", "Leave a note on this screen", "", "button")}</div><p class="tiny muted" style="margin-top:18px">Sample review dates are illustrative, not an agreed platform policy.</p>`,
+    );
+  },
+  "set-page-state": (el) => {
+    update((s) => (s.reviewState = el.dataset.id));
+    closeModal();
+  },
+  "advance-scenario": (el) => {
+    const selected =
+      document.querySelector("#demo-sale-picker")?.value ?? "sale-alpine";
+    update((s) => {
+      const sale = s.sales.find((x) => x.id === selected);
+      sale.phase = el.dataset.id;
+      for (const b of s.bookings.filter(
+        (b) =>
+          b.saleId === sale.id &&
+          !["displaced", "cancelled"].includes(b.status),
+      )) {
+        b.status =
+          el.dataset.id === "completed"
+            ? "completed"
+            : el.dataset.id === "live"
+              ? "live"
+              : "final";
+        b.pass = "issued";
+        if (["live", "review", "completed"].includes(el.dataset.id)) {
+          b.artwork = "locked";
+          if (b.proof === "missing") b.proof = "submitted";
+          if (el.dataset.id === "completed") b.proof = "accepted";
+        }
+      }
+      const plusDay = (value) => {
+        const d = new Date(value + "T12:00:00Z");
+        d.setUTCDate(d.getUTCDate() + 1);
+        return d.toISOString().slice(0, 10);
+      };
+      s.clock =
+        el.dataset.id === "locked"
+          ? plusDay(sale.close)
+          : el.dataset.id === "live"
+            ? sale.start
+            : el.dataset.id === "review"
+              ? plusDay(sale.end)
+              : plusDay(sale.reviewEnd);
+    });
+    closeModal();
+    toast("Sample calendar advanced. Related pages now show the new stage.");
+  },
+  "add-feedback": () =>
+    modal(
+      "Leave a note for this page",
+      `<form data-form="feedback"><p class="tiny muted">${esc(currentRoute.id)} · ${esc(location.pathname)}</p><label class="field"><span>What should change?</span><textarea name="note" required rows="5" placeholder="Describe the flow, content or layout you would change…"></textarea></label><button class="button primary" type="submit">Save review note</button></form>`,
+    ),
+  "export-feedback": () => {
+    download(
+      "everywhere-review-notes.json",
+      JSON.stringify(state.feedback, null, 2),
+      "application/json",
+    );
+    toast("Review notes exported.");
+  },
+};
+document.addEventListener("click", async (event) => {
+  const target = event.target.closest("[data-action]");
+  if (target) {
+    event.preventDefault();
+    try {
+      const handler =
+        baseActions[target.dataset.action] ??
+        publicActions[target.dataset.action] ??
+        extensions.map((x) => x.actions?.[target.dataset.action]).find(Boolean);
+      if (!handler) throw new Error("This interaction is not connected yet.");
+      await handler(target, event);
+    } catch (error) {
+      toast(error.message);
+    }
+    return;
+  }
+  const a = event.target.closest("a[href]");
+  if (
+    !a ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    a.download ||
+    a.target === "_blank"
+  )
+    return;
+  const url = new URL(a.href, location.href);
+  if (
+    url.origin !== location.origin ||
+    (url.hash && url.pathname === location.pathname)
+  )
+    return;
+  event.preventDefault();
+  if (a.dataset.persona)
+    update(
+      (s) => {
+        s.persona = a.dataset.persona;
+        s.reviewState = "populated";
+      },
+      { render: false },
+    );
+  navigate(url.pathname + url.search + url.hash);
 });
-document.addEventListener('submit',async event=>{const form=event.target;if(!form.dataset.form)return;event.preventDefault();try{if(form.dataset.form==='feedback'){update(s=>s.feedback.push({id:crypto.randomUUID(),page:currentRoute.id,path:location.pathname,note:new FormData(form).get('note'),at:new Date().toISOString()}));closeModal();toast('Review note saved. Export it from the screen index.');return;}const handler=publicForms[form.dataset.form]??extensions.map(x=>x.forms?.[form.dataset.form]).find(Boolean);if(!handler)throw new Error('This form is not connected yet.');await handler(new FormData(form),form);}catch(error){toast(error.message);}});
-document.addEventListener('change',event=>{const el=event.target;if(el.dataset.control==='persona'){update(s=>s.persona=el.value);toast('Reviewing as '+person().name);}if(el.dataset.control==='review-state')update(s=>s.reviewState=el.value);if(el.dataset.salePicker)navigate(`/spaces/${el.dataset.salePicker}?sale=${el.value}`);});
-document.addEventListener('keydown',event=>{if(event.key==='Enter'&&event.target.matches('.spot-shape'))event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));});
-window.addEventListener('popstate',()=>{render();document.querySelector('h1')?.focus({preventScroll:true});});
-window.addEventListener('app:changed',render);window.addEventListener('app:navigate',()=>{closeModal();render();window.scrollTo(0,0);document.querySelector('h1')?.focus({preventScroll:true});});window.addEventListener('app:toast',event=>{const t=document.querySelector('#toast');t.textContent=event.detail;t.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('visible'),5000);});
+document.addEventListener("submit", async (event) => {
+  const form = event.target;
+  if (!form.dataset.form) return;
+  event.preventDefault();
+  try {
+    if (form.dataset.form === "feedback") {
+      update((s) =>
+        s.feedback.push({
+          id: crypto.randomUUID(),
+          page: currentRoute.id,
+          path: location.pathname,
+          note: new FormData(form).get("note"),
+          at: new Date().toISOString(),
+        }),
+      );
+      closeModal();
+      toast("Review note saved. Export it from the screen index.");
+      return;
+    }
+    const handler =
+      publicForms[form.dataset.form] ??
+      extensions.map((x) => x.forms?.[form.dataset.form]).find(Boolean);
+    if (!handler) throw new Error("This form is not connected yet.");
+    await handler(new FormData(form), form);
+  } catch (error) {
+    toast(error.message);
+  }
+});
+document.addEventListener("input", (event) => {
+  const el = event.target,
+    form = el.closest("form");
+  if (!el.name || !form || el.type === "file") return;
+  if (form.dataset.form === "generate-asset") {
+    state.draftAsset[el.name] = el.value;
+    persist();
+  }
+  if (
+    form.dataset.form === "sale-wizard" &&
+    [
+      "title",
+      "start",
+      "end",
+      "close",
+      "artworkDue",
+      "install",
+      "reviewEnd",
+      "description",
+      "content",
+    ].includes(el.name)
+  ) {
+    state.draftSale[el.name] = el.value;
+    persist();
+  }
+});
+document.addEventListener("change", (event) => {
+  const el = event.target;
+  if (el.dataset.control === "persona") {
+    update((s) => (s.persona = el.value));
+    toast("Reviewing as " + person().name);
+  }
+  if (el.dataset.control === "review-state")
+    update((s) => (s.reviewState = el.value));
+  if (el.dataset.salePicker)
+    navigate(`/spaces/${el.dataset.salePicker}?sale=${el.value}`);
+});
+document.addEventListener("change", (event) => {
+  const form = event.target.closest("form");
+  if (!form || !["sale-wizard", "edit-sale"].includes(form.dataset.form))
+    return;
+  for (const row of form.querySelectorAll("[data-rule-row]")) {
+    const value = row.querySelector("select")?.value,
+      on =
+        row.dataset.locked === "true"
+          ? row.dataset.effective === "true"
+          : value === "on" ||
+            (value === "inherit" &&
+              Boolean(form.querySelector("[name=takeovers]")?.checked));
+    row.querySelector("[data-rule-preview]").textContent = on
+      ? "Takeovers enabled"
+      : "Fixed booking";
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && event.target.matches(".spot-shape"))
+    event.target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+});
+window.addEventListener("popstate", () => {
+  render();
+  document.querySelector("h1")?.focus({ preventScroll: true });
+});
+window.addEventListener("app:changed", render);
+window.addEventListener("app:navigate", () => {
+  closeModal();
+  render();
+  window.scrollTo(0, 0);
+  document.querySelector("h1")?.focus({ preventScroll: true });
+});
+window.addEventListener("app:toast", (event) => {
+  const t = document.querySelector("#toast");
+  t.textContent = event.detail;
+  t.classList.add("visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("visible"), 5000);
+});
 render();

@@ -1,64 +1,873 @@
-import {state,person,asset,sale,booking,myBookings,myCampaigns,currentBooking,effectiveTakeover,priceFor,update,navigate,toast,requireSignIn,uid,log,notice,simulateBooking} from './store.mjs';
-import {PERSONAS} from './seed.mjs';
-import {authRequired} from './account.mjs';
-import {esc,money,date,short,label,icon,link,button,badge,heading,card,field,textarea,select,empty,banner,stats,table,bookingRows,tabs,timeline,vehicle,assetCard,bars,checkList,modal,closeModal,readImage,download} from './ui.mjs';
-const sum=items=>items.reduce((n,x)=>n+x.amount,0);
-export function creditAmounts(c){const s=sale(booking(c.bookingId)?.saleId),vested=s?.phase==='completed',cancelled=s?.phase==='cancelled';return{available:(c.claimed?0:c.principal)+(vested&&!c.bonusClaimed?c.conditional:0),conditional:!vested&&!cancelled?c.conditional:0};}
-const credits=()=>state.credits.filter(x=>x.buyerId===person().id);
-export function buyerPage(r){
- if(r.scope!=='buyer')return'';if(person().id==='visitor')return authRequired();
- const q=new URLSearchParams(location.search),mine=myBookings();
- if(r.id==='B01')return overview(mine);
- if(r.id==='B02')return heading('YOUR CAMPAIGNS','Ideas, out in the world.','One campaign can bring together spaces from different owners.',link('/buy/campaigns/new',`${icon('plus')} New campaign`,'button primary'))+campaignCards();
- if(r.id==='B03')return heading('CAMPAIGNS / NEW','What are we putting out there?','Give your campaign a home. You can add placements from several owners.')+`<form class="panel wizard" data-form="create-campaign"><input type="hidden" name="next" value="${esc(q.get('next')??'')}"/><div class="grid two">${field('name','Campaign name','','text','required placeholder="A new coffee around the corner"')}${field('brand','Brand name',person().brand,'text','required')}</div>${textarea('goal','What do you want to achieve?','','placeholder="Introduce the new café to people in our neighbourhood…"')}<div class="grid two">${field('area','Target area','Bucharest')}${field('budget','Planning budget (USDC)','800','number','min="1" required')}</div><div class="actions"><button class="button primary" type="submit">Create campaign ${icon('arrow')}</button>${link('/buy/campaigns','Cancel','button')}</div></form>`;
- if(r.id==='B04')return campaign(r.params.id,q);
- if(r.id==='B05')return heading('YOUR SHORTLIST','Good spaces, saved.','Keep possibilities in one place, then add them to your campaign.',link('/explore','Find more spaces','button'))+(state.saved.length?`<div class="asset-grid">${state.assets.filter(a=>state.saved.includes(a.id)).map(a=>assetCard(a)).join('')}</div>`:empty('Start a shortlist.','Save a vehicle from the marketplace to find it here.',link('/explore','Explore spaces','button primary')));
- if(r.id==='B06')return checkout(r.params.intentId,q);
- if(r.id==='B07')return payment(r.params.id);
- if(r.id==='B08')return placement(r.params.id,q);
- if(r.id==='B09')return artworkEditor(r.params.id);
- if(r.id==='B10')return campaignReport(r.params.id);
- if(r.id==='B11')return moneyPage();
- if(r.id==='B12')return withdrawal(r.params.id);
- if(r.id==='B13')return receipt(r.params.id);
- return'';
+import {
+  state,
+  person,
+  asset,
+  sale,
+  booking,
+  myBookings,
+  myCampaigns,
+  currentBooking,
+  effectiveTakeover,
+  priceFor,
+  update,
+  navigate,
+  toast,
+  requireSignIn,
+  uid,
+  log,
+  notice,
+  simulateBooking,
+} from "./store.mjs";
+import { PERSONAS } from "./seed.mjs";
+import { authRequired } from "./account.mjs";
+import {
+  esc,
+  money,
+  date,
+  short,
+  label,
+  icon,
+  link,
+  button,
+  badge,
+  heading,
+  card,
+  field,
+  textarea,
+  select,
+  empty,
+  banner,
+  stats,
+  table,
+  bookingRows,
+  tabs,
+  timeline,
+  vehicle,
+  assetCard,
+  bars,
+  checkList,
+  modal,
+  closeModal,
+  readImage,
+  download,
+} from "./ui.mjs";
+const sum = (items) => items.reduce((n, x) => n + x.amount, 0);
+export function creditAmounts(c) {
+  const s = sale(booking(c.bookingId)?.saleId),
+    vested = s?.phase === "completed" && state.clock > s.reviewEnd,
+    cancelled = s?.phase === "cancelled";
+  return {
+    available:
+      (c.claimed ? 0 : c.principal) +
+      (vested && !c.bonusClaimed ? c.conditional : 0),
+    conditional: !vested && !cancelled ? c.conditional : 0,
+  };
 }
-function overview(mine){const current=mine.filter(b=>!['displaced','cancelled','completed'].includes(b.status));const amount=credits().reduce((n,c)=>n+creditAmounts(c).available,0);return heading('YOUR BUYER WORKSPACE',`Good morning, ${person().name.split(' ')[0]}.`,'A clear view of your campaigns, next steps and real-world placements.',link('/explore',`Find a space ${icon('arrow')}`,'button primary'))+stats([['Active & upcoming',current.length,'Across '+new Set(current.map(b=>asset(sale(b.saleId).assetId).ownerId)).size+' owners'],['Campaign spend',money(sum(mine)),'Accepted sample purchases'],['Needs your attention',mine.filter(b=>['missing','draft','changes-requested'].includes(b.artwork)).length,'Artwork and delivery tasks'],['Available credits',money(amount),'Original-wallet claims']])+`<div class="grid two">${card('Your next steps',`<div class="task-list">${mine.filter(b=>b.status!=='displaced').slice(0,3).map(b=>`<div class="task"><span class="task-icon">${icon(b.artwork==='draft'?'upload':'file')}</span><div><strong>${b.artwork==='draft'?'Finish your artwork':b.proof==='submitted'?'Review installation proof':'Open your placement'}</strong><p>${esc(asset(sale(b.saleId).assetId).title)} · ${esc(b.brand)}</p></div>${link('/buy/placements/'+b.id,icon('arrow'),'icon-button')}</div>`).join('')||'<p class="muted">You are all caught up. Find a space for your next campaign.</p>'}</div>`)}${card('Your campaign at a glance',`<div class="row"><p class="tiny muted">Sample activity · not measured impressions</p>${badge('November')}</div>${bars()}<div class="row" style="margin-top:20px"><span class="tiny muted">Campaign details stay with every placement.</span>${link('/buy/campaigns','View campaigns ↗','text-link')}</div>`)}</div><div style="margin-top:25px">${card('Your placements',table(['Placement','Brand','Booking','Artwork','Paid',''],bookingRows(mine)))}</div><div class="section-top"><div><div class="eyebrow">SOMETHING FOR YOUR NEXT IDEA</div><h2>A few spaces you might like.</h2></div>${link('/explore','Explore all ↗','text-link')}</div><div class="asset-grid">${state.assets.slice(2,5).map(a=>assetCard(a)).join('')}</div>`;}
-function campaignCards(){const list=myCampaigns();return list.length?`<div class="grid two">${list.map(c=>{const bs=myBookings().filter(b=>b.campaignId===c.id);return card('',`<div class="row"><span class="eyebrow">${esc(c.brand)}</span>${badge(bs.every(b=>b.status==='completed')&&bs.length?'completed':'planning')}</div><h2>${esc(c.name)}</h2><p class="muted">${esc(c.goal)}</p><div class="stats" style="grid-template-columns:repeat(3,1fr)">${[['Placements',bs.length],['Spent',money(sum(bs))],['Budget',money(c.budget)]].map(([t,v])=>`<div><p class="tiny muted">${t}</p><strong>${v}</strong></div>`).join('')}</div>${link('/buy/campaigns/'+c.id,'Open campaign '+icon('arrow'),'button')}`);}).join('')}</div>`:empty('Your next campaign starts here.','Create a campaign and bring together spots from multiple owners.',link('/buy/campaigns/new','Create campaign','button primary'));}
-function campaign(id,q){const c=state.campaigns.find(c=>c.id===id&&c.buyerId===person().id);if(!c)return empty('This campaign belongs to another wallet.','Switch to Lena to review the seeded campaign, or create your own.',link('/buy/campaigns/new','Create campaign','button primary'));const bs=myBookings().filter(b=>b.campaignId===c.id),tab=q.get('tab')??'placements';return heading('CAMPAIGN WORKSPACE',c.name,esc(c.brand)+' · '+esc(c.area),link('/explore?campaign='+c.id,`${icon('plus')} Add a space`,'button primary'))+stats([['Placements',bs.length,'Independent delivery states'],['Spent',money(sum(bs)),'Across all campaign owners'],['Budget remaining',money(Math.max(0,c.budget-sum(bs))),'Planning value'],['Owners',new Set(bs.map(b=>asset(sale(b.saleId).assetId).ownerId)).size,'One campaign, several spaces']])+tabs([['Placements',`/buy/campaigns/${id}?tab=placements`,'placements'],['Creatives',`/buy/campaigns/${id}?tab=creatives`,'creatives'],['Activity',`/buy/campaigns/${id}?tab=activity`,'activity'],['Results',`/buy/campaigns/${id}/report`,'results']],tab)+(tab==='creatives'?`<div class="grid two">${bs.map(b=>card(esc(asset(sale(b.saleId).assetId).title),creativePreview(b)+badge(b.artwork)+`<div style="margin-top:15px">${link('/buy/placements/'+b.id+'/artwork','Edit placement artwork','button')}</div>`)).join('')}</div>`:tab==='activity'?card('Campaign activity',`<ul class="activity-list">${state.activity.map(x=>`<li><div>${esc(x.text)}<small>${esc(x.time)}</small></div></li>`).join('')}</ul>`):card('All placements',table(['Placement','Brand','Booking','Artwork','Paid',''],bookingRows(bs))))+`<div class="review-note">A takeover or issue on one placement does not reset the other bookings in this campaign.</div>`;}
-function checkout(id,q){const s=sale(id),p=s?.layout.find(p=>p.id===q.get('spot'))??s?.layout[0];if(!s||!p)return empty('This spot is unavailable.','Choose another placement.',link('/explore','Explore spaces'));const a=asset(s.assetId),held=currentBooking(s,p);if(held?.buyerId===person().id)return empty('This placement is already yours.','Find your saved booking and its next step.',link('/buy/placements/'+held.id,'Open placement','button primary'));if(s.phase!=='open'||held&&!effectiveTakeover(s,p))return empty('This spot is no longer available.','Your campaign is saved. Choose another space.',link('/explore','Find another space'));const amount=priceFor(s,p),campaignId=q.get('campaign')??myCampaigns()[0]?.id;return heading('CHECKOUT / '+(held?'TAKEOVER':'NEW BOOKING'),held?'Make this space yours.':'A small spot. A big possibility.','Instant booking under the published rules. Artwork is reviewed afterward.')+`<div class="split"><form class="panel" data-form="checkout"><input type="hidden" name="saleId" value="${s.id}"/><input type="hidden" name="spotId" value="${p.id}"/><h2>Your campaign</h2>${myCampaigns().length?select('campaignId','Add this placement to',myCampaigns().map(c=>[c.id,c.name]),campaignId,'required'):banner('Create a campaign first','A campaign groups placements across different owners.')}<p>${link('/buy/campaigns/new?next='+encodeURIComponent(location.pathname+location.search),'Create a new campaign','text-link')}</p>${field('brand','Public brand name',person().brand,'text','required')}<hr class="divider"/><h2>Pay from your wallet</h2><div class="owner-inline"><span class="avatar">${icon('wallet')}</span><div><strong>${esc(person().name)}</strong><small>${esc(short(person().wallet))} · Sample authenticated wallet</small></div>${link('/sign-in?next='+encodeURIComponent(location.pathname+location.search),'Switch','text-link')}</div><div style="margin-top:20px">${select('network','Payment asset / network',[['base','USDC · Base'],['near','USDC · NEAR']], 'base')}</div>${held?banner('You are taking over a provisional placement',`Current holder: ${esc(held.brand)}. Takeovers close ${date(s.close)}. Your booking is provisional until that close.`,'orange'):banner('Printing & installation included','The owner arranges production and submits proof. There is no extra mandatory production invoice.')}<label class="checkbox"><input name="terms" type="checkbox" required/><span>I have reviewed the service dates, ${effectiveTakeover(s,p)?'takeover rules, ':''}content requirements and ${link('/policies/refunds','refund terms','text-link')}.</span></label><button class="button primary" type="submit" ${myCampaigns().length?'':'disabled'}>Pay ${money(amount)} & ${held?'take over':'book'} ${icon('arrow')}</button><p class="tiny muted" style="margin-top:14px">Simulated payment. No real wallet is opened and no money moves.</p></form><aside class="panel">${vehicle(a,{large:true,selected:p.id,spots:true,saleId:s.id})}<div style="margin-top:20px"><div class="eyebrow">YOUR SELECTED SPACE</div><h2>${esc(p.name)}</h2><p class="muted">${esc(a.title)} · ${esc(a.area)}</p>${badge(effectiveTakeover(s,p)?'Takeovers enabled':'Fixed booking')}</div><dl class="data-list"><div><dt>Service period</dt><dd>${date(s.start)}<br/>— ${date(s.end)}</dd></div><div><dt>Placement + print + install</dt><dd>${money(amount)}</dd></div><div><dt>Sample payment cost</dt><dd>0.00 USDC</dd></div><div class="total"><dt>Total</dt><dd>${money(amount)}</dd></div></dl><p class="tiny muted">Real network/conversion costs would be shown before approval. Values here are mock values.</p></aside></div>`;}
-function getPayment(id){return state.payments.find(x=>x.id===id)??{id,saleId:'sale-alpine',spotId:'rear',buyerId:person().id,amount:85,stage:'approval',sample:true,campaignId:myCampaigns()[0]?.id,brand:person().brand};}
-function payment(id){const pay=getPayment(id);if(pay.buyerId!==person().id)return empty('Use the wallet that made this payment.','Switch accounts to see the payment record.',link('/sign-in','Switch wallet'));const s=sale(pay.saleId),a=asset(s.assetId),steps=['approval','funding','authorization','accepted'],index=Math.max(0,steps.indexOf(pay.stage));return heading('PAYMENT PROGRESS',pay.stage==='accepted'?'Your placement is confirmed.':'Let’s get your brand out there.','This saved flow can be resumed without starting another source transfer.')+`<div class="split">${card('Your payment journey',timeline([['Approve source payment',`Sample wallet · ${money(pay.amount)}`],['USDC arrives for the purchase','Funding and routing are separate from a booked spot.'],['Authorize the placement','Confirm the exact purchase or takeover for this spot.'],['Placement accepted','Your artwork and delivery workspace is ready.']],index)+`<div style="margin-top:22px">${pay.stage==='accepted'?link('/buy/placements/'+pay.bookingId,'Open your placement '+icon('arrow'),'button primary'):pay.stage==='funding'?button('settle-payment','Continue after sample funding',`data-id="${id}"`,'button primary'):pay.stage==='authorization'?button('authorize-purchase','Approve purchase signature',`data-id="${id}"`,'button primary'):button('approve-source','Approve sample USDC transfer',`data-id="${id}"`,'button primary')}</div><p class="tiny muted" style="margin-top:15px">Everything on this screen is simulated. Each payment record accepts one booking only.</p>`)}${card('Payment details',`<dl class="data-list"><div><dt>Asset</dt><dd>${esc(a.title)}</dd></div><div><dt>Amount</dt><dd>${money(pay.amount)}</dd></div><div><dt>Payer</dt><dd>${esc(short(PERSONAS[pay.buyerId]?.wallet??person().wallet))}</dd></div><div><dt>Status</dt><dd>${badge(pay.stage)}</dd></div><div><dt>Source reference</dt><dd>${pay.sourceHash?esc(pay.sourceHash):'Not sent'}</dd></div></dl>${link('/support/new?payment='+id,'Need help with this payment?','text-link')}`)}</div>`;}
-function authorizedBooking(id){const b=booking(id);return b&&b.buyerId===person().id?b:null;}
-function placement(id,q){const b=authorizedBooking(id);if(!b)return empty('This booking belongs to another wallet.','Use the review persona selector to inspect its original payer.',link('/buy','My workspace'));const s=sale(b.saleId),a=asset(s.assetId),p=s.layout.find(p=>p.id===b.spotId),tab=q.get('tab')??'overview',base='/buy/placements/'+id;let content;
-if(tab==='artwork')content=card('Artwork & revisions',creativePreview(b)+`<div class="row">${badge(b.artwork)}<span class="tiny muted">${esc(b.creativeName||'No file submitted')}</span></div>${b.artworkFeedback?banner('Requested changes',esc(b.artworkFeedback),'orange'):''}<div style="margin-top:20px">${link(base+'/artwork','Open artwork editor','button primary')}</div>`);
-else if(tab==='delivery')content=card('Production & installation',timeline([['Artwork approved',b.artwork==='locked'?'Approved revision locked for printing.':'Owner review and final revision.'],['Owner prints & installs',`Installation target ${date(s.install)}`],['Installation proof',b.proof==='missing'?'No proof submitted yet.':label(b.proof)],['Service period',`${date(s.start)} — ${date(s.end)}`],['Issue-review window',`Sample end: ${date(s.reviewEnd)} · duration illustrative`]],b.proof==='accepted'?3:b.proof==='submitted'?2:b.artwork==='locked'?1:0)+(b.proofImage?`<img class="proof-image" src="${esc(b.proofImage)}" alt="Sample installation proof"/>`:'')+(b.proof==='submitted'?`<div class="actions">${button('accept-proof','Accept installation proof',`data-id="${id}"`,'button primary')}${link('/support/new?booking='+id,'Report an issue','button')}</div>`:link('/support/new?booking='+id,'Ask about delivery','button')));
-else if(tab==='pass')content=`<div class="grid two"><div class="pass-card"><div class="eyebrow">FINAL PLACEMENT RIGHT</div><h2>${esc(p.name)}.<br/>Out in the world.</h2><small>${esc(a.title)} · ${date(s.start)} — ${date(s.end)}</small><div style="margin-top:20px">${badge(b.pass==='not-due'?'Available after bidding closes':b.pass,'dark')}</div></div>${card('Your placement pass',`<p class="muted">The final holder receives the campaign-specific placement right after bidding closes. It controls permitted artwork actions; prior money claims remain with the original payers.</p>${s.phase==='open'?banner('Bidding is still open',`Final holder determined after ${date(s.close)}.`):b.pass==='issued'?checkList(['Pass issued in this sample scenario.','Artwork changes stop after production lock.','NFT ownership does not prove installation.']):button('claim-pass','Choose delivery wallet & claim',`data-id="${id}"`,'button primary')}`)}</div>`;
-else if(tab==='activity')content=card('Activity & records',`<ul class="activity-list">${state.activity.map(x=>`<li><div>${esc(x.text)}<small>${esc(x.time)}</small></div></li>`).join('')}</ul><div class="actions">${link('/receipts/'+id,'Payment receipt','button')}${link('/inbox/thread-1','Conversation','button')}</div>`);
-else content=`<div class="grid two">${card('Your next step',b.status==='displaced'?banner('Another buyer took over this spot','Your original wallet retains its principal credit. Any reward remains conditional until eligible settlement.','orange')+link('/buy/money','View your credits','button primary'):['missing','draft','changes-requested'].includes(b.artwork)?`${creativePreview(b)}<h3>${b.artwork==='changes-requested'?'A small revision is needed.':'Make this space your own.'}</h3><p class="muted">Prepare your artwork for the owner’s review.</p>${link(base+'/artwork','Prepare artwork '+icon('arrow'),'button primary')}`:b.proof==='submitted'?banner('Your installation proof is ready','Review the owner’s evidence and keep the campaign moving.')+link(base+'?tab=delivery','Review proof','button primary'):banner(b.artwork==='locked'?'Production is underway':'Artwork submitted','Follow the next milestone in your delivery timeline.')+link(base+'?tab=delivery','View delivery timeline','button'))}${card('Booking details',`<dl class="data-list"><div><dt>Brand</dt><dd>${esc(b.brand)}</dd></div><div><dt>Period</dt><dd>${date(s.start)} — ${date(s.end)}</dd></div><div><dt>Price, print & install included</dt><dd>${money(b.amount)}</dd></div><div><dt>Original payer</dt><dd>${esc(short(person().wallet))}</dd></div><div><dt>Artwork</dt><dd>${badge(b.artwork)}</dd></div><div><dt>Delivery proof</dt><dd>${badge(b.proof)}</dd></div></dl>${link('/spaces/'+a.id+'?sale='+s.id+'&spot='+p.id,'View public space ↗','text-link')}`)}</div>`;
-return heading('YOUR PLACEMENT',p.name+' · '+a.title,esc(b.brand)+' · '+date(s.start)+' — '+date(s.end),badge(b.status))+tabs([['Overview',base,'overview'],['Artwork',base+'?tab=artwork','artwork'],['Delivery',base+'?tab=delivery','delivery'],['Activity & receipts',base+'?tab=activity','activity'],['Placement pass',base+'?tab=pass','pass']],tab)+content;
+const credits = () => state.credits.filter((x) => x.buyerId === person().id);
+export function buyerPage(r) {
+  if (r.scope !== "buyer") return "";
+  if (person().id === "visitor") return authRequired();
+  const q = new URLSearchParams(location.search),
+    mine = myBookings();
+  if (r.id === "B01") return overview(mine);
+  if (r.id === "B02")
+    return (
+      heading(
+        "YOUR CAMPAIGNS",
+        "Ideas, out in the world.",
+        "One campaign can bring together spaces from different owners.",
+        link(
+          "/buy/campaigns/new",
+          `${icon("plus")} New campaign`,
+          "button primary",
+        ),
+      ) + campaignCards()
+    );
+  if (r.id === "B03")
+    return (
+      heading(
+        "CAMPAIGNS / NEW",
+        "What are we putting out there?",
+        "Give your campaign a home. You can add placements from several owners.",
+      ) +
+      `<form class="panel wizard" data-form="create-campaign"><input type="hidden" name="next" value="${esc(q.get("next") ?? "")}"/><div class="grid two">${field("name", "Campaign name", "", "text", 'required placeholder="A new coffee around the corner"')}${field("brand", "Brand name", person().brand, "text", "required")}</div>${textarea("goal", "What do you want to achieve?", "", 'placeholder="Introduce the new café to people in our neighbourhood…"')}<div class="grid two">${field("area", "Target area", "Bucharest")}${field("budget", "Planning budget (USDC)", "800", "number", 'min="1" required')}</div><div class="actions"><button class="button primary" type="submit">Create campaign ${icon("arrow")}</button>${link("/buy/campaigns", "Cancel", "button")}</div></form>`
+    );
+  if (r.id === "B04") return campaign(r.params.id, q);
+  if (r.id === "B05")
+    return (
+      heading(
+        "YOUR SHORTLIST",
+        "Good spaces, saved.",
+        "Keep possibilities in one place, then add them to your campaign.",
+        link("/explore", "Find more spaces", "button"),
+      ) +
+      (state.saved.length
+        ? `<div class="asset-grid">${state.assets
+            .filter((a) => state.saved.includes(a.id))
+            .map((a) => assetCard(a))
+            .join("")}</div>`
+        : empty(
+            "Start a shortlist.",
+            "Save a vehicle from the marketplace to find it here.",
+            link("/explore", "Explore spaces", "button primary"),
+          ))
+    );
+  if (r.id === "B06") return checkout(r.params.intentId, q);
+  if (r.id === "B07") return payment(r.params.id);
+  if (r.id === "B08") return placement(r.params.id, q);
+  if (r.id === "B09") return artworkEditor(r.params.id);
+  if (r.id === "B10") return campaignReport(r.params.id);
+  if (r.id === "B11") return moneyPage();
+  if (r.id === "B12") return withdrawal(r.params.id);
+  if (r.id === "B13") return receipt(r.params.id);
+  return "";
 }
-export function creativePreview(b){return`<div class="creative-preview">${b.creativeImage?`<img src="${esc(b.creativeImage)}" alt="${esc(b.creativeName||'Brand creative')}"/>`:`<div class="creative-wordmark">${esc(b.brand??person().brand)}<small>BRAND ARTWORK PLACEHOLDER</small></div>`}</div>`;}
-function artworkEditor(id){const b=authorizedBooking(id);if(!b)return empty('Choose your own placement.','Use the original buyer wallet.',link('/buy','My workspace'));const s=sale(b.saleId),a=asset(s.assetId),locked=b.artwork==='locked'||b.status==='displaced';return heading('PLACEMENT / ARTWORK','A little space for your brand.','Place your creative, share notes and submit a revision for review.',link('/buy/placements/'+id,'Back to placement','button'))+`<div class="split"><div>${vehicle(a,{large:true,selected:b.spotId,saleId:s.id})}<div class="review-note">Illustrative placement preview · final production needs verified dimensions and an approved revision.</div>${b.artworkFeedback?banner('Changes requested',esc(b.artworkFeedback),'orange'):''}</div><form class="panel" data-form="submit-artwork"><input type="hidden" name="id" value="${id}"/><h2>Your artwork</h2>${creativePreview(b)}${field('creativeName','Revision name',b.creativeName||'Brand wordmark · revision 1','text','required')}${field('file','PNG, JPEG or WebP · up to 1.5 MB','','file',`accept="image/png,image/jpeg,image/webp" ${locked?'disabled':''}`)}<div class="grid two">${select('fit','Placement fit',['Contain','Crop to fill'],b.fit??'Contain')}${select('alignment','Alignment',['Center','Left','Right'],b.alignment??'Center')}</div>${textarea('notes','Notes for the owner',b.artworkNotes??'')}${locked?banner('This revision is no longer editable','Production lock or a change of holder prevents further edits.','orange'):`<div class="actions"><button type="submit" class="button primary" name="mode" value="submit">Submit for review</button><button type="submit" class="button" name="mode" value="draft">Save draft</button></div>`}</form></div>`;}
-function campaignReport(id){const c=state.campaigns.find(x=>x.id===id&&x.buyerId===person().id);if(!c)return empty('Campaign not found','Choose a campaign in your wallet workspace.',link('/buy/campaigns','My campaigns'));const bs=myBookings().filter(b=>b.campaignId===id);return heading('CAMPAIGN / RESULTS',c.name,'Sample operational reporting. No real ad impressions or attribution are measured.',button('export-report',icon('download')+' Export sample report',`data-id="${id}"`,'button'))+stats([['Booked placements',bs.length,'Actual sample bookings'],['Spend',money(sum(bs)),'Accepted purchase records'],['Installation proof',bs.filter(b=>b.proof==='accepted').length,'Accepted sample evidence'],['QR visits', '—','Not measured in this prototype']])+`<div class="grid two">${card('Illustrative campaign activity',bars()+`<p class="tiny muted" style="margin-top:15px">Example chart values for layout review. Not real impressions.</p>`)}${card('Coverage',`<div class="sample-map"><div class="map-pin">${esc(c.area)} · approximate sample area</div></div>`)}</div><div style="margin-top:25px">${card('Placement-level results',table(['Placement','Brand','Booking','Artwork','Paid',''],bookingRows(bs)))}</div>`;}
-function moneyPage(){const cs=credits(),amounts=cs.map(creditAmounts);return heading('MONEY & CREDITS','Your money, clearly accounted for.','Financial claims stay with the original payer wallet.')+stats([['Available principal & rewards',money(amounts.reduce((n,c)=>n+c.available,0)),'Eligible original-wallet claims'],['Conditional rewards',money(amounts.reduce((n,c)=>n+c.conditional,0)),'Not yet available'],['Withdrawals',state.withdrawals.filter(w=>w.buyerId===person().id).length,'Sample transaction records'],['Current wallet',short(person().wallet),'Separate from other sample wallets']])+card('Credits after a takeover',cs.length?table(['Original placement','Available','Conditional','Action'],cs.map(c=>{const amounts=creditAmounts(c);return[link('/buy/placements/'+c.bookingId,esc(booking(c.bookingId)?.brand??'Placement'),'text-link'),money(amounts.available),money(amounts.conditional),amounts.available?button('claim-credit','Claim available amount',`data-id="${c.id}"`,'button small'):badge(c.claimed?'Principal claimed':'Conditional')];})):empty('No credits owed to this wallet.','After a takeover, original principal and any conditional reward appear separately here.',link('/explore','Explore spaces','button')))+`<div style="margin-top:25px">${card('Withdrawal history',table(['Reference','Amount','Status','Details'],state.withdrawals.filter(w=>w.buyerId===person().id).map(w=>[esc(w.id),money(w.amount),badge(w.status),link('/buy/withdrawals/'+w.id,'View ↗','text-link')])))}</div>`;}
-function withdrawal(id){const w=state.withdrawals.find(w=>w.id===id)??{id,amount:100,buyerId:person().id,status:'processing',sample:true};if(w.buyerId!==person().id)return authRequired();return heading('MONEY / WITHDRAWAL',w.status==='paid'?'Credit delivered.':'Your credit, on its way.','Track the existing request instead of starting another transfer.')+`<div class="split">${card('Withdrawal progress',timeline([['Original claim verified','Amount remains attributed to its original payer.'],['Wallet authorization','Exact destination and amount reviewed.'],['Transfer processing','Sample balance movement.'],['Delivered','Confirmation saved in withdrawal history.']],w.status==='paid'?3:2)+(w.status!=='paid'?button('finish-withdrawal','Complete sample transfer',`data-id="${id}"`,'button primary'):badge('paid')))}${card('Transfer details',`<dl class="data-list"><div><dt>Amount</dt><dd>${money(w.amount)}</dd></div><div><dt>Wallet</dt><dd>${esc(short(PERSONAS[w.buyerId]?.wallet??person().wallet))}</dd></div><div><dt>Asset / chain</dt><dd>USDC / Base · sample</dd></div><div><dt>Fee</dt><dd>0.00 USDC · sample</dd></div></dl>${banner('Mock only','No real wallet is accessed or funds transferred.')}`)}</div>`;}
-function receipt(id){const b=authorizedBooking(id);if(!b)return empty('Receipt not found for this wallet.','Sign in with the original payer.',link('/buy','My workspace'));const s=sale(b.saleId),a=asset(s.assetId);return heading('PAYMENT RECORD','Your receipt.','A clear record of the placement and its included services.',button('download-receipt',icon('download')+' Download receipt',`data-id="${id}"`,'button'))+`<article class="panel receipt"><div class="receipt-head"><div><div class="brand">everywhere</div><h2>Payment receipt</h2><small class="muted">Sample record · ${esc(b.id)}</small></div>${badge(b.status)}</div><p><strong>${esc(b.brand)}</strong><br/><small class="muted">${esc(person().wallet)}</small></p><dl class="data-list"><div><dt>Asset</dt><dd>${esc(a.title)}</dd></div><div><dt>Spot</dt><dd>${esc(s.layout.find(p=>p.id===b.spotId)?.name)}</dd></div><div><dt>Campaign period</dt><dd>${date(s.start)} — ${date(s.end)}</dd></div><div><dt>Included services</dt><dd>Placement, printing & installation</dd></div><div><dt>Sample payment costs</dt><dd>0.00 USDC</dd></div><div class="total"><dt>Paid</dt><dd>${money(b.amount)}</dd></div></dl><p class="receipt-note">This sample payment receipt is not a tax invoice or proof that the physical campaign was delivered.</p>${link('/buy/placements/'+id,'Open placement','button')}</article>`;}
-export const buyerActions={
- 'approve-source':el=>{const pay=getPayment(el.dataset.id);update(s=>{if(pay.sample){delete pay.sample;s.payments.push(pay);}pay.stage='funding';pay.sourceHash='mock-source-'+pay.id;});toast('Sample source payment submitted. Reloading will keep this record.');},
- 'settle-payment':el=>{const pay=getPayment(el.dataset.id);update(s=>{if(pay.sample){delete pay.sample;s.payments.push(pay);}pay.stage='authorization';});toast('Sample funds credited. The placement still needs purchase authorization.');},
- 'authorize-purchase':el=>{const pay=getPayment(el.dataset.id);update(()=>{const b=simulateBooking({...pay,paymentId:pay.id});pay.bookingId=b.id;pay.stage='accepted';});toast('Placement accepted. Your campaign and the owner’s bookings are updated.');},
- 'accept-proof':el=>{const b=authorizedBooking(el.dataset.id);if(!b)return;update(()=>{b.proof='accepted';log('Installation proof accepted for '+b.brand);notice('Installation proof accepted',b.brand,'/host/bookings/'+b.id);});toast('Proof accepted. Owner earnings stay held through campaign and issue review.');},
- 'claim-pass':el=>modal('Deliver your placement pass',`<form data-form="claim-pass"><input name="id" type="hidden" value="${el.dataset.id}"/>${field('recipient','Native NEAR delivery account','sample-owner.near','text','required')}<p class="muted">The current proof requires a native NEAR recipient to accept nomination. This form simulates nomination, acceptance and issuance.</p><button class="button primary" type="submit">Simulate acceptance & issue pass</button></form>`),
- 'claim-credit':el=>{const c=credits().find(c=>c.id===el.dataset.id);if(!c)return;modal('Claim your available credit',`<p>${money(creditAmounts(c).available)} belongs to ${esc(short(person().wallet))}. Conditional rewards remain held until eligible settlement.</p><div class="actions">${button('confirm-claim','Confirm sample claim',`data-id="${c.id}"`,'button primary')}${button('close-modal','Cancel','','button')}</div>`);},
- 'confirm-claim':el=>{const c=credits().find(c=>c.id===el.dataset.id),amount=c&&creditAmounts(c).available;if(!amount)return;const id=uid('withdrawal');update(s=>{c.claimed=true;if(sale(booking(c.bookingId)?.saleId)?.phase==='completed')c.bonusClaimed=true;s.withdrawals.push({id,buyerId:person().id,amount,status:'processing'});});closeModal();navigate('/buy/withdrawals/'+id);},
- 'finish-withdrawal':el=>{update(s=>{let w=s.withdrawals.find(w=>w.id===el.dataset.id);if(!w){w={id:el.dataset.id,amount:100,buyerId:person().id};s.withdrawals.push(w);}w.status='paid';});toast('Sample withdrawal marked delivered.');},
- 'download-receipt':el=>{const b=authorizedBooking(el.dataset.id);if(!b)return;download('everywhere-receipt-'+b.id+'.txt',`EVERYWHERE — SAMPLE PAYMENT RECEIPT\n${b.brand}\n${asset(sale(b.saleId).assetId).title}\nPlacement + printing + installation: ${money(b.amount)}\nOriginal payer: ${person().wallet}\nNot a tax invoice or proof of delivery.`);},
- 'export-report':el=>{const bs=myBookings().filter(b=>b.campaignId===el.dataset.id);download('sample-campaign-report.csv','booking,brand,amount_usdc,status,proof\n'+bs.map(b=>[b.id,JSON.stringify(b.brand),b.amount,b.status,b.proof].join(',')).join('\n'),'text/csv');toast('Sample report downloaded.');}
+function overview(mine) {
+  const current = mine.filter(
+    (b) => !["displaced", "cancelled", "completed"].includes(b.status),
+  );
+  const amount = credits().reduce((n, c) => n + creditAmounts(c).available, 0);
+  return (
+    heading(
+      "YOUR BUYER WORKSPACE",
+      `Good morning, ${person().name.split(" ")[0]}.`,
+      "A clear view of your campaigns, next steps and real-world placements.",
+      link("/explore", `Find a space ${icon("arrow")}`, "button primary"),
+    ) +
+    stats([
+      [
+        "Active & upcoming",
+        current.length,
+        "Across " +
+          new Set(current.map((b) => asset(sale(b.saleId).assetId).ownerId))
+            .size +
+          " owners",
+      ],
+      ["Campaign spend", money(sum(mine)), "Accepted sample purchases"],
+      [
+        "Needs your attention",
+        mine.filter((b) =>
+          ["missing", "draft", "changes-requested"].includes(b.artwork),
+        ).length,
+        "Artwork and delivery tasks",
+      ],
+      ["Available credits", money(amount), "Original-wallet claims"],
+    ]) +
+    `<div class="grid two">${card(
+      "Your next steps",
+      `<div class="task-list">${
+        mine
+          .filter((b) => b.status !== "displaced")
+          .slice(0, 3)
+          .map(
+            (b) =>
+              `<div class="task"><span class="task-icon">${icon(b.artwork === "draft" ? "upload" : "file")}</span><div><strong>${b.artwork === "draft" ? "Finish your artwork" : b.proof === "submitted" ? "Review installation proof" : "Open your placement"}</strong><p>${esc(asset(sale(b.saleId).assetId).title)} · ${esc(b.brand)}</p></div>${link("/buy/placements/" + b.id, icon("arrow"), "icon-button")}</div>`,
+          )
+          .join("") ||
+        '<p class="muted">You are all caught up. Find a space for your next campaign.</p>'
+      }</div>`,
+    )}${card("Your campaign at a glance", `<div class="row"><p class="tiny muted">Sample activity · not measured impressions</p>${badge("November")}</div>${bars()}<div class="row" style="margin-top:20px"><span class="tiny muted">Campaign details stay with every placement.</span>${link("/buy/campaigns", "View campaigns ↗", "text-link")}</div>`)}</div><div style="margin-top:25px">${card("Your placements", table(["Placement", "Brand", "Booking", "Artwork", "Paid", ""], bookingRows(mine)))}</div><div class="section-top"><div><div class="eyebrow">SOMETHING FOR YOUR NEXT IDEA</div><h2>A few spaces you might like.</h2></div>${link("/explore", "Explore all ↗", "text-link")}</div><div class="asset-grid">${state.assets
+      .slice(2, 5)
+      .map((a) => assetCard(a))
+      .join("")}</div>`
+  );
+}
+function campaignCards() {
+  const list = myCampaigns();
+  return list.length
+    ? `<div class="grid two">${list
+        .map((c) => {
+          const bs = myBookings().filter((b) => b.campaignId === c.id);
+          return card(
+            "",
+            `<div class="row"><span class="eyebrow">${esc(c.brand)}</span>${badge(bs.every((b) => b.status === "completed") && bs.length ? "completed" : "planning")}</div><h2>${esc(c.name)}</h2><p class="muted">${esc(c.goal)}</p><div class="stats" style="grid-template-columns:repeat(3,1fr)">${[
+              ["Placements", bs.length],
+              ["Spent", money(sum(bs))],
+              ["Budget", money(c.budget)],
+            ]
+              .map(
+                ([t, v]) =>
+                  `<div><p class="tiny muted">${t}</p><strong>${v}</strong></div>`,
+              )
+              .join(
+                "",
+              )}</div>${link("/buy/campaigns/" + c.id, "Open campaign " + icon("arrow"), "button")}`,
+          );
+        })
+        .join("")}</div>`
+    : empty(
+        "Your next campaign starts here.",
+        "Create a campaign and bring together spots from multiple owners.",
+        link("/buy/campaigns/new", "Create campaign", "button primary"),
+      );
+}
+function campaign(id, q) {
+  const c = state.campaigns.find(
+    (c) => c.id === id && c.buyerId === person().id,
+  );
+  if (!c)
+    return empty(
+      "This campaign belongs to another wallet.",
+      "Switch to Lena to review the seeded campaign, or create your own.",
+      link("/buy/campaigns/new", "Create campaign", "button primary"),
+    );
+  const bs = myBookings().filter((b) => b.campaignId === c.id),
+    tab = q.get("tab") ?? "placements";
+  return (
+    heading(
+      "CAMPAIGN WORKSPACE",
+      c.name,
+      esc(c.brand) + " · " + esc(c.area),
+      link(
+        "/explore?campaign=" + c.id,
+        `${icon("plus")} Add a space`,
+        "button primary",
+      ),
+    ) +
+    stats([
+      ["Placements", bs.length, "Independent delivery states"],
+      ["Spent", money(sum(bs)), "Across all campaign owners"],
+      [
+        "Budget remaining",
+        money(Math.max(0, c.budget - sum(bs))),
+        "Planning value",
+      ],
+      [
+        "Owners",
+        new Set(bs.map((b) => asset(sale(b.saleId).assetId).ownerId)).size,
+        "One campaign, several spaces",
+      ],
+    ]) +
+    tabs(
+      [
+        ["Placements", `/buy/campaigns/${id}?tab=placements`, "placements"],
+        ["Creatives", `/buy/campaigns/${id}?tab=creatives`, "creatives"],
+        ["Activity", `/buy/campaigns/${id}?tab=activity`, "activity"],
+        ["Results", `/buy/campaigns/${id}/report`, "results"],
+      ],
+      tab,
+    ) +
+    (tab === "creatives"
+      ? `<div class="grid two">${bs.map((b) => card(esc(asset(sale(b.saleId).assetId).title), creativePreview(b) + badge(b.artwork) + `<div style="margin-top:15px">${link("/buy/placements/" + b.id + "/artwork", "Edit placement artwork", "button")}</div>`)).join("")}</div>`
+      : tab === "activity"
+        ? card(
+            "Campaign activity",
+            `<ul class="activity-list">${state.activity.map((x) => `<li><div>${esc(x.text)}<small>${esc(x.time)}</small></div></li>`).join("")}</ul>`,
+          )
+        : card(
+            "All placements",
+            table(
+              ["Placement", "Brand", "Booking", "Artwork", "Paid", ""],
+              bookingRows(bs),
+            ),
+          )) +
+    `<div class="review-note">A takeover or issue on one placement does not reset the other bookings in this campaign.</div>`
+  );
+}
+function checkout(id, q) {
+  const s = sale(id),
+    p = s?.layout.find((p) => p.id === q.get("spot")) ?? s?.layout[0];
+  if (!s || !p)
+    return empty(
+      "This spot is unavailable.",
+      "Choose another placement.",
+      link("/explore", "Explore spaces"),
+    );
+  const a = asset(s.assetId),
+    held = currentBooking(s, p);
+  if (held?.buyerId === person().id)
+    return empty(
+      "This placement is already yours.",
+      "Find your saved booking and its next step.",
+      link("/buy/placements/" + held.id, "Open placement", "button primary"),
+    );
+  if (s.phase !== "open" || (held && !effectiveTakeover(s, p)))
+    return empty(
+      "This spot is no longer available.",
+      "Your campaign is saved. Choose another space.",
+      link("/explore", "Find another space"),
+    );
+  const amount = priceFor(s, p),
+    campaignId = q.get("campaign") ?? myCampaigns()[0]?.id;
+  return (
+    heading(
+      "CHECKOUT / " + (held ? "TAKEOVER" : "NEW BOOKING"),
+      held ? "Make this space yours." : "A small spot. A big possibility.",
+      "Instant booking under the published rules. Artwork is reviewed afterward.",
+    ) +
+    `<div class="split"><form class="panel" data-form="checkout"><input type="hidden" name="saleId" value="${s.id}"/><input type="hidden" name="spotId" value="${p.id}"/><h2>Your campaign</h2>${
+      myCampaigns().length
+        ? select(
+            "campaignId",
+            "Add this placement to",
+            myCampaigns().map((c) => [c.id, c.name]),
+            campaignId,
+            "required",
+          )
+        : banner(
+            "Create a campaign first",
+            "A campaign groups placements across different owners.",
+          )
+    }<p>${link("/buy/campaigns/new?next=" + encodeURIComponent(location.pathname + location.search), "Create a new campaign", "text-link")}</p>${field("brand", "Public brand name", person().brand, "text", "required")}<hr class="divider"/><h2>Pay from your wallet</h2><div class="owner-inline"><span class="avatar">${icon("wallet")}</span><div><strong>${esc(person().name)}</strong><small>${esc(short(person().wallet))} · Sample authenticated wallet</small></div>${link("/sign-in?next=" + encodeURIComponent(location.pathname + location.search), "Switch", "text-link")}</div><div style="margin-top:20px">${select(
+      "network",
+      "Payment asset / network",
+      [
+        ["base", "USDC · Base"],
+        ["near", "USDC · NEAR"],
+      ],
+      "base",
+    )}</div>${held ? banner("You are taking over a provisional placement", `Current holder: ${esc(held.brand)}. Takeovers close ${date(s.close)}. Your booking is provisional until that close.`, "orange") : banner("Printing & installation included", "The owner arranges production and submits proof. There is no extra mandatory production invoice.")}<label class="checkbox"><input name="terms" type="checkbox" required/><span>I have reviewed the service dates, ${effectiveTakeover(s, p) ? "takeover rules, " : ""}content requirements and ${link("/policies/refunds", "refund terms", "text-link")}.</span></label><button class="button primary" type="submit" ${myCampaigns().length ? "" : "disabled"}>Pay ${money(amount)} & ${held ? "take over" : "book"} ${icon("arrow")}</button><p class="tiny muted" style="margin-top:14px">Simulated payment. No real wallet is opened and no money moves.</p></form><aside class="panel">${vehicle(a, { large: true, selected: p.id, spots: true, saleId: s.id })}<div style="margin-top:20px"><div class="eyebrow">YOUR SELECTED SPACE</div><h2>${esc(p.name)}</h2><p class="muted">${esc(a.title)} · ${esc(a.area)}</p>${badge(effectiveTakeover(s, p) ? "Takeovers enabled" : "Fixed booking")}</div><dl class="data-list"><div><dt>Service period</dt><dd>${date(s.start)}<br/>— ${date(s.end)}</dd></div><div><dt>Placement + print + install</dt><dd>${money(amount)}</dd></div><div><dt>Sample payment cost</dt><dd>0.00 USDC</dd></div><div class="total"><dt>Total</dt><dd>${money(amount)}</dd></div></dl><p class="tiny muted">Real network/conversion costs would be shown before approval. Values here are mock values.</p></aside></div>`
+  );
+}
+function getPayment(id) {
+  return (
+    state.payments.find((x) => x.id === id) ?? {
+      id,
+      saleId: "sale-alpine",
+      spotId: "rear",
+      buyerId: person().id,
+      amount: 85,
+      stage: "approval",
+      sample: true,
+      campaignId: myCampaigns()[0]?.id,
+      brand: person().brand,
+    }
+  );
+}
+function payment(id) {
+  const pay = getPayment(id);
+  if (pay.buyerId !== person().id)
+    return empty(
+      "Use the wallet that made this payment.",
+      "Switch accounts to see the payment record.",
+      link("/sign-in", "Switch wallet"),
+    );
+  const s = sale(pay.saleId),
+    a = asset(s.assetId),
+    steps = ["approval", "funding", "authorization", "accepted"],
+    index = Math.max(0, steps.indexOf(pay.stage));
+  return (
+    heading(
+      "PAYMENT PROGRESS",
+      pay.stage === "accepted"
+        ? "Your placement is confirmed."
+        : "Let’s get your brand out there.",
+      "This saved flow can be resumed without starting another source transfer.",
+    ) +
+    `<div class="split">${card(
+      "Your payment journey",
+      timeline(
+        [
+          ["Approve source payment", `Sample wallet · ${money(pay.amount)}`],
+          [
+            "USDC arrives for the purchase",
+            "Funding and routing are separate from a booked spot.",
+          ],
+          [
+            "Authorize the placement",
+            "Confirm the exact purchase or takeover for this spot.",
+          ],
+          [
+            "Placement accepted",
+            "Your artwork and delivery workspace is ready.",
+          ],
+        ],
+        index,
+      ) +
+        `<div style="margin-top:22px">${pay.stage === "accepted" ? link("/buy/placements/" + pay.bookingId, "Open your placement " + icon("arrow"), "button primary") : pay.stage === "funding" ? button("settle-payment", "Continue after sample funding", `data-id="${id}"`, "button primary") : pay.stage === "authorization" ? button("authorize-purchase", "Approve purchase signature", `data-id="${id}"`, "button primary") : button("approve-source", "Approve sample USDC transfer", `data-id="${id}"`, "button primary")}</div><p class="tiny muted" style="margin-top:15px">Everything on this screen is simulated. Each payment record accepts one booking only.</p>`,
+    )}${card("Payment details", `<dl class="data-list"><div><dt>Asset</dt><dd>${esc(a.title)}</dd></div><div><dt>Amount</dt><dd>${money(pay.amount)}</dd></div><div><dt>Payer</dt><dd>${esc(short(PERSONAS[pay.buyerId]?.wallet ?? person().wallet))}</dd></div><div><dt>Status</dt><dd>${badge(pay.stage)}</dd></div><div><dt>Source reference</dt><dd>${pay.sourceHash ? esc(pay.sourceHash) : "Not sent"}</dd></div></dl>${link("/support/new?payment=" + id, "Need help with this payment?", "text-link")}`)}</div>`
+  );
+}
+function authorizedBooking(id) {
+  const b = booking(id);
+  return b && b.buyerId === person().id ? b : null;
+}
+function placement(id, q) {
+  const b = authorizedBooking(id);
+  if (!b)
+    return empty(
+      "This booking belongs to another wallet.",
+      "Use the review persona selector to inspect its original payer.",
+      link("/buy", "My workspace"),
+    );
+  const s = sale(b.saleId),
+    a = asset(s.assetId),
+    p = s.layout.find((p) => p.id === b.spotId),
+    tab = q.get("tab") ?? "overview",
+    base = "/buy/placements/" + id;
+  let content;
+  if (tab === "artwork")
+    content = card(
+      "Artwork & revisions",
+      creativePreview(b) +
+        `<div class="row">${badge(b.artwork)}<span class="tiny muted">${esc(b.creativeName || "No file submitted")}</span></div>${b.artworkFeedback ? banner("Requested changes", esc(b.artworkFeedback), "orange") : ""}<div style="margin-top:20px">${link(base + "/artwork", "Open artwork editor", "button primary")}</div>`,
+    );
+  else if (tab === "delivery")
+    content = card(
+      "Production & installation",
+      timeline(
+        [
+          [
+            "Artwork approved",
+            b.artwork === "locked"
+              ? "Approved revision locked for printing."
+              : "Owner review and final revision.",
+          ],
+          ["Owner prints & installs", `Installation target ${date(s.install)}`],
+          [
+            "Installation proof",
+            b.proof === "missing" ? "No proof submitted yet." : label(b.proof),
+          ],
+          ["Service period", `${date(s.start)} — ${date(s.end)}`],
+          [
+            "Issue-review window",
+            `Sample end: ${date(s.reviewEnd)} · duration illustrative`,
+          ],
+        ],
+        b.proof === "accepted"
+          ? 3
+          : b.proof === "submitted"
+            ? 2
+            : b.artwork === "locked"
+              ? 1
+              : 0,
+      ) +
+        (b.proofImage
+          ? `<img class="proof-image" src="${esc(b.proofImage)}" alt="Sample installation proof"/>`
+          : "") +
+        (b.proof === "submitted"
+          ? `<div class="actions">${button("accept-proof", "Accept installation proof", `data-id="${id}"`, "button primary")}${link("/support/new?booking=" + id, "Report an issue", "button")}</div>`
+          : link("/support/new?booking=" + id, "Ask about delivery", "button")),
+    );
+  else if (tab === "pass")
+    content = `<div class="grid two"><div class="pass-card"><div class="eyebrow">FINAL PLACEMENT RIGHT</div><h2>${esc(p.name)}.<br/>Out in the world.</h2><small>${esc(a.title)} · ${date(s.start)} — ${date(s.end)}</small><div style="margin-top:20px">${badge(b.pass === "not-due" ? "Available after bidding closes" : b.pass, "dark")}</div></div>${card("Your placement pass", `<p class="muted">The final holder receives the campaign-specific placement right after bidding closes. It controls permitted artwork actions; prior money claims remain with the original payers.</p>${s.phase === "open" ? banner("Bidding is still open", `Final holder determined after ${date(s.close)}.`) : b.pass === "issued" ? checkList(["Pass issued in this sample scenario.", "Artwork changes stop after production lock.", "NFT ownership does not prove installation."]) : button("claim-pass", "Choose delivery wallet & claim", `data-id="${id}"`, "button primary")}`)}</div>`;
+  else if (tab === "activity")
+    content = card(
+      "Activity & records",
+      `<ul class="activity-list">${state.activity.map((x) => `<li><div>${esc(x.text)}<small>${esc(x.time)}</small></div></li>`).join("")}</ul><div class="actions">${link("/receipts/" + id, "Payment receipt", "button")}${link("/inbox/thread-1", "Conversation", "button")}</div>`,
+    );
+  else
+    content = `<div class="grid two">${card("Your next step", b.status === "displaced" ? banner("Another buyer took over this spot", "Your original wallet retains its principal credit. Any reward remains conditional until eligible settlement.", "orange") + link("/buy/money", "View your credits", "button primary") : ["missing", "draft", "changes-requested"].includes(b.artwork) ? `${creativePreview(b)}<h3>${b.artwork === "changes-requested" ? "A small revision is needed." : "Make this space your own."}</h3><p class="muted">Prepare your artwork for the owner’s review.</p>${link(base + "/artwork", "Prepare artwork " + icon("arrow"), "button primary")}` : b.proof === "submitted" ? banner("Your installation proof is ready", "Review the owner’s evidence and keep the campaign moving.") + link(base + "?tab=delivery", "Review proof", "button primary") : banner(b.artwork === "locked" ? "Production is underway" : "Artwork submitted", "Follow the next milestone in your delivery timeline.") + link(base + "?tab=delivery", "View delivery timeline", "button"))}${card("Booking details", `<dl class="data-list"><div><dt>Brand</dt><dd>${esc(b.brand)}</dd></div><div><dt>Period</dt><dd>${date(s.start)} — ${date(s.end)}</dd></div><div><dt>Price, print & install included</dt><dd>${money(b.amount)}</dd></div><div><dt>Original payer</dt><dd>${esc(short(person().wallet))}</dd></div><div><dt>Artwork</dt><dd>${badge(b.artwork)}</dd></div><div><dt>Delivery proof</dt><dd>${badge(b.proof)}</dd></div></dl>${link("/spaces/" + a.id + "?sale=" + s.id + "&spot=" + p.id, "View public space ↗", "text-link")}`)}</div>`;
+  return (
+    heading(
+      "YOUR PLACEMENT",
+      p.name + " · " + a.title,
+      esc(b.brand) + " · " + date(s.start) + " — " + date(s.end),
+      badge(b.status),
+    ) +
+    tabs(
+      [
+        ["Overview", base, "overview"],
+        ["Artwork", base + "?tab=artwork", "artwork"],
+        ["Delivery", base + "?tab=delivery", "delivery"],
+        ["Activity & receipts", base + "?tab=activity", "activity"],
+        ["Placement pass", base + "?tab=pass", "pass"],
+      ],
+      tab,
+    ) +
+    content
+  );
+}
+export function creativePreview(b) {
+  return `<div class="creative-preview">${b.creativeImage ? `<img src="${esc(b.creativeImage)}" alt="${esc(b.creativeName || "Brand creative")}"/>` : `<div class="creative-wordmark">${esc(b.brand ?? person().brand)}<small>BRAND ARTWORK PLACEHOLDER</small></div>`}</div>`;
+}
+function artworkEditor(id) {
+  const b = authorizedBooking(id);
+  if (!b)
+    return empty(
+      "Choose your own placement.",
+      "Use the original buyer wallet.",
+      link("/buy", "My workspace"),
+    );
+  const s = sale(b.saleId),
+    a = asset(s.assetId),
+    locked = b.artwork === "locked" || b.status === "displaced";
+  return (
+    heading(
+      "PLACEMENT / ARTWORK",
+      "A little space for your brand.",
+      "Place your creative, share notes and submit a revision for review.",
+      link("/buy/placements/" + id, "Back to placement", "button"),
+    ) +
+    `<div class="split"><div>${vehicle(a, { large: true, selected: b.spotId, saleId: s.id })}<div class="review-note">Illustrative placement preview · final production needs verified dimensions and an approved revision.</div>${b.artworkFeedback ? banner("Changes requested", esc(b.artworkFeedback), "orange") : ""}</div><form class="panel" data-form="submit-artwork"><input type="hidden" name="id" value="${id}"/><h2>Your artwork</h2>${creativePreview(b)}${field("creativeName", "Revision name", b.creativeName || "Brand wordmark · revision 1", "text", "required")}${field("file", "PNG, JPEG or WebP · up to 1.5 MB", "", "file", `accept="image/png,image/jpeg,image/webp" ${locked ? "disabled" : ""}`)}<div class="grid two">${select("fit", "Placement fit", ["Contain", "Crop to fill"], b.fit ?? "Contain")}${select("alignment", "Alignment", ["Center", "Left", "Right"], b.alignment ?? "Center")}</div>${textarea("notes", "Notes for the owner", b.artworkNotes ?? "")}${locked ? banner("This revision is no longer editable", "Production lock or a change of holder prevents further edits.", "orange") : `<div class="actions"><button type="submit" class="button primary" name="mode" value="submit">Submit for review</button><button type="submit" class="button" name="mode" value="draft">Save draft</button></div>`}</form></div>`
+  );
+}
+function campaignReport(id) {
+  const c = state.campaigns.find(
+    (x) => x.id === id && x.buyerId === person().id,
+  );
+  if (!c)
+    return empty(
+      "Campaign not found",
+      "Choose a campaign in your wallet workspace.",
+      link("/buy/campaigns", "My campaigns"),
+    );
+  const bs = myBookings().filter((b) => b.campaignId === id);
+  return (
+    heading(
+      "CAMPAIGN / RESULTS",
+      c.name,
+      "Sample operational reporting. No real ad impressions or attribution are measured.",
+      button(
+        "export-report",
+        icon("download") + " Export sample report",
+        `data-id="${id}"`,
+        "button",
+      ),
+    ) +
+    stats([
+      ["Booked placements", bs.length, "Actual sample bookings"],
+      ["Spend", money(sum(bs)), "Accepted purchase records"],
+      [
+        "Installation proof",
+        bs.filter((b) => b.proof === "accepted").length,
+        "Accepted sample evidence",
+      ],
+      ["QR visits", "—", "Not measured in this prototype"],
+    ]) +
+    `<div class="grid two">${card("Illustrative campaign activity", bars() + `<p class="tiny muted" style="margin-top:15px">Example chart values for layout review. Not real impressions.</p>`)}${card("Coverage", `<div class="sample-map"><div class="map-pin">${esc(c.area)} · approximate sample area</div></div>`)}</div><div style="margin-top:25px">${card("Placement-level results", table(["Placement", "Brand", "Booking", "Artwork", "Paid", ""], bookingRows(bs)))}</div>`
+  );
+}
+function moneyPage() {
+  const cs = credits(),
+    amounts = cs.map(creditAmounts);
+  return (
+    heading(
+      "MONEY & CREDITS",
+      "Your money, clearly accounted for.",
+      "Financial claims stay with the original payer wallet.",
+    ) +
+    stats([
+      [
+        "Available principal & rewards",
+        money(amounts.reduce((n, c) => n + c.available, 0)),
+        "Eligible original-wallet claims",
+      ],
+      [
+        "Conditional rewards",
+        money(amounts.reduce((n, c) => n + c.conditional, 0)),
+        "Not yet available",
+      ],
+      [
+        "Withdrawals",
+        state.withdrawals.filter((w) => w.buyerId === person().id).length,
+        "Sample transaction records",
+      ],
+      [
+        "Current wallet",
+        short(person().wallet),
+        "Separate from other sample wallets",
+      ],
+    ]) +
+    card(
+      "Credits after a takeover",
+      cs.length
+        ? table(
+            ["Original placement", "Available", "Conditional", "Action"],
+            cs.map((c) => {
+              const amounts = creditAmounts(c);
+              return [
+                link(
+                  "/buy/placements/" + c.bookingId,
+                  esc(booking(c.bookingId)?.brand ?? "Placement"),
+                  "text-link",
+                ),
+                money(amounts.available),
+                money(amounts.conditional),
+                amounts.available
+                  ? button(
+                      "claim-credit",
+                      "Claim available amount",
+                      `data-id="${c.id}"`,
+                      "button small",
+                    )
+                  : badge(c.claimed ? "Principal claimed" : "Conditional"),
+              ];
+            }),
+          )
+        : empty(
+            "No credits owed to this wallet.",
+            "After a takeover, original principal and any conditional reward appear separately here.",
+            link("/explore", "Explore spaces", "button"),
+          ),
+    ) +
+    `<div style="margin-top:25px">${card(
+      "Withdrawal history",
+      table(
+        ["Reference", "Amount", "Status", "Details"],
+        state.withdrawals
+          .filter((w) => w.buyerId === person().id)
+          .map((w) => [
+            esc(w.id),
+            money(w.amount),
+            badge(w.status),
+            link("/buy/withdrawals/" + w.id, "View ↗", "text-link"),
+          ]),
+      ),
+    )}</div>`
+  );
+}
+function withdrawal(id) {
+  const w = state.withdrawals.find((w) => w.id === id) ?? {
+    id,
+    amount: 100,
+    buyerId: person().id,
+    status: "processing",
+    sample: true,
+  };
+  if (w.buyerId !== person().id) return authRequired();
+  return (
+    heading(
+      "MONEY / WITHDRAWAL",
+      w.status === "paid" ? "Credit delivered." : "Your credit, on its way.",
+      "Track the existing request instead of starting another transfer.",
+    ) +
+    `<div class="split">${card(
+      "Withdrawal progress",
+      timeline(
+        [
+          [
+            "Original claim verified",
+            "Amount remains attributed to its original payer.",
+          ],
+          ["Wallet authorization", "Exact destination and amount reviewed."],
+          ["Transfer processing", "Sample balance movement."],
+          ["Delivered", "Confirmation saved in withdrawal history."],
+        ],
+        w.status === "paid" ? 3 : 2,
+      ) +
+        (w.status !== "paid"
+          ? button(
+              "finish-withdrawal",
+              "Complete sample transfer",
+              `data-id="${id}"`,
+              "button primary",
+            )
+          : badge("paid")),
+    )}${card("Transfer details", `<dl class="data-list"><div><dt>Amount</dt><dd>${money(w.amount)}</dd></div><div><dt>Wallet</dt><dd>${esc(short(PERSONAS[w.buyerId]?.wallet ?? person().wallet))}</dd></div><div><dt>Asset / chain</dt><dd>USDC / Base · sample</dd></div><div><dt>Fee</dt><dd>0.00 USDC · sample</dd></div></dl>${banner("Mock only", "No real wallet is accessed or funds transferred.")}`)}</div>`
+  );
+}
+function receipt(id) {
+  const b = authorizedBooking(id);
+  if (!b)
+    return empty(
+      "Receipt not found for this wallet.",
+      "Sign in with the original payer.",
+      link("/buy", "My workspace"),
+    );
+  const s = sale(b.saleId),
+    a = asset(s.assetId);
+  return (
+    heading(
+      "PAYMENT RECORD",
+      "Your receipt.",
+      "A clear record of the placement and its included services.",
+      button(
+        "download-receipt",
+        icon("download") + " Download receipt",
+        `data-id="${id}"`,
+        "button",
+      ),
+    ) +
+    `<article class="panel receipt"><div class="receipt-head"><div><div class="brand">everywhere</div><h2>Payment receipt</h2><small class="muted">Sample record · ${esc(b.id)}</small></div>${badge(b.status)}</div><p><strong>${esc(b.brand)}</strong><br/><small class="muted">${esc(person().wallet)}</small></p><dl class="data-list"><div><dt>Asset</dt><dd>${esc(a.title)}</dd></div><div><dt>Spot</dt><dd>${esc(s.layout.find((p) => p.id === b.spotId)?.name)}</dd></div><div><dt>Campaign period</dt><dd>${date(s.start)} — ${date(s.end)}</dd></div><div><dt>Included services</dt><dd>Placement, printing & installation</dd></div><div><dt>Sample payment costs</dt><dd>0.00 USDC</dd></div><div class="total"><dt>Paid</dt><dd>${money(b.amount)}</dd></div></dl><p class="receipt-note">This sample payment receipt is not a tax invoice or proof that the physical campaign was delivered.</p>${link("/buy/placements/" + id, "Open placement", "button")}</article>`
+  );
+}
+export const buyerActions = {
+  "approve-source": (el) => {
+    const pay = getPayment(el.dataset.id);
+    update((s) => {
+      if (pay.sample) {
+        delete pay.sample;
+        s.payments.push(pay);
+      }
+      pay.stage = "funding";
+      pay.sourceHash = "mock-source-" + pay.id;
+    });
+    toast("Sample source payment submitted. Reloading will keep this record.");
+  },
+  "settle-payment": (el) => {
+    const pay = getPayment(el.dataset.id);
+    update((s) => {
+      if (pay.sample) {
+        delete pay.sample;
+        s.payments.push(pay);
+      }
+      pay.stage = "authorization";
+    });
+    toast(
+      "Sample funds credited. The placement still needs purchase authorization.",
+    );
+  },
+  "authorize-purchase": (el) => {
+    const pay = getPayment(el.dataset.id);
+    update(() => {
+      const b = simulateBooking({ ...pay, paymentId: pay.id });
+      pay.bookingId = b.id;
+      pay.stage = "accepted";
+    });
+    toast(
+      "Placement accepted. Your campaign and the owner’s bookings are updated.",
+    );
+  },
+  "accept-proof": (el) => {
+    const b = authorizedBooking(el.dataset.id);
+    if (!b) return;
+    update(() => {
+      b.proof = "accepted";
+      log("Installation proof accepted for " + b.brand);
+      notice("Installation proof accepted", b.brand, "/host/bookings/" + b.id);
+    });
+    toast(
+      "Proof accepted. Owner earnings stay held through campaign and issue review.",
+    );
+  },
+  "claim-pass": (el) =>
+    modal(
+      "Deliver your placement pass",
+      `<form data-form="claim-pass"><input name="id" type="hidden" value="${el.dataset.id}"/>${field("recipient", "Native NEAR delivery account", "sample-owner.near", "text", "required")}<p class="muted">The current proof requires a native NEAR recipient to accept nomination. This form simulates nomination, acceptance and issuance.</p><button class="button primary" type="submit">Simulate acceptance & issue pass</button></form>`,
+    ),
+  "claim-credit": (el) => {
+    const c = credits().find((c) => c.id === el.dataset.id);
+    if (!c) return;
+    modal(
+      "Claim your available credit",
+      `<p>${money(creditAmounts(c).available)} belongs to ${esc(short(person().wallet))}. Conditional rewards remain held until eligible settlement.</p><div class="actions">${button("confirm-claim", "Confirm sample claim", `data-id="${c.id}"`, "button primary")}${button("close-modal", "Cancel", "", "button")}</div>`,
+    );
+  },
+  "confirm-claim": (el) => {
+    const c = credits().find((c) => c.id === el.dataset.id),
+      amount = c && creditAmounts(c).available;
+    if (!amount) return;
+    const id = uid("withdrawal");
+    update((s) => {
+      c.claimed = true;
+      if (sale(booking(c.bookingId)?.saleId)?.phase === "completed")
+        c.bonusClaimed = true;
+      s.withdrawals.push({
+        id,
+        buyerId: person().id,
+        amount,
+        status: "processing",
+      });
+    });
+    closeModal();
+    navigate("/buy/withdrawals/" + id);
+  },
+  "finish-withdrawal": (el) => {
+    update((s) => {
+      let w = s.withdrawals.find((w) => w.id === el.dataset.id);
+      if (!w) {
+        w = { id: el.dataset.id, amount: 100, buyerId: person().id };
+        s.withdrawals.push(w);
+      }
+      w.status = "paid";
+    });
+    toast("Sample withdrawal marked delivered.");
+  },
+  "download-receipt": (el) => {
+    const b = authorizedBooking(el.dataset.id);
+    if (!b) return;
+    download(
+      "everywhere-receipt-" + b.id + ".txt",
+      `EVERYWHERE — SAMPLE PAYMENT RECEIPT\n${b.brand}\n${asset(sale(b.saleId).assetId).title}\nPlacement + printing + installation: ${money(b.amount)}\nOriginal payer: ${person().wallet}\nNot a tax invoice or proof of delivery.`,
+    );
+  },
+  "export-report": (el) => {
+    const bs = myBookings().filter((b) => b.campaignId === el.dataset.id);
+    download(
+      "sample-campaign-report.csv",
+      "booking,brand,amount_usdc,status,proof\n" +
+        bs
+          .map((b) =>
+            [b.id, JSON.stringify(b.brand), b.amount, b.status, b.proof].join(
+              ",",
+            ),
+          )
+          .join("\n"),
+      "text/csv",
+    );
+    toast("Sample report downloaded.");
+  },
 };
-export const buyerForms={
- 'create-campaign':data=>{if(!requireSignIn(location.pathname))return;const id=uid('campaign');update(s=>s.campaigns.push({id,buyerId:person().id,name:String(data.get('name')),brand:String(data.get('brand')),goal:String(data.get('goal')),area:String(data.get('area')),budget:Number(data.get('budget'))}));const next=String(data.get('next')??'');navigate(next.startsWith('/')&&!next.startsWith('//')?next+(next.includes('?')?'&':'?')+'campaign='+id:'/buy/campaigns/'+id);toast('Campaign created. Add spaces from any owner.');},
- checkout:data=>{const campaign=state.campaigns.find(c=>c.id===data.get('campaignId')&&c.buyerId===person().id);if(!campaign)throw new Error('Choose a campaign belonging to this wallet.');const s=sale(data.get('saleId')),p=s.layout.find(p=>p.id===data.get('spotId'));const id=uid('payment');update(st=>st.payments.push({id,saleId:s.id,spotId:p.id,campaignId:campaign.id,buyerId:person().id,brand:String(data.get('brand')),amount:priceFor(s,p),stage:'approval'}));navigate('/payments/'+id);},
- 'submit-artwork':async(data,form)=>{const b=authorizedBooking(data.get('id'));if(!b||b.artwork==='locked'||b.status==='displaced')throw new Error('This artwork is no longer editable.');const image=await readImage(data.get('file')),draft=document.activeElement?.value==='draft';update(()=>{b.creativeName=String(data.get('creativeName'));b.artworkNotes=String(data.get('notes'));b.fit=String(data.get('fit'));b.alignment=String(data.get('alignment'));if(image)b.creativeImage=image;b.artwork=draft?'draft':'submitted';b.revisions??=[];b.revisions.push({name:b.creativeName,status:b.artwork,notes:b.artworkNotes});log((draft?'Draft saved':'Artwork submitted')+' · '+b.brand);});toast(draft?'Artwork draft saved.':'Artwork submitted to the owner.');navigate('/buy/placements/'+b.id+'?tab=artwork');},
- 'claim-pass':data=>{const b=authorizedBooking(data.get('id'));if(!b||sale(b.saleId).phase==='open')throw new Error('The pass is available after bidding closes.');update(()=>{b.pass='issued';b.passRecipient=String(data.get('recipient'));});closeModal();toast('Delivery-wallet acceptance and pass issuance simulated.');}
+export const buyerForms = {
+  "create-campaign": (data) => {
+    if (!requireSignIn(location.pathname)) return;
+    const id = uid("campaign");
+    update((s) =>
+      s.campaigns.push({
+        id,
+        buyerId: person().id,
+        name: String(data.get("name")),
+        brand: String(data.get("brand")),
+        goal: String(data.get("goal")),
+        area: String(data.get("area")),
+        budget: Number(data.get("budget")),
+      }),
+    );
+    const next = String(data.get("next") ?? "");
+    navigate(
+      next.startsWith("/") && !next.startsWith("//")
+        ? next + (next.includes("?") ? "&" : "?") + "campaign=" + id
+        : "/buy/campaigns/" + id,
+    );
+    toast("Campaign created. Add spaces from any owner.");
+  },
+  checkout: (data) => {
+    const campaign = state.campaigns.find(
+      (c) => c.id === data.get("campaignId") && c.buyerId === person().id,
+    );
+    if (!campaign)
+      throw new Error("Choose a campaign belonging to this wallet.");
+    const s = sale(data.get("saleId")),
+      p = s.layout.find((p) => p.id === data.get("spotId"));
+    const id = uid("payment");
+    update((st) =>
+      st.payments.push({
+        id,
+        saleId: s.id,
+        spotId: p.id,
+        campaignId: campaign.id,
+        buyerId: person().id,
+        brand: String(data.get("brand")),
+        amount: priceFor(s, p),
+        stage: "approval",
+      }),
+    );
+    navigate("/payments/" + id);
+  },
+  "submit-artwork": async (data, form) => {
+    const b = authorizedBooking(data.get("id"));
+    if (!b || b.artwork === "locked" || b.status === "displaced")
+      throw new Error("This artwork is no longer editable.");
+    const image = await readImage(data.get("file")),
+      draft = document.activeElement?.value === "draft";
+    update(() => {
+      b.creativeName = String(data.get("creativeName"));
+      b.artworkNotes = String(data.get("notes"));
+      b.fit = String(data.get("fit"));
+      b.alignment = String(data.get("alignment"));
+      if (image) b.creativeImage = image;
+      b.artwork = draft ? "draft" : "submitted";
+      b.revisions ??= [];
+      b.revisions.push({
+        name: b.creativeName,
+        status: b.artwork,
+        notes: b.artworkNotes,
+      });
+      log((draft ? "Draft saved" : "Artwork submitted") + " · " + b.brand);
+    });
+    toast(draft ? "Artwork draft saved." : "Artwork submitted to the owner.");
+    navigate("/buy/placements/" + b.id + "?tab=artwork");
+  },
+  "claim-pass": (data) => {
+    const b = authorizedBooking(data.get("id"));
+    if (!b || sale(b.saleId).phase === "open")
+      throw new Error("The pass is available after bidding closes.");
+    update(() => {
+      b.pass = "issued";
+      b.passRecipient = String(data.get("recipient"));
+    });
+    closeModal();
+    toast("Delivery-wallet acceptance and pass issuance simulated.");
+  },
 };
