@@ -51,11 +51,13 @@ Important limits for the design discussion:
 
 Decision update, **8 November 2026**: the user confirmed fixed campaign dates with takeovers ending before installation, owner-managed printing/installation with proof upload, and buyer campaigns spanning spaces from multiple owners. The corresponding recommendations below are now product requirements. Payment bundling, removal/cost treatment and exact delivery-review/settlement rules remain open.
 
+Further confirmed: buyers book immediately under published rules with artwork review afterward; sign-in is wallet-only; takeover settings apply per spot with a sale-wide default. These choices supersede the earlier familiar-login recommendation and any suggestion of routine owner acceptance before payment.
+
 ### Public first, identity when an action requires it
 
-Let visitors browse and inspect spaces without an account or wallet. Preserve the selected listing, spots, campaign and uploaded work through sign-in. Use one account with buyer and owner areas. Connect wallets when paying, claiming or doing an action that requires wallet authority; keep the active payer visible. Connecting an app account and proving control of a payment wallet are different tasks.
+Let visitors browse and inspect spaces without an account or wallet. Preserve the selected listing, spots, campaign and uploaded work through wallet-only sign-in. The user connects a supported wallet and signs an authentication message before accessing the private workspace. Payment and purchase authorization remain separate actions; keep the active payer visible. A wallet connection alone is not an authenticated session.
 
-For the mock, use explicit sample personas and simulated wallets. The production authentication choice remains open. A future email or passkey login must not be presented as a working custody or signature solution simply because the mock contains its screen.
+For the mock, use explicit sample personas and simulated wallet authentication, with no real wallet prompts. Live authentication verification and provider support still require implementation. Optional contact email is for communication, not login or restoration of wallet authority. A switched account must not retain the previous wallet's private session access.
 
 ### Model time before adding an auction
 
@@ -73,7 +75,7 @@ A paid holder is provisional until the stated close. A takeover replaces that ho
 
 Under the current proof economics, a displaced principal becomes available while the additional 10% stays conditional until the matching refund exposure ends. Example: for a 100-USDC principal, show **100 USDC available** and **10 USDC conditional** in separate rows. This is a product illustration, not a guaranteed profit or current live price. Native settlement, withdrawal and a later conversion back to the source chain are separate states.
 
-Takeover-off means the accepted booking cannot be displaced during that sale. Make this an understandable listing badge and explain the difference before payment. Published funded terms, dates and surface geometry should not be silently editable.
+Takeover-off means the accepted booking cannot be displaced during that sale. The confirmed editor uses a sale-wide default with individual spot overrides, so one vehicle sale can mix fixed and takeover-enabled spots. Show the effective rule on each spot and in checkout; an asset card can say Mixed. Published funded terms, dates and surface geometry should not be silently editable, including when the sale default changes.
 
 ### Make creation impressive and correctable
 
@@ -84,6 +86,8 @@ The essential editor is a photo-based surface editor with selectable shapes, lab
 ### Make fulfillment part of the product
 
 The owner needs to accept or request changes to permitted artwork, finalize an approved production revision, arrange printing and installation, upload proof and manage problems. Owner responsibility for printing/installation and proof upload is confirmed. The buyer needs to see the same milestones, review evidence and report a delivery issue. Content review cannot become a hidden way to pick a different financial winner after accepting payment.
+
+Instant booking is confirmed: eligible purchases are accepted under published terms, without a routine owner-request stage before payment. The post-purchase review concerns the artwork and fulfillment. Corrections, policy failures and their financial consequences must have explicit visible states.
 
 Printing and installation costs need visible price treatment even though the owner arranges the work. Removal responsibility and costs remain open. Any printable production package must use verified dimensions and approved revisions; the prototype's vehicle visualization alone is insufficient.
 
