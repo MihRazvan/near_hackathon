@@ -2,7 +2,7 @@
 
 Proposed **8 November 2026**. The user requested meaningful commits/pushes and a complete experience definition before starting the product mock.
 
-## Current state
+## State when planning began
 
 At the start of this planning pass, `origin/main` contained the initial README commit. The local working tree contained roughly 170 pending paths covering research, contracts, tests, payment qualification, browser fixtures, public evidence and documentation. The application mock does not yet exist. Existing root/proof READMEs include historical implementation statements that need reconciliation.
 
@@ -43,6 +43,8 @@ The empty-campaign refresh helper is test-only maintenance code with narrow assu
 For each group: stage explicit paths, inspect the diff, run checks that fit the change, commit, and push. If a claimed feature depends on uncommitted code, include the minimal dependency or move that feature to the next group. Local ignored credentials must never be necessary for a basic contributor test run.
 
 ## Build the agreed product mock in reviewable feature slices
+
+Implementation update, **8 November 2026**: the user approved the visual mock after confirming the eight core UX decisions. The isolated `prototype/` website implements all 63 destinations and connected journeys below using local sample state. Three feature commits cover public discovery (`46483c9`), buyer authentication/checkout (`8905874`), and owner authoring, fulfillment and operational review (`9ebcb94`). The [review handoff](../../prototype/README.md) explains how to run the website, switch personas and export feedback. The [validation record](prototype-validation.json) records the completed desktop/mobile and workflow checks. The existing technical backlog remains separate.
 
 First resolve the high-impact decisions in the experience map. Then implement these as parts of **one agreed complete experience**, with a visible page index and all remaining destinations tracked. These are commit/review boundaries, not a replacement for the full product plan.
 
