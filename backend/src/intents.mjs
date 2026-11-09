@@ -48,7 +48,7 @@ export function purchasePlan({snapshot,buyerId,invoiceId,asset,now=Date.now()}) 
   const message=JSON.stringify({invoice_id:invoiceId,expected_round:state.round,published_terms_sha256:terms.published_terms_sha256});
   const expiresMs=Math.min(now+120000,Number(BigInt(terms.bidding_close_ns)/1000000n)-5000);
   return intentPlan({signerId:buyer,verifier:state.intents_contract_id,now,expiresMs,
-    intents:[{intent:'transfer',receiver_id:snapshot.accountId,tokens:{[asset]:amount},msg:message,min_gas:'100000000000000'}],
+    intents:[{intent:'transfer',receiver_id:snapshot.accountId,tokens:{[asset]:amount},msg:message,min_gas:'25000000000000'}],
     context:{kind:'purchase',contractId:snapshot.accountId,codeHash:snapshot.codeHash,invoiceId,expectedRound:state.round,
       amount,publishedTermsHash:terms.published_terms_sha256}});
 }
@@ -59,7 +59,7 @@ export function nominationPlan({snapshot,buyerId,recipientId,now=Date.now()}) {
   assert(snapshot.state.holder?.account_id===payer,'FINAL_HOLDER_REQUIRED','Only the final payer can nominate a recipient',403);
   assert(BigInt(snapshot.state.cutoff_ns)<=BigInt(now)*1000000n&&snapshot.state.outcome!=='failure'&&!snapshot.state.nft_minted,'NOMINATION_CLOSED','Final recipient nomination is unavailable');
   return intentPlan({signerId:payer,verifier:snapshot.state.intents_contract_id,now,
-    intents:[{intent:'auth_call',contract_id:snapshot.accountId,msg:JSON.stringify({action:'nominate_nft_recipient',recipient_id:recipient}),min_gas:'100000000000000'}],
+    intents:[{intent:'auth_call',contract_id:snapshot.accountId,msg:JSON.stringify({action:'nominate_nft_recipient',recipient_id:recipient}),min_gas:'25000000000000'}],
     context:{kind:'nominate',contractId:snapshot.accountId,recipientId:recipient,codeHash:snapshot.codeHash}});
 }
 

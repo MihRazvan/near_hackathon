@@ -29,6 +29,7 @@ struct World {
     sandbox: Sandbox,
     net: NetworkConfig,
     signer: Arc<Signer>,
+    bounded_gas: bool,
 }
 impl World {
     async fn start() -> Result<Self> {
@@ -39,6 +40,7 @@ impl World {
             sandbox,
             net,
             signer,
+            bounded_gas: false,
         })
     }
     async fn account(&self, name: &str) -> Result<()> {
@@ -76,7 +78,15 @@ impl World {
         Ok(Contract(id(contract))
             .call_function(method, args)
             .transaction()
-            .gas(NearGas::from_tgas(280))
+            .gas(NearGas::from_tgas(if self.bounded_gas {
+                match method {
+                    "execute_intents" | "release_credit" => 60,
+                    "new_campaign" | "finalize_success" | "finalize_failure" => 20,
+                    "mint_final_placement" | "nft_transfer" | "submit_artwork" | "lock_artwork" |
+                    "submit_delivery_proof" | "record_issue_decision" | "accept_nft_nomination" => 25,
+                    _ => 280,
+                }
+            } else { 280 }))
             .deposit(NearToken::from_yoctonear(yocto))
             .with_signer(id(sender), self.signer.clone())
             .send_to(&self.net)
@@ -1496,7 +1506,8 @@ async fn real_local_chain_proof() -> Result<()> {
 /// Intents binary. Funding is a local test-token deposit, not a public bridge.
 #[tokio::test]
 async fn real_cent_principal_intents_proof() -> Result<()> {
-    let world = World::start().await?;
+    let mut world = World::start().await?;
+    world.bounded_gas = true;
     for name in [
         "seller.sandbox",
         "arbiter.sandbox",
@@ -1558,7 +1569,7 @@ async fn real_cent_principal_intents_proof() -> Result<()> {
         let intent = |amount: u128, label: &str, round: u64| {
             json!([{"intent":"transfer","receiver_id":name,
                 "tokens":{"nep141:usdc.sandbox":amount.to_string()},
-                "msg":invoice(label,round),"min_gas":"65000000000000"}])
+                "msg":invoice(label,round),"min_gas":"25000000000000"}])
         };
         let a = sdk_envelope(
             &world,
@@ -1723,7 +1734,8 @@ async fn real_cent_principal_intents_proof() -> Result<()> {
 
 #[tokio::test]
 async fn dated_campaign_terms_and_fulfillment_proof() -> Result<()> {
-    let world = World::start().await?;
+    let mut world = World::start().await?;
+    world.bounded_gas = true;
     for name in [
         "seller.sandbox",
         "arbiter.sandbox",
@@ -1849,7 +1861,7 @@ async fn dated_campaign_terms_and_fulfillment_proof() -> Result<()> {
         .await?;
     let transfer = |amount: &str, label: &str, round: u64| {
         json!([{"intent":"transfer","receiver_id":campaign,
-        "tokens":{"nep141:usdc.sandbox":amount},"msg":message(label,round),"min_gas":"100000000000000"}])
+        "tokens":{"nep141:usdc.sandbox":amount},"msg":message(label,round),"min_gas":"25000000000000"}])
     };
     let a = sdk_envelope(
         &world,
@@ -1863,7 +1875,7 @@ async fn dated_campaign_terms_and_fulfillment_proof() -> Result<()> {
         "unused.sandbox",
         transfer("150000", "dated-second", 1),
         json!([
-            [{"intent":"auth_call","contract_id":campaign,"msg":json!({"action":"nominate_nft_recipient","recipient_id":"bob.sandbox"}).to_string(),"min_gas":"100000000000000"}]
+            [{"intent":"auth_call","contract_id":campaign,"msg":json!({"action":"nominate_nft_recipient","recipient_id":"bob.sandbox"}).to_string(),"min_gas":"25000000000000"}]
         ]),
     )?;
     let a_id = a["signerId"].as_str().unwrap();

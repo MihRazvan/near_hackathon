@@ -65,7 +65,7 @@ export class Qualification {
   if(BigInt(when)>BigInt(Date.now())*1000000n)return {phase:'waiting',eligibleAt:new Date(Number(BigInt(when)/1000000n)).toISOString()};
   const arbiter=await this.chain.vault.identity('arbiter');
   const op=await this.chain.call({id,signerId:arbiter.accountId,signer:arbiter.signer,receiverId:c.deploymentId,codeHash:snapshot.codeHash,
-   method:name==='failure'?'finalize_failure':'finalize_success'});
+   method:name==='failure'?'finalize_failure':'finalize_success',gas:'20000000000000'});
   const after=await this.chain.snapshot(c.deploymentId);
   assert(op.phase!=='confirmed'||after.state.outcome===name,'SETTLEMENT_NOT_PROVEN','Campaign final state did not match settlement');
   return {phase:op.phase,hash:op.transaction_hash,outcome:after.state.outcome};
@@ -95,5 +95,49 @@ export class Qualification {
   if(c.recovered)return {accountId:c.deploymentId,recovered:true};
   const wallets=['A','B'].map(letter=>privateKeyToAccount(this.config.keys['buyer'+letter]).address.toLowerCase());
   return this.chain.snapshot(c.deploymentId,[...wallets,this.config.treasury]);
+ }
+ async rights(step){
+  if(step==='setup'){
+   const output=[];for(const label of ['placement-owner','placement-transferee']){
+    const funded=await this.chain.fundIdentity(label,'100000000000000000000000');output.push({label,accountId:funded.identity.accountId,phase:funded.operation.phase});
+    if(funded.operation.phase!=='confirmed')break;
+   }return output;
+  }
+  const c=this.store.get('qualification','success');assert(c?.deploymentId,'NO_CAMPAIGN','Deploy the success scenario first');
+  const first=await this.chain.vault.identity('placement-owner'),second=await this.chain.vault.identity('placement-transferee');
+  const snapshot=await this.chain.snapshot(c.deploymentId),contractId=c.deploymentId,codeHash=snapshot.codeHash;
+  const id='qualification-rights-'+step,prior=this.store.operation(id);
+  if(prior)return this.publicOperation(await this.near.reconcile(id));
+  if(step==='nominate'){
+   const account=privateKeyToAccount(this.config.keys.buyerB),plan=await this.chain.prepareNomination({buyerId:account.address,contractId,recipientId:first.accountId});
+   const operation=await this.chain.relay({buyerId:account.address,planId:plan.planId,signature:await account.signMessage({message:plan.message})});
+   this.store.insert('qualification-step',id,account.address.toLowerCase(),{operationId:operation.id,planId:plan.planId});return this.publicOperation(operation);
+  }
+  let signerId=this.config.treasury,signer=await this.chain.treasurySigner(),method,args={},deposit='0';
+  if(step==='accept'){signerId=first.accountId;signer=first.signer;method='accept_nft_nomination';}
+  else if(step==='mint'){method='mint_final_placement';deposit='30000000000000000000000';}
+  else if(step==='transfer'){signerId=first.accountId;signer=first.signer;method='nft_transfer';deposit='1';args={receiver_id:second.accountId,token_id:contractId};}
+  else if(['artwork','proof'].includes(step)){
+   const artifact=this.store.list('media',this.config.treasury).find(row=>row.status==='verified'&&row.mime==='text/plain');assert(artifact,'NO_ARTIFACT','Upload the public synthetic artifact first');
+   args={artifact_uri:artifact.uri,artifact_sha256:Buffer.from(artifact.sha256,'hex').toString('base64')};deposit='10000000000000000000000';
+   if(step==='artwork'){signerId=second.accountId;signer=second.signer;method='submit_artwork';args.token_id=contractId;}
+   else method='submit_delivery_proof';
+  }
+  else if(step==='lock'){method='lock_artwork';deposit='1';args={expected_revision:snapshot.rights.revision};}
+  else if(['open-issue','close-issue'].includes(step)){
+   const arbiter=await this.chain.vault.identity('arbiter');signerId=arbiter.accountId;signer=arbiter.signer;method='record_issue_decision';deposit='1000000000000000000000';
+   args={case_id:'synthetic-delivery-check',open:step==='open-issue',evidence_sha256:Buffer.from(hashObject({synthetic:true,step}),'hex').toString('base64')};
+  }
+  else assert(false,'INVALID_RIGHTS_STEP','Use setup, nominate, accept, mint, transfer, artwork, lock, proof, open-issue or close-issue');
+  return this.publicOperation(await this.chain.call({id,signerId,signer,receiverId:contractId,codeHash,method,args,deposit}));
+ }
+ publicOperation(op){return {id:op.id,phase:op.phase,hash:op.transaction_hash};}
+ async repairSettlement(name){
+  const id='finalize-'+name,old=await this.near.reconcile(id);
+  if(old.phase==='confirmed')return this.publicOperation(old);
+  if(old.phase==='superseded')return this.publicOperation(await this.near.reconcile(old.result.replacementId));
+  const arbiter=await this.chain.vault.identity('arbiter');
+  return this.publicOperation(await this.near.execute({id:id+'-lower-gas',signer:arbiter.signer,
+   plan:{...old.plan,replacesOperationId:id,actions:[{...old.plan.actions[0],gas:'20000000000000'}]}}));
  }
 }

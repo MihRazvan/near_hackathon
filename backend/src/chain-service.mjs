@@ -80,7 +80,7 @@ export class ChainService {
     }
     const signed=await signedErc191(plan,signature);
     const operation=await this.call({id,signerId:this.config.treasury,signer:await this.treasurySigner(),receiverId:this.config.assets.intentsId,
-      codeHash:this.config.assets.intentsCodeHash,method:'execute_intents',args:{signed:[signed]},gas:'300000000000000'});
+      codeHash:this.config.assets.intentsCodeHash,method:'execute_intents',args:{signed:[signed]},gas:'60000000000000'});
     let status=operation.phase;
     if(status==='confirmed'&&plan.context.kind==='purchase')status=this.purchaseAccepted(plan,operation)?'accepted':'rejected';
     this.store.update('intent',planId,payer,record.version,{plan:record.plan,status,operationId:id});

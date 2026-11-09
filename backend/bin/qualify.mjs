@@ -12,6 +12,9 @@ export async function command(args){
  const r=await runtime();
  try{
   const [verb,selected]=args;
+  if(verb==='repair-settlement')return await new Qualification(r).repairSettlement(selected);
+  if(verb==='rebroadcast'){const op=await r.near.rebroadcast(selected);return {id:op.id,phase:op.phase,hash:op.transaction_hash};}
+  if(verb==='rights')return await new Qualification(r).rights(selected);
   if(['campaign','buy','claim','finalize','recover','inspect'].includes(verb)){
    const qualification=new Qualification(r);
    if(verb==='campaign'){const c=await qualification.campaign(selected);return {accountId:c.deploymentId,biddingClose:new Date(Number(BigInt(c.terms.bidding_close_ns)/1000000n)).toISOString(),synthetic:true};}
