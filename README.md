@@ -36,4 +36,6 @@ Vercel configuration lives at the repository root. Website source and tests live
 
 ## NEAR contracts and local integration
 
-The integration branch includes the [dated campaign contract](contracts/campaign-marketplace/README.md), the frozen financial proof and [actual Sandbox suites](proofs/sandbox/README.md). They cover terms-bound fixed/takeover purchases, original-payer credits, placement NFTs, artwork locking, evidence and post-review settlement. Unit and Sandbox tests require no funded wallet. Follow those package instructions to reproduce them; local contract execution is distinct from funded bridge/provider qualification.
+The integration branch includes a [local backend and HTTP API](backend/README.md), the [dated campaign contract](contracts/campaign-marketplace/README.md), the frozen financial proof and [actual Sandbox suites](proofs/sandbox/README.md). The backend handles wallet sessions, inventory, multi-owner buyer campaigns, exact Intents signatures, original-payer claims, final placement NFTs, artwork/proof, settlement and cross-chain returns. The hosted prototype remains independent and uses mock data.
+
+Backend, unit and Sandbox tests require no funded wallet. The backend also starts in read-only mode without credentials. Follow the package instructions to reproduce local execution; funded public qualification is distinct from fixtures and Sandbox tests.

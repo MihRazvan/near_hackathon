@@ -23,6 +23,8 @@ cargo test --locked -p technical-proof --test end_to_end real_cent_principal_int
 
 It executes 1/2-cent failure and 10/15-cent success flows with distinct ERC-191 identities, principal claims and final zero escrow balances. Round-up behavior is intentional: a one-cent principal has a one-cent rounded conditional reward.
 
+The low-principal proof also verifies exact transfer balances with a nonzero configured swap fee, a one-cent native-token withdrawal and its return deposit. Current bounded profiles use 60 Tgas for `execute_intents` and claim release, 25 Tgas receiver hooks, 20 Tgas campaign initialization/settlement and 25 Tgas NFT/fulfillment actions. Tested gas allocations are separate from actual gas burned or storage collateral.
+
 `dated_campaign_terms_and_fulfillment_proof` additionally executes the current campaign contract: fixed bookings and refunds, terms-bound Intents checkout, final NFT nomination/transfer, exact artwork revision locking, delivery evidence, review timing, case resolution and final payout. Build the campaign artifact before this test.
 
 Generated artifacts and result records remain ignored. No personal key, funded account or API key is required. `maintenance.rs` qualifies a development-only empty-state helper; it does not authorize changing a funded campaign.
