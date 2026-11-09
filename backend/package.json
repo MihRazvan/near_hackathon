@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node bin/server.mjs",
+    "connect:chatgpt": "node bin/connect-chatgpt.mjs",
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
