@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { KeyVault } from './vault.mjs';
 import { assert, hashObject, sha256, walletId, uint } from './core.mjs';
-import { purchasePlan, nominationPlan, withdrawalPlan, transferFee, signedErc191, validateIntentPlan, intentPlan } from './intents.mjs';
+import { purchasePlan, nominationPlan, withdrawalPlan, signedErc191, validateIntentPlan, intentPlan } from './intents.mjs';
 import { validateRoutePlan } from './oneclick.mjs';
 
 export class ChainService {
@@ -59,9 +59,8 @@ export class ChainService {
     const payer=walletId(buyerId),snapshot=await this.snapshot(contractId,[payer]);
     assert(!(await this.reads.view(contractId,'is_invoice_used',{invoice_id:invoiceId})),'INVOICE_USED','Choose a fresh invoice for this booking');
     const balance=await this.reads.view(this.config.assets.intentsId,'mt_balance_of',{account_id:payer,token_id:this.config.assets.nearAsset});
-    // Intents charges a ceil-rounded transfer fee in addition to receiver principal.
-    const principal=uint(snapshot.state.next_price),fee=transferFee(snapshot.state.next_price,String(snapshot.intentsFee));
-    assert(uint(balance)>=principal+fee,'INSUFFICIENT_INTENTS','Top up the original wallet Intents balance before purchase');
+    // The pinned transfer intent moves exact principal. Pip fees apply to swap netting, not ordinary transfers.
+    assert(uint(balance)>=uint(snapshot.state.next_price),'INSUFFICIENT_INTENTS','Top up the original wallet Intents balance before purchase');
     const plan=purchasePlan({snapshot,buyerId:payer,invoiceId,asset:this.config.assets.nearAsset});
     this.store.insert('intent',plan.planId,payer,{plan,status:'prepared'});return plan;
   }
@@ -75,7 +74,7 @@ export class ChainService {
     validateRoutePlan(route,{maxInput:route.request.amount,minOutput:route.response.quote.minAmountOut});
     assert(route.direction==='exit'&&route.wallet===walletId(buyerId),'WRONG_WALLET','Return route must belong to the original wallet');
     const balance=await this.reads.view(this.config.assets.intentsId,'mt_balance_of',{account_id:route.wallet,token_id:this.config.assets.nearAsset});
-    assert(uint(balance)>=uint(route.request.amount)+transferFee(route.request.amount),'INSUFFICIENT_INTENTS','Return amount plus protocol fee exceeds the wallet balance');
+    assert(uint(balance)>=uint(route.request.amount),'INSUFFICIENT_INTENTS','Return amount exceeds the wallet balance');
     const plan=intentPlan({signerId:buyerId,verifier:this.config.assets.intentsId,intents:[{intent:'transfer',receiver_id:route.response.quote.depositAddress,tokens:{[this.config.assets.nearAsset]:route.request.amount}}],
       context:{kind:'exit',routePlanId:route.planId}});
     this.store.insert('intent',plan.planId,plan.signerId,{plan,status:'prepared'});return plan;

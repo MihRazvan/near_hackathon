@@ -1717,6 +1717,9 @@ async fn real_cent_principal_intents_proof() -> Result<()> {
             number(&world.state(name).await?["total_withdrawn"]),
             first + second
         );
+        // A pinned protocol swap fee of one pip does not charge ordinary transfer intents.
+        assert_eq!(number(&world.view("verifier.sandbox", "mt_balance_of", balance(a_id)).await?), 250_000 + if success { 10_000 } else { 0 });
+        assert_eq!(number(&world.view("verifier.sandbox", "mt_balance_of", balance(b_id)).await?), 250_000 - if success { second } else { 0 });
         checks.push(json!({"market":name,"initial_micro_usdc":first.to_string(),"takeover_micro_usdc":second.to_string(),
             "outcome":if success {"success"} else {"failure"},"two_distinct_erc191_buyers":true,
             "released_principal":true,"bonus_resolved":true,"storefront_balance_zero":true}));

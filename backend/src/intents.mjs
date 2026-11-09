@@ -3,14 +3,6 @@ import { recoverMessageAddress } from 'viem';
 import { baseEncode } from 'near-api-js';
 import { assert, uint, hashObject, walletId, canonical } from './core.mjs';
 
-// Pinned Intents fees use pips (1/1,000,000), rounded upward for transfers.
-export function transferFee(amount,pips='1'){const rate=uint(pips);assert(rate<=1000000n,'INVALID_FEE','Protocol fee is out of range');return (uint(amount)*rate+999999n)/1000000n;}
-export function spendableTransfer(balance,pips='1'){
-  const total=uint(balance),rate=uint(pips);let amount=total*1000000n/(1000000n+rate);
-  while(amount+transferFee(amount.toString(),pips)>total)amount--;
-  return amount.toString();
-}
-
 export function freshNonce() {
   let bytes;
   do { bytes=randomBytes(32); } while(bytes.subarray(0,4).equals(Buffer.from([86,40,246,198])));

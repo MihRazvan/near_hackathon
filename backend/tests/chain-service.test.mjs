@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { KeyVault } from '../src/vault.mjs';
 import { ChainService } from '../src/chain-service.mjs';
+import { Store } from '../src/store.mjs';
 
 test('generated implicit identities survive restart, retain a matching recovery key, and use owner-only files',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'everywhere-keys-'));
@@ -23,4 +24,13 @@ test('a refunded Intents transfer is not a purchase; acceptance requires exact c
  for(const field of ['invoice_id','buyer_id','amount','round']){const original=data[field];data[field]='other';assert.equal(service.purchaseAccepted(plan,op()),false);data[field]=original;}
  const unrelated=op();unrelated.result.outcome.receipts_outcome[0].outcome.executor_id='other.near';assert.equal(service.purchaseAccepted(plan,unrelated),false);
  assert.equal(service.purchaseAccepted(plan,{phase:'confirmed',result:{outcome:{receipts_outcome:[]}}}),false);
+});
+test('exact principal can be purchased without a fictitious extra swap fee on an ordinary transfer intent',async()=>{
+ const store=new Store(),wallet='0x'+'11'.repeat(20),now=Date.now();
+ try{const service=new ChainService({store,config:{stateDir:'/unused',assets:{nearAsset:'nep141:usdc.near',intentsId:'intents.near'}},reads:{view:async(_contract,method)=>method==='is_invoice_used'?false:'100000'}});
+  service.snapshot=async()=>({qualified:true,accountId:'campaign.near',codeHash:'qualified',observedAt:new Date(now).toISOString(),intentsFee:1,
+   state:{outcome:'open',round:'0',next_price:'100000',holder:null,intents_contract_id:'intents.near',intents_token_id:'nep141:usdc.near'},
+   campaign:{terms:{bidding_close_ns:String(BigInt(now+600000)*1000000n),published_terms_sha256:Buffer.alloc(32).toString('base64'),takeover_enabled:true}}});
+  assert.equal((await service.preparePurchase({buyerId:wallet,contractId:'campaign.near',invoiceId:'exact-principal'})).context.amount,'100000');
+ }finally{store.close();}
 });

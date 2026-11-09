@@ -3,7 +3,6 @@ import { assert, hashObject, uint } from './core.mjs';
 import { ChainService } from './chain-service.mjs';
 import { qualifyNetwork } from './runtime.mjs';
 import { successfulAccountClosure } from './rpc.mjs';
-import { spendableTransfer } from './intents.mjs';
 
 // Accelerated, synthetic operator scenarios. Dates are not commercial policy defaults.
 export class Qualification {
@@ -187,9 +186,9 @@ export class Qualification {
   let step=this.store.get('qualification-step',id),plan,route;
   if(step){plan=this.store.get('intent',step.planId).plan;route=this.store.get('route',step.routeId).plan;}
   else{
-   const a=this.config.assets,balance=await this.reads.view(a.intentsId,'mt_balance_of',{account_id:wallet,token_id:a.nearAsset}),amount=spendableTransfer(balance);
+   const a=this.config.assets,amount=await this.reads.view(a.intentsId,'mt_balance_of',{account_id:wallet,token_id:a.nearAsset});
    assert(uint(amount)>=10000n,'ROUTE_TOO_SMALL','Consolidate existing credits before paying another bridge fee');
-   const minOutput=(uint(amount)-5000n).toString();
+   const minOutput=(uint(amount)-10000n).toString();
    route=await this.routes.quote({direction:'exit',wallet,amount,maxInput:amount,minOutput,dry:false});
    this.store.insert('route',id,wallet,{plan:route});plan=await this.chain.prepareExit({buyerId:wallet,routeId:id});
    step=this.store.insert('qualification-step',id,wallet,{planId:plan.planId,routeId:id});
