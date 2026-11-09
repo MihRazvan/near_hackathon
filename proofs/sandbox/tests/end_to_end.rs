@@ -1720,3 +1720,362 @@ async fn real_cent_principal_intents_proof() -> Result<()> {
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }
+
+#[tokio::test]
+async fn dated_campaign_terms_and_fulfillment_proof() -> Result<()> {
+    let world = World::start().await?;
+    for name in [
+        "seller.sandbox",
+        "arbiter.sandbox",
+        "alice.sandbox",
+        "bob.sandbox",
+        "carol.sandbox",
+    ] {
+        world.account(name).await?;
+    }
+    world.ft("usdc.sandbox").await?;
+    for owner in ["alice.sandbox", "bob.sandbox"] {
+        world.mint("usdc.sandbox", owner, USDC).await?;
+    }
+    let terms_hash = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=";
+    let terms = |now: u64, takeovers: bool| {
+        json!({
+            "sale_id":"sale-1","asset_id":"vehicle-1","spot_id":"door-left","published_terms_sha256":terms_hash,
+            "takeover_enabled":takeovers,"bidding_close_ns":(now+600_000_000_000).to_string(),
+            "artwork_due_ns":(now+900_000_000_000).to_string(),"installation_due_ns":(now+1_200_000_000_000).to_string(),
+            "service_start_ns":(now+1_300_000_000_000).to_string(),"service_end_ns":(now+1_500_000_000_000).to_string(),
+            "review_end_ns":(now+1_700_000_000_000).to_string()
+        })
+    };
+    let message = |invoice: &str, round: u64| {
+        json!({"invoice_id":invoice,"expected_round":round.to_string(),"published_terms_sha256":terms_hash}).to_string()
+    };
+    let initialize = |terms: Value, settlement: &str| {
+        json!({"seller_id":"seller.sandbox","arbiter_id":"arbiter.sandbox",
+        "ft_contract_id":"usdc.sandbox","intents_contract_id":"verifier.sandbox","settlement":settlement,"initial_price_cents":"10","terms":terms})
+    };
+
+    world
+        .deploy("fixed-campaign.sandbox", "campaign-marketplace.wasm")
+        .await?;
+    let now: u64 = Chain::block()
+        .fetch_from(&world.net)
+        .await?
+        .header
+        .timestamp_nanosec
+        .parse()?;
+    world
+        .ok(
+            "fixed-campaign.sandbox",
+            "fixed-campaign.sandbox",
+            "new_campaign",
+            initialize(terms(now, false), "native"),
+            0,
+        )
+        .await?;
+    world
+        .mint("usdc.sandbox", "fixed-campaign.sandbox", 0)
+        .await?;
+    let before = world.balance("usdc.sandbox", "alice.sandbox").await?;
+    world.ok("alice.sandbox","usdc.sandbox","ft_transfer_call",json!({"receiver_id":"fixed-campaign.sandbox","amount":"100000","msg":invoice("unbound",0),"memo":null}),1).await?;
+    assert_eq!(
+        world.balance("usdc.sandbox", "alice.sandbox").await?,
+        before
+    );
+    world.ok("alice.sandbox","usdc.sandbox","ft_transfer_call",json!({"receiver_id":"fixed-campaign.sandbox","amount":"100000","msg":message("fixed-first",0),"memo":null}),1).await?;
+    let bob_before = world.balance("usdc.sandbox", "bob.sandbox").await?;
+    world.ok("bob.sandbox","usdc.sandbox","ft_transfer_call",json!({"receiver_id":"fixed-campaign.sandbox","amount":"150000","msg":message("fixed-second",1),"memo":null}),1).await?;
+    assert_eq!(
+        world.balance("usdc.sandbox", "bob.sandbox").await?,
+        bob_before
+    );
+    assert_eq!(world.state("fixed-campaign.sandbox").await?["round"], "1");
+    advance_to(&world, now + 600_000_000_000).await?;
+    world
+        .ok(
+            "arbiter.sandbox",
+            "fixed-campaign.sandbox",
+            "finalize_failure",
+            json!({}),
+            0,
+        )
+        .await?;
+    world
+        .ok(
+            "alice.sandbox",
+            "fixed-campaign.sandbox",
+            "withdraw",
+            json!({}),
+            0,
+        )
+        .await?;
+    assert_eq!(
+        world
+            .balance("usdc.sandbox", "fixed-campaign.sandbox")
+            .await?,
+        0
+    );
+
+    let actual =
+        std::fs::read(root().join("proofs/intents-compatibility/artifacts/intents-mainnet.wasm"))?;
+    let pin: Value = serde_json::from_slice(&std::fs::read(
+        root().join("proofs/intents-compatibility/pin.json"),
+    )?)?;
+    assert_eq!(
+        near_api::types::CryptoHash::hash(&actual).to_string(),
+        pin["intents_account"]["response"]["result"]["code_hash"]
+            .as_str()
+            .unwrap()
+    );
+    world.deploy_bytes("verifier.sandbox", actual).await?;
+    world.ok("verifier.sandbox","verifier.sandbox","new",json!({"config":{"wnear_id":"usdc.sandbox","fees":{"fee":1,"fee_collector":"seller.sandbox"},"roles":{"super_admins":["sandbox"],"admins":{},"grantees":{}}}}),0).await?;
+    world.mint("usdc.sandbox", "verifier.sandbox", 0).await?;
+    let campaign = "dated-campaign.sandbox";
+    world.deploy(campaign, "campaign-marketplace.wasm").await?;
+    let now: u64 = Chain::block()
+        .fetch_from(&world.net)
+        .await?
+        .header
+        .timestamp_nanosec
+        .parse()?;
+    world
+        .ok(
+            campaign,
+            campaign,
+            "new_campaign",
+            initialize(terms(now, true), "intents"),
+            0,
+        )
+        .await?;
+    let transfer = |amount: &str, label: &str, round: u64| {
+        json!([{"intent":"transfer","receiver_id":campaign,
+        "tokens":{"nep141:usdc.sandbox":amount},"msg":message(label,round),"min_gas":"100000000000000"}])
+    };
+    let a = sdk_envelope(
+        &world,
+        "erc191",
+        "unused.sandbox",
+        transfer("100000", "dated-first", 0),
+    )?;
+    let b = sdk_batches(
+        &world,
+        "erc191",
+        "unused.sandbox",
+        transfer("150000", "dated-second", 1),
+        json!([
+            [{"intent":"auth_call","contract_id":campaign,"msg":json!({"action":"nominate_nft_recipient","recipient_id":"bob.sandbox"}).to_string(),"min_gas":"100000000000000"}]
+        ]),
+    )?;
+    let a_id = a["signerId"].as_str().unwrap();
+    let b_id = b["signerId"].as_str().unwrap();
+    assert_ne!(a_id, b_id);
+    for (funder, buyer, signed) in [("alice.sandbox", a_id, &a), ("bob.sandbox", b_id, &b)] {
+        world
+            .ok(
+                funder,
+                "usdc.sandbox",
+                "ft_transfer_call",
+                json!({"receiver_id":"verifier.sandbox","amount":"250000","msg":buyer,"memo":null}),
+                1,
+            )
+            .await?;
+        world
+            .ok(
+                "carol.sandbox",
+                "verifier.sandbox",
+                "execute_intents",
+                signed["executeArgs"].clone(),
+                0,
+            )
+            .await?;
+    }
+    assert_eq!(world.state(campaign).await?["holder"]["account_id"], b_id);
+    world
+        .ok(
+            "carol.sandbox",
+            campaign,
+            "release_credit",
+            json!({"account_id":a_id}),
+            0,
+        )
+        .await?;
+    assert_eq!(
+        number(&world.credit(campaign, a_id).await?["conditional_bonus"]),
+        10_000
+    );
+    advance_to(&world, now + 600_000_000_000).await?;
+    world
+        .ok(
+            "carol.sandbox",
+            "verifier.sandbox",
+            "execute_intents",
+            b["followupExecuteArgs"][0].clone(),
+            0,
+        )
+        .await?;
+    world
+        .ok(
+            "bob.sandbox",
+            campaign,
+            "accept_nft_nomination",
+            json!({}),
+            0,
+        )
+        .await?;
+    world
+        .ok(
+            "carol.sandbox",
+            campaign,
+            "mint_final_placement",
+            json!({}),
+            100_000_000_000_000_000_000_000,
+        )
+        .await?;
+    world.ok("bob.sandbox",campaign,"nft_transfer",json!({"receiver_id":"carol.sandbox","token_id":campaign,"approval_id":null,"memo":null}),1).await?;
+    for uri in ["ipfs://draft-one", "ipfs://draft-two"] {
+        world
+            .ok(
+                "carol.sandbox",
+                campaign,
+                "submit_artwork",
+                json!({"token_id":campaign,"artifact_uri":uri,"artifact_sha256":terms_hash}),
+                100_000_000_000_000_000_000_000,
+            )
+            .await?;
+    }
+    assert!(
+        world
+            .call(
+                "seller.sandbox",
+                campaign,
+                "lock_artwork",
+                json!({"expected_revision":"1"}),
+                1
+            )
+            .await?
+            .is_failure()
+    );
+    world
+        .ok(
+            "seller.sandbox",
+            campaign,
+            "lock_artwork",
+            json!({"expected_revision":"2"}),
+            1,
+        )
+        .await?;
+    world
+        .ok(
+            "seller.sandbox",
+            campaign,
+            "submit_delivery_proof",
+            json!({"artifact_uri":"ipfs://installation-proof","artifact_sha256":terms_hash}),
+            100_000_000_000_000_000_000_000,
+        )
+        .await?;
+    assert!(
+        world
+            .call(
+                "arbiter.sandbox",
+                campaign,
+                "finalize_success",
+                json!({}),
+                0
+            )
+            .await?
+            .is_failure()
+    );
+    world
+        .ok(
+            "arbiter.sandbox",
+            campaign,
+            "record_issue_decision",
+            json!({"case_id":"proof-review","open":true,"evidence_sha256":terms_hash}),
+            100_000_000_000_000_000_000_000,
+        )
+        .await?;
+    advance_to(&world, now + 1_700_000_000_000).await?;
+    assert!(
+        world
+            .call(
+                "arbiter.sandbox",
+                campaign,
+                "finalize_success",
+                json!({}),
+                0
+            )
+            .await?
+            .is_failure()
+    );
+    assert!(
+        world
+            .call(
+                "seller.sandbox",
+                campaign,
+                "record_issue_decision",
+                json!({"case_id":"proof-review","open":false,"evidence_sha256":terms_hash}),
+                100_000_000_000_000_000_000_000
+            )
+            .await?
+            .is_failure()
+    );
+    world
+        .ok(
+            "arbiter.sandbox",
+            campaign,
+            "record_issue_decision",
+            json!({"case_id":"proof-review","open":false,"evidence_sha256":terms_hash}),
+            100_000_000_000_000_000_000_000,
+        )
+        .await?;
+    world
+        .ok(
+            "arbiter.sandbox",
+            campaign,
+            "finalize_success",
+            json!({}),
+            0,
+        )
+        .await?;
+    assert_eq!(
+        number(&world.credit(campaign, a_id).await?["available"]),
+        10_000
+    );
+    assert_eq!(
+        number(&world.credit(campaign, "seller.sandbox").await?["available"]),
+        140_000
+    );
+    for creditor in [a_id, "seller.sandbox"] {
+        world
+            .ok(
+                "carol.sandbox",
+                campaign,
+                "release_credit",
+                json!({"account_id":creditor}),
+                0,
+            )
+            .await?;
+    }
+    let remaining = world
+        .view(
+            "verifier.sandbox",
+            "mt_balance_of",
+            json!({"account_id":campaign,"token_id":"nep141:usdc.sandbox"}),
+        )
+        .await?;
+    assert_eq!(number(&remaining), 0);
+    assert_eq!(world.state(campaign).await?["total_pending"], "0");
+    let bytes = std::fs::read(root().join("target/proof-artifacts/campaign-marketplace.wasm"))?;
+    let report = json!({"network":"local NEAR Sandbox","funded_public_transactions":0,"campaign_code_hash":near_api::types::CryptoHash::hash(&bytes).to_string(),
+        "artifact_bytes":bytes.len(),"checks":["committed terms required","fixed spot rejects takeover and refunds","fixed cancellation and native refund",
+        "two EVM wallets purchase and takeover through pinned Intents","original-payer principal release","final NFT nomination acceptance and mint",
+        "NFT transfer grants artwork authority","stale artwork lock rejected","exact revision locked","delivery proof committed",
+        "no payout before review end","open dispute blocks payout","seller cannot resolve own dispute","successful seller and reward release","zero remaining escrow"]});
+    std::fs::create_dir_all(root().join(".local/campaign-proof"))?;
+    std::fs::write(
+        root().join(".local/campaign-proof/sandbox-results.json"),
+        serde_json::to_string_pretty(&report)?,
+    )?;
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
+}

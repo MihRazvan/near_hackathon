@@ -33,3 +33,7 @@ vercel deploy --prod
 ```
 
 Vercel configuration lives at the repository root. Website source and tests live in [`prototype/`](prototype/); see its [README](prototype/README.md) for connected review journeys and browser checks. No credentials or environment variables are required for the prototype.
+
+## NEAR contracts and local integration
+
+The integration branch includes the [dated campaign contract](contracts/campaign-marketplace/README.md), the frozen financial proof and [actual Sandbox suites](proofs/sandbox/README.md). They cover terms-bound fixed/takeover purchases, original-payer credits, placement NFTs, artwork locking, evidence and post-review settlement. Unit and Sandbox tests require no funded wallet. Follow those package instructions to reproduce them; local contract execution is distinct from funded bridge/provider qualification.

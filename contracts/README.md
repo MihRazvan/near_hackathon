@@ -1,5 +1,7 @@
 # NEAR marketplace contracts
 
+The current product contract is [campaign-marketplace](campaign-marketplace/README.md), which adds committed terms, fixed spots and the full service/review lifecycle. The `marketplace` crate below remains a frozen historical proof so its exact-hash deployment and recovery tests remain reproducible. New product deployments use a new account and `new_campaign`; do not overwrite funded legacy state.
+
 The financial core currently represents one finite advertising position per contract. It accepts either an allowlisted NEP-141 token or an allowlisted Intents token, enforces an invoice and expected round, and maintains original-payer credits through takeovers and placement-right transfers.
 
 Takeover prices are 1.5× rounded up to a cent. A displaced payer receives available principal and a separate conditional reward; successful physical-fulfillment adjudication can vest that reward only after the configured review deadline. Failure cancels rewards and preserves principal refunds. Physical fulfillment is decided by an explicit trusted arbiter, not inferred from a blockchain transaction or image.

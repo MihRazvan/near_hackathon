@@ -282,6 +282,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "campaign-marketplace"
+version = "0.1.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+ "near-sys",
+]
+
+[[package]]
 name = "cc"
 version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

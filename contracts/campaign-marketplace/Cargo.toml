@@ -1,0 +1,23 @@
+[package]
+name = "campaign-marketplace"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# LOCAL TEST ARTIFACT ONLY: outgoing transfer still runs; callback fails.
+callback-fault = []
+
+[dependencies]
+near-sdk = { version = "=5.30.0", features = ["deterministic-account-ids", "legacy"] }
+near-contract-standards = "=5.30.0"
+# SDK 5.30.0 references these near-sys symbols unconditionally. This feature
+# compatibility pin is not an application dependency on universal accounts.
+near-sys = { version = "=0.4.1", features = ["universal-accounts"] }
+
+[dev-dependencies]
+near-sdk = { version = "=5.30.0", features = ["unit-testing", "deterministic-account-ids", "legacy"] }
