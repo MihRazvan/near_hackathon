@@ -1,0 +1,104 @@
+import { KeyPairSigner, baseEncode } from 'near-api-js';
+import { readFile } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { KeyVault } from './vault.mjs';
+import { assert, hashObject, sha256, walletId, uint } from './core.mjs';
+import { purchasePlan, nominationPlan, signedErc191, validateIntentPlan, intentPlan } from './intents.mjs';
+import { validateRoutePlan } from './oneclick.mjs';
+
+export class ChainService {
+  constructor(runtime){Object.assign(this,runtime);this.vault=new KeyVault(join(this.config.stateDir,'keys'));}
+  treasurySigner(){return KeyPairSigner.fromSecretKey(this.config.keys.near);}
+  async call({id,signerId,signer,receiverId,method,args={},gas='150000000000000',deposit='0',codeHash}){
+    return this.near.execute({id,signer,plan:{network:this.config.network,signerId,receiverId,...(signerId===this.config.treasury&&uint(deposit)>0n?{allocationAccount:receiverId}:{}),expectedReceiverCodeHash:codeHash,
+      actions:[{type:'call',method,args,gas,deposit}]}});
+  }
+  async fundIdentity(label,amount){
+    const identity=await this.vault.identity(label),id='identity-fund-'+label,prior=this.store.operation(id);
+    if(prior)return {identity,operation:await this.near.reconcile(id)};
+    let exists=false;try{await this.reads.account(identity.accountId);exists=true;}catch(e){if(e.code!=='UNKNOWN_ACCOUNT')throw e;}
+    assert(!exists,'ACCOUNT_EXISTS','Generated identity already exists; reconcile its funding instead of topping up');
+    const operation=await this.near.execute({id,signer:await this.treasurySigner(),plan:{network:this.config.network,signerId:this.config.treasury,receiverId:identity.accountId,allocationAccount:identity.accountId,actions:[{type:'transfer',amount}]}});
+    return {identity,operation};
+  }
+  async deploy({label,initialPriceCents,terms,sellerId,arbiterId}){
+    const identity=await this.vault.identity(label),id='deploy-'+label,prior=this.store.operation(id);
+    if(prior){const operation=await this.near.reconcile(id);if(operation.phase==='confirmed')this.registerDeployment(identity,label,operation);return {identity,operation};}
+    const artifact=await readFile(this.config.artifact),manifest=JSON.parse(await readFile(join(dirname(this.config.artifact),'campaign-manifest.json'),'utf8'));
+    assert(artifact.length===manifest.bytes&&sha256(artifact)===manifest.sha256,'ARTIFACT_CHANGED','Compiled campaign artifact differs from its manifest');
+    const args={seller_id:sellerId,arbiter_id:arbiterId,ft_contract_id:this.config.assets.nearUsdc,intents_contract_id:this.config.assets.intentsId,settlement:'intents',initial_price_cents:initialPriceCents,terms};
+    const plan={network:this.config.network,signerId:identity.accountId,receiverId:identity.accountId,
+      actions:[{type:'deploy',code:artifact.toString('base64'),sha256:manifest.sha256},{type:'call',method:'new_campaign',args,gas:'80000000000000',deposit:'0'}]};
+    const operation=await this.near.execute({id,signer:identity.signer,plan});
+    if(operation.phase==='confirmed')this.registerDeployment(identity,label,operation);
+    return {identity,operation};
+  }
+  registerDeployment(identity,label,operation){
+    const action=operation.plan.actions.find(a=>a.type==='call'&&a.method==='new_campaign'),args=action.args;
+    const codeHash=baseEncode(Buffer.from(operation.plan.actions.find(a=>a.type==='deploy').sha256,'hex'));
+    const existing=this.store.get('deployment',identity.accountId);
+    if(existing){assert(existing.codeHash===codeHash&&hashObject(existing.terms)===hashObject(args.terms),'DEPLOYMENT_CHANGED','Deployment record changed');return existing;}
+    return this.store.insert('deployment',identity.accountId,args.seller_id,{label,codeHash,terms:args.terms,initialPriceCents:args.initial_price_cents,arbiterId:args.arbiter_id});
+  }
+  async snapshot(contractId,wallets=[]){
+    const deployment=this.store.get('deployment',contractId);assert(deployment,'UNREGISTERED_DEPLOYMENT','Campaign deployment is not registered',404);
+    const snapshot=await this.reads.snapshot(contractId,{expectedCodeHash:deployment.codeHash,expectedIntentsCodeHash:this.config.assets.intentsCodeHash,expectedAssets:this.config.assets,wallets});
+    assert(hashObject(snapshot.campaign.terms)===hashObject(deployment.terms),'TERMS_CHANGED','Published campaign differs from its deployment record');
+    assert(snapshot.state.seller_id===deployment.owner&&snapshot.state.arbiter_id===deployment.arbiterId,'PARTIES_CHANGED','Campaign parties changed');return snapshot;
+  }
+  async preparePurchase({buyerId,contractId,invoiceId}){
+    const payer=walletId(buyerId),snapshot=await this.snapshot(contractId,[payer]);
+    assert(!(await this.reads.view(contractId,'is_invoice_used',{invoice_id:invoiceId})),'INVOICE_USED','Choose a fresh invoice for this booking');
+    const balance=await this.reads.view(this.config.assets.intentsId,'mt_balance_of',{account_id:payer,token_id:this.config.assets.nearAsset});
+    // Intents charges a ceil-rounded transfer fee in addition to receiver principal.
+    const principal=uint(snapshot.state.next_price),fee=(principal+9999n)/10000n;
+    assert(uint(balance)>=principal+fee,'INSUFFICIENT_INTENTS','Top up the original wallet Intents balance before purchase');
+    const plan=purchasePlan({snapshot,buyerId:payer,invoiceId,asset:this.config.assets.nearAsset});
+    this.store.insert('intent',plan.planId,payer,{plan,status:'prepared'});return plan;
+  }
+  async prepareNomination({buyerId,contractId,recipientId}){
+    const plan=nominationPlan({snapshot:await this.snapshot(contractId),buyerId,recipientId});
+    this.store.insert('intent',plan.planId,plan.signerId,{plan,status:'prepared'});return plan;
+  }
+  async prepareExit({buyerId,routeId}){
+    const stored=this.store.get('route',routeId),route=stored?.plan;
+    assert(stored?.owner===walletId(buyerId),'WRONG_WALLET','Return route must belong to the original wallet',403);
+    validateRoutePlan(route,{maxInput:route.request.amount,minOutput:route.response.quote.minAmountOut});
+    assert(route.direction==='exit'&&route.wallet===walletId(buyerId),'WRONG_WALLET','Return route must belong to the original wallet');
+    const plan=intentPlan({signerId:buyerId,verifier:this.config.assets.intentsId,intents:[{intent:'transfer',receiver_id:route.response.quote.depositAddress,tokens:{[this.config.assets.nearAsset]:route.request.amount}}],
+      context:{kind:'exit',routePlanId:route.planId}});
+    this.store.insert('intent',plan.planId,plan.signerId,{plan,status:'prepared'});return plan;
+  }
+  async relay({buyerId,planId,signature}){
+    const payer=walletId(buyerId),record=this.store.get('intent',planId);assert(record?.owner===payer,'WRONG_WALLET','Intent belongs to another wallet',403);
+    const id='relay-'+planId,prior=this.store.operation(id);if(prior)return this.near.reconcile(id);
+    const plan=validateIntentPlan(record.plan);
+    if(plan.context.kind==='purchase'){
+      const current=await this.snapshot(plan.context.contractId,[payer]);
+      assert(current.state.round===plan.context.expectedRound&&current.state.next_price===plan.context.amount,'PRICE_CHANGED','Campaign price changed; sign a fresh purchase');
+      assert(current.campaign.terms.published_terms_sha256===plan.context.publishedTermsHash,'TERMS_CHANGED','Campaign rules changed');
+    }
+    const signed=await signedErc191(plan,signature);
+    const operation=await this.call({id,signerId:this.config.treasury,signer:await this.treasurySigner(),receiverId:this.config.assets.intentsId,
+      codeHash:this.config.assets.intentsCodeHash,method:'execute_intents',args:{signed:[signed]},gas:'300000000000000'});
+    let status=operation.phase;
+    if(status==='confirmed'&&plan.context.kind==='purchase')status=this.purchaseAccepted(plan,operation)?'accepted':'rejected';
+    this.store.update('intent',planId,payer,record.version,{plan:record.plan,status,operationId:id});
+    return operation;
+  }
+  purchaseAccepted(plan,operation){
+    if(operation.phase!=='confirmed')return false;
+    return operation.result.outcome.receipts_outcome.some(receipt=>receipt.outcome.executor_id===plan.context.contractId&&receipt.outcome.logs?.some(log=>{
+      if(!log.startsWith('EVENT_JSON:'))return false;
+      let event;try{event=JSON.parse(log.slice(11));}catch{return false;}
+      return event.standard==='pitboard'&&event.version==='1.0.0'&&event.event==='purchase_accepted'&&event.data?.some(data=>
+        data.invoice_id===plan.context.invoiceId&&data.buyer_id===plan.signerId&&data.amount===plan.context.amount&&data.round===(uint(plan.context.expectedRound)+1n).toString());
+    }));
+  }
+  async release({contractId,creditorId,id}){
+    const snapshot=await this.snapshot(contractId,[creditorId]);assert(uint(snapshot.credits[creditorId].available)>0n,'NO_CREDIT','Original creditor has no available claim');
+    const op=await this.call({id,signerId:this.config.treasury,signer:await this.treasurySigner(),receiverId:contractId,codeHash:snapshot.codeHash,
+      method:'release_credit',args:{account_id:creditorId},gas:'150000000000000'});
+    return op;
+  }
+}

@@ -6,11 +6,19 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { runtime, qualifyNetwork } from '../src/runtime.mjs';
 import { assert } from '../src/core.mjs';
 import { USDC_ABI } from '../src/base-executor.mjs';
+import { Qualification } from '../src/qualification.mjs';
 
 export async function command(args){
  const r=await runtime();
  try{
   const [verb,selected]=args;
+  if(['campaign','buy','claim','finalize','recover','inspect'].includes(verb)){
+   const qualification=new Qualification(r);
+   if(verb==='campaign'){const c=await qualification.campaign(selected);return {accountId:c.deploymentId,biddingClose:new Date(Number(BigInt(c.terms.bidding_close_ns)/1000000n)).toISOString(),synthetic:true};}
+   if(verb==='buy')return await qualification.buy(selected,args[2]);
+   if(verb==='claim')return await qualification.claim(selected,args[2],args[3]);
+   return await qualification[verb](selected);
+  }
   if(verb==='preflight')return await qualifyNetwork(r);
   if(verb==='status'){
    const operations=r.store.db.prepare('SELECT id,kind,scope,phase,transaction_hash FROM operations ORDER BY created_at').all();
