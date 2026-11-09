@@ -14,7 +14,7 @@ export class NativeActions {
   const artifact=()=>{const m=this.store.get('media',mediaId);assert(m?.owner===actor&&m.status==='verified','VERIFIED_ARTIFACT_REQUIRED','Choose a verified public artifact owned by this wallet');
    return {artifact_uri:m.uri,artifact_sha256:Buffer.from(m.sha256,'hex').toString('base64')};};
   if(kind==='accept-nomination'){assert(state.nominated_recipient===actor&&!state.nft_minted,'NOMINEE_REQUIRED','Only the nominated account can accept this placement');method='accept_nft_nomination';}
-  else if(kind==='mint'){assert(rights.bidding_closed&&!state.nft_minted&&state.outcome!=='failure','MINT_UNAVAILABLE','Final placement mint is unavailable');method='mint_final_placement';deposit='30000000000000000000000';}
+  else if(kind==='mint'){assert(rights.bidding_closed&&!state.nft_minted&&state.outcome!=='failure'&&(!state.holder?.account_id?.startsWith('0x')||state.nomination_accepted),'MINT_UNAVAILABLE','Final placement mint requires closed bidding and an accepted native recipient');method='mint_final_placement';deposit='30000000000000000000000';}
   else if(kind==='transfer'){
    nftOwner();const recipient=walletId(receiverId);assert(!recipient.startsWith('0x')&&recipient!==actor,'NATIVE_RECIPIENT_REQUIRED','Choose a different native NEAR recipient');await this.reads.account(recipient);
    method='nft_transfer';args={receiver_id:recipient,token_id:contractId};deposit='1';
@@ -38,10 +38,12 @@ export class NativeActions {
   const plan={...body,planId:hashObject(body)};this.store.insert('native-plan',plan.planId,actor,{plan,status:'prepared'});return plan;
  }
  async confirm(wallet,id,transactionHash){
-  const actor=walletId(wallet),record=this.store.get('native-plan',id);assert(record?.owner===actor,'NOT_FOUND','Wallet action not found',404);
+  const actor=walletId(wallet);let record=this.store.get('native-plan',id);assert(record?.owner===actor,'NOT_FOUND','Wallet action not found',404);
   assert(typeof transactionHash==='string'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(transactionHash),'INVALID_TRANSACTION','NEAR transaction hash required',400);
   assert(!record.transactionHash||record.transactionHash===transactionHash,'TRANSACTION_CHANGED','Wallet action already refers to another transaction');
-  const outcome=await this.reads.rpc.call('tx',{tx_hash:transactionHash,sender_account_id:actor,wait_until:'NONE'});
+  if(!record.transactionHash)record=this.store.update('native-plan',id,actor,record.version,{...record,transactionHash,status:'submitted'});
+  let outcome;try{outcome=await this.reads.rpc.call('tx',{tx_hash:transactionHash,sender_account_id:actor,wait_until:'NONE'});}
+  catch(error){if(['UNKNOWN_TRANSACTION','RPC_UNAVAILABLE'].includes(error.code))return {status:'pending',transactionHash};throw error;}
   if(outcome?.final_execution_status!=='FINAL')return {status:'pending',transactionHash};
   const p=record.plan.transaction,tx=outcome.transaction,a=tx?.actions?.[0]?.FunctionCall,expected=p.actions[0].params;
   assert(tx?.hash===transactionHash&&tx.signer_id===actor&&tx.receiver_id===p.receiverId&&tx.actions.length===1&&a?.method_name===expected.methodName
@@ -49,6 +51,7 @@ export class NativeActions {
   let args;try{args=JSON.parse(Buffer.from(a.args,'base64').toString());}catch{}
   assert(args&&hashObject(args)===hashObject(expected.args),'TRANSACTION_CHANGED','Final wallet transaction arguments differ from the prepared action');
   const status=successfulNearOutcome(outcome)?'confirmed':'failed';
+  record=this.store.get('native-plan',id);
   if(record.status===status&&record.transactionHash===transactionHash)return record;
   return this.store.update('native-plan',id,actor,record.version,{...record,status,transactionHash});
  }

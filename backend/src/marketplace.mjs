@@ -103,7 +103,17 @@ export class Marketplace {
   const status=operation.phase==='confirmed'?(accepted?'accepted':'rejected'):operation.phase==='failed'?'failed':'submitted';
   const latest=owned(this.store,'booking',id,owner);
   if(latest.operationId===operation.id&&latest.status===status)return latest;
-  return this.store.update('booking',id,latest.owner,latest.version,{...latest,status,operationId:operation.id});
+  return this.store.update('booking',id,latest.owner,latest.version,{...latest,status,accepted,operationId:operation.id});
+ }
+ async syncBooking(id){
+  const b=this.store.get('booking',id);if(!b?.operationId)return b;
+  const operation=this.store.operation(b.operationId);if(!operation||!['confirmed','failed'].includes(operation.phase))return b;
+  const intent=this.store.get('intent',b.planId),accepted=this.chain.purchaseAccepted(intent.plan,operation);let status=operation.phase==='failed'?'failed':accepted?'accepted':'rejected';
+  if(accepted){const s=await this.chain.snapshot(b.contractId,[b.owner]);
+   if(s.state.outcome==='failure')status='cancelled';else if(s.state.holder?.account_id!==b.owner)status='outbid';else if(s.state.outcome==='success')status='completed';}
+  if(b.status===status&&b.accepted===accepted)return b;
+  const result=this.store.update('booking',id,b.owner,b.version,{...b,status,accepted});
+  this.store.event('booking_status',id,b.owner,{status});return result;
  }
  async booking(owner,id){
   const booking=this.store.get('booking',id),wallet=walletId(owner);assert(booking&&(wallet===booking.owner||wallet===booking.sellerId),'NOT_FOUND','Booked placement not found',404);
@@ -127,7 +137,7 @@ export class Marketplace {
  dashboard(owner){
   const wallet=walletId(owner),sales=this.store.list('sale',wallet),bookings=this.store.list('booking',wallet),campaigns=this.store.list('buyer-campaign',wallet);
   return {assets:this.store.list('asset',wallet),sales,campaigns,bookings,incomingBookings:this.store.list('booking').filter(b=>b.sellerId===wallet),stats:{publishedSales:sales.filter(s=>s.status==='published').length,
-   bookedPrincipalMicroUsdc:bookings.filter(b=>['accepted','outbid'].includes(b.status)).reduce((sum,b)=>sum+uint(b.amount),0n).toString(),
+   bookedPrincipalMicroUsdc:bookings.filter(b=>b.accepted||['accepted','outbid'].includes(b.status)).reduce((sum,b)=>sum+uint(b.amount),0n).toString(),
    exposureImpressions:null,exposureMeasurement:'Not measured by the on-chain integration'}};
  }
 }

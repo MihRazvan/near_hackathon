@@ -133,6 +133,7 @@ export class NearExecutor {
     const op=this.store.operation(id);
     if(outcome?.final_execution_status!=='FINAL')return op;
     assert(outcome?.transaction?.hash===op.transaction_hash&&outcome.transaction.signer_id===op.plan.signerId&&outcome.transaction.receiver_id===op.plan.receiverId,'UNBOUND_RECEIPT','Transaction evidence does not match the signed operation');
+    if(['confirmed','failed','superseded'].includes(op.phase))return op;
     const entries=this.store.db.prepare('SELECT * FROM budget_entries WHERE operation_id=?').all(id);
     const actual=Object.fromEntries(entries.map(row=>[row.category,row.category==='nearFees'?nearBurn(outcome).toString():row.reserved]));
     // On a failed asynchronous receipt, native deposits may still have moved. Keep full allocation reserved.

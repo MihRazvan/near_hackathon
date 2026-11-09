@@ -110,6 +110,8 @@ export class Qualification {
   const snapshot=await this.chain.snapshot(c.deploymentId),contractId=c.deploymentId,codeHash=snapshot.codeHash;
   const id='qualification-rights-'+step,prior=this.store.operation(id);
   if(prior)return this.publicOperation(await this.near.reconcile(id));
+  const prepared=this.store.get('qualification-step',id);
+  if(step==='nominate'&&prepared)return this.publicOperation(await this.near.reconcile(prepared.operationId));
   if(step==='nominate'){
    const account=privateKeyToAccount(this.config.keys.buyerB),plan=await this.chain.prepareNomination({buyerId:account.address,contractId,recipientId:first.accountId});
    const operation=await this.chain.relay({buyerId:account.address,planId:plan.planId,signature:await account.signMessage({message:plan.message})});
