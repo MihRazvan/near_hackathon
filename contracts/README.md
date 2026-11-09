@@ -15,7 +15,7 @@ The factory proof creates isolated keyless children referencing pinned global co
 Requirements: rustup, the pinned Rust toolchain, and the Wasm target from `rust-toolchain.toml`.
 
 ```sh
-cargo test --locked -p pitboard-marketplace -p storefront-factory --lib
+bash scripts/test-contracts.sh
 bash scripts/build-proof.sh
 ```
 
