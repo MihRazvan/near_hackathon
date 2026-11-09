@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": { "deploymentEnabled": { "local/low-cost-integration": false } },
   "framework": "vite",
   "installCommand": "npm ci --prefix prototype --ignore-scripts",
   "buildCommand": "npm run build --prefix prototype",

@@ -1,0 +1,12 @@
+[package]
+name = "technical-proof"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "1"
+near-sandbox = "=0.3.16"
+near-api = "=0.8.6"
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

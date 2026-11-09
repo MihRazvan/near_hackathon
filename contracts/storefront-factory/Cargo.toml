@@ -1,0 +1,15 @@
+[package]
+name = "storefront-factory"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = { version = "=5.30.0", features = ["deterministic-account-ids"] }
+near-sys = { version = "=0.4.1", features = ["universal-accounts"] }
+
+[dev-dependencies]
+near-sdk = { version = "=5.30.0", features = ["unit-testing", "deterministic-account-ids"] }

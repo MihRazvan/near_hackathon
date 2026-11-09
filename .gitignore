@@ -21,3 +21,10 @@ proofs/intents-compatibility/artifacts/*.wasm
 # Deployment metadata and generated output
 .vercel/
 dist/
+
+# Historical funded-console experiments and generated probe evidence stay local.
+/proofs/mainnet/
+/proofs/intents-compatibility/artifacts/
+/proofs/intents-compatibility/report.json
+/proofs/intents-compatibility/small-amount-quotes.json
+/proofs/intents-compatibility/reverse-quotes.json
