@@ -94,6 +94,7 @@ export class ChainService {
   async relay({buyerId,planId,signature}){
     const payer=walletId(buyerId),record=this.store.get('intent',planId);assert(record?.owner===payer,'WRONG_WALLET','Intent belongs to another wallet',403);
     const id='relay-'+planId,prior=this.store.operation(id);if(prior)return this.updateIntentOutcome(planId,await this.near.reconcile(id));
+    assert(this.config.enabled,'MAINNET_DISABLED','Live integration execution is disabled');
     const plan=validateIntentPlan(record.plan);
     if(plan.context.kind==='purchase'){
       const current=await this.snapshot(plan.context.contractId,[payer]);

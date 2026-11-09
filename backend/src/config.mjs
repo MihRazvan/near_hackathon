@@ -113,5 +113,6 @@ export function configFromEnv(env = {}) {
 export async function loadConfig(
   path = resolve(ROOT, ".local/integration.env"),
 ) {
-  return configFromEnv(parseEnv(await readPrivateFile(path)));
+  try{return configFromEnv(parseEnv(await readPrivateFile(path)));}
+  catch(error){if(error.code==='ENOENT')return configFromEnv({});throw error;}
 }
