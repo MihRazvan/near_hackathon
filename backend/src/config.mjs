@@ -7,6 +7,8 @@ export const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 export const MAINNET = Object.freeze({
   chainId: 8453,
   intentsId: "intents.near",
+  intentsCodeHash: "BtA1BEFNS619KkvXFsgcpQ21Tb5yMm32aaUkn7xNothk",
+  usdcCodeHash: "DVJx7F3dHEHJYwpYPwXHu8K9Uo7h4kXFcALucY5oNX8q",
   nearUsdc: "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
   baseUsdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   baseAsset: "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
