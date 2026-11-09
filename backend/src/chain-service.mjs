@@ -40,6 +40,15 @@ export class ChainService {
     if(existing){assert(existing.codeHash===codeHash&&hashObject(existing.terms)===hashObject(args.terms),'DEPLOYMENT_CHANGED','Deployment record changed');return existing;}
     return this.store.insert('deployment',identity.accountId,args.seller_id,{label,codeHash,terms:args.terms,initialPriceCents:args.initial_price_cents,arbiterId:args.arbiter_id});
   }
+  async attachDeployment({contractId,sellerId,arbiterId,terms,initialPriceCents}){
+    const existing=this.store.get('deployment',contractId);if(existing)return existing;
+    const manifest=JSON.parse(await readFile(join(dirname(this.config.artifact),'campaign-manifest.json'),'utf8'));
+    const codeHash=baseEncode(Buffer.from(manifest.sha256,'hex'));
+    const snapshot=await this.reads.snapshot(contractId,{expectedCodeHash:codeHash,expectedIntentsCodeHash:this.config.assets.intentsCodeHash,expectedAssets:this.config.assets});
+    assert(snapshot.state.seller_id===walletId(sellerId)&&snapshot.state.arbiter_id===walletId(arbiterId)&&snapshot.state.round==='0'
+      &&snapshot.state.next_price===(uint(initialPriceCents)*10000n).toString()&&snapshot.state.outcome==='open'&&hashObject(snapshot.campaign.terms)===hashObject(terms),'DEPLOYMENT_MISMATCH','External deployment differs from the owner offer');
+    return this.store.insert('deployment',contractId,walletId(sellerId),{label:'external-wallet-deployment',codeHash,terms,initialPriceCents,arbiterId});
+  }
   async snapshot(contractId,wallets=[]){
     const deployment=this.store.get('deployment',contractId);assert(deployment,'UNREGISTERED_DEPLOYMENT','Campaign deployment is not registered',404);
     const snapshot=await this.reads.snapshot(contractId,{expectedCodeHash:deployment.codeHash,expectedIntentsCodeHash:this.config.assets.intentsCodeHash,expectedAssets:this.config.assets,wallets});

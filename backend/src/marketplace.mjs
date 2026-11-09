@@ -24,7 +24,7 @@ export class Marketplace {
   assert(row.version===version,'STALE_VERSION','Asset changed; reload before editing');
   return this.store.update('asset',id,row.owner,version,{...draft,city:text(input.city,'city',100),source:row.source,status:'draft'});
  }
- createSale(owner,input){
+ saleData(owner,input){
   const asset=owned(this.store,'asset',input.assetId,owner),schedule=dates(input.schedule,this.now());
   assert(typeof input.takeoverDefault==='boolean'&&Array.isArray(input.spots)&&input.spots.length>0,'INVALID_SALE','Select spots and a takeover default',400);
   const available=new Map(asset.spots.map(spot=>[spot.id,spot])),seen=new Set();
@@ -35,9 +35,12 @@ export class Marketplace {
    return {id:spot.id,priceCents:spot.priceCents,takeoverEnabled:spot.takeoverEnabled??input.takeoverDefault};
   });
   const seller=native(owner),arbiter=native(input.arbiterId);assert(seller!==arbiter,'INVALID_ARBITER','Seller and arbiter must be separate wallets',400);
-  return this.store.insert('sale',randomUUID(),seller,{assetId:asset.id,title:text(input.title,'sale title',100),schedule,spots,arbiterId:arbiter,
-   takeoverDefault:input.takeoverDefault,rules:text(input.rules,'published advertising rules',3000),printingAndInstallationIncluded:true,status:'draft'});
+  return {assetId:asset.id,title:text(input.title,'sale title',100),schedule,spots,arbiterId:arbiter,
+   takeoverDefault:input.takeoverDefault,rules:text(input.rules,'published advertising rules',3000),printingAndInstallationIncluded:true,status:'draft'};
  }
+ createSale(owner,input){return this.store.insert('sale',randomUUID(),walletId(owner),this.saleData(owner,input));}
+ updateSale(owner,id,version,input){const sale=owned(this.store,'sale',id,owner);assert(sale.status==='draft','IMMUTABLE_SALE','Published sale rules cannot be changed');
+  return this.store.update('sale',id,sale.owner,version,this.saleData(owner,{...sale,...input}));}
  publication(owner,id){
   const sale=owned(this.store,'sale',id,owner);assert(sale.status==='draft','IMMUTABLE_SALE','Published sales cannot change their commercial terms');
   dates(sale.schedule,this.now());const asset=owned(this.store,'asset',sale.assetId,owner);
@@ -58,6 +61,7 @@ export class Marketplace {
   const bound=[];
   for(const terms of publication.terms){
    const entry=contracts.find(c=>c.spotId===terms.spot_id),spot=sale.spots.find(s=>s.id===terms.spot_id);assert(entry,'MISSING_SPOT','A spot deployment is missing');
+   if(this.chain.attachDeployment)await this.chain.attachDeployment({contractId:entry.contractId,sellerId:sale.owner,arbiterId:sale.arbiterId,terms,initialPriceCents:spot.priceCents});
    const snapshot=await this.chain.snapshot(entry.contractId);
    assert(hashObject(snapshot.campaign.terms)===hashObject(terms)&&snapshot.state.seller_id===sale.owner&&snapshot.state.arbiter_id===sale.arbiterId
     &&snapshot.state.round==='0'&&snapshot.state.next_price===(uint(spot.priceCents)*10000n).toString()&&snapshot.state.outcome==='open','DEPLOYMENT_MISMATCH','On-chain spot does not match the published offer');
