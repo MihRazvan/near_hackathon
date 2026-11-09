@@ -3,7 +3,7 @@ import { assert, uint, sha256, hashObject } from './core.mjs';
 import { successfulNearOutcome, nearBurn, effectiveCodeHash } from './rpc.mjs';
 
 const CALLS=new Set(['new_campaign','execute_intents','storage_deposit','release_credit','finalize_failure','finalize_success',
-  'accept_nft_nomination','mint_final_placement','submit_artwork','lock_artwork','submit_delivery_proof','record_issue_decision','nft_transfer','ft_transfer_call','mt_transfer']);
+  'accept_nft_nomination','mint_final_placement','submit_artwork','lock_artwork','submit_delivery_proof','record_issue_decision','nft_transfer','ft_transfer_call','mt_transfer','mt_transfer_call','ft_withdraw','create_campaign']);
 const ZERO='11111111111111111111111111111111';
 export function gasReservation(plan,protocol,gasInfo){
   const costs=protocol.runtime_config.transaction_costs?.action_creation_config??{};
@@ -17,7 +17,8 @@ export function gasReservation(plan,protocol,gasInfo){
     if(action.type==='delete')gas+=cost(costs.delete_account_cost);
   }
   gas+=cost(protocol.runtime_config.transaction_costs?.action_receipt_creation_config);
-  const price=uint(gasInfo.gas_price)>uint(protocol.min_gas_price??gasInfo.gas_price)?uint(gasInfo.gas_price):uint(protocol.min_gas_price??gasInfo.gas_price);
+  // Prepaid gas has a separate purchase-price floor on recent protocols.
+  const price=[gasInfo.gas_price,protocol.min_gas_price??'0',protocol.runtime_config.min_gas_purchase_price??'0'].map(v=>uint(v)).reduce((a,b)=>a>b?a:b);
   assert(price>0n,'INVALID_GAS_PRICE','Positive protocol gas price required');
   return (gas*price*11n+9n)/10n;
 }

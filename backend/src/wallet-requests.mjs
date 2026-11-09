@@ -4,7 +4,7 @@ import { assert, walletId } from './core.mjs';
 // A request with an unknown result stays attached to its original wallet and plan.
 // Time passing or a different connected account never authorizes another send.
 export class WalletRequests {
- constructor({store,nativeActions,publication,chain}){Object.assign(this,{store,nativeActions,publication,chain});}
+ constructor({store,nativeActions,publication,chain,now=Date.now}){Object.assign(this,{store,nativeActions,publication,chain,now});}
  list(wallet){return this.store.list('wallet-request',walletId(wallet)).map(({signedTransaction,...r})=>r);}
  async prepare(wallet,input){
   const actor=walletId(wallet);
@@ -20,7 +20,7 @@ export class WalletRequests {
    const pending=this.store.list('wallet-request',actor).filter(r=>!['rejected','confirmed','failed'].includes(r.status));
    const same=pending.find(r=>r.kind===kind&&r.planId===planId);if(same)return {...same,dispatchAllowed:false};
    assert(!pending.length,'WALLET_REQUEST_PENDING','An earlier wallet request needs reconciliation');
-   return {...this.store.insert('wallet-request',randomUUID(),actor,{kind,planId,status:'requested'}),dispatchAllowed:true};
+   return {...this.store.insert('wallet-request',randomUUID(),actor,{kind,planId,status:'requested',dispatched:false}),dispatchAllowed:true};
   });
  }
  reject(wallet,id,{code}){
@@ -29,19 +29,57 @@ export class WalletRequests {
   assert(r.status==='requested'&&!r.transactionHash&&!r.signedTransaction,'ALREADY_SENT','Signed or submitted actions require reconciliation');
   return this.store.update('wallet-request',id,r.owner,r.version,{...r,status:'rejected'});
  }
+ dispatch(wallet,id){
+  const r=this.owned(wallet,id);assert(r.status==='requested'&&!r.dispatched,'WALLET_REQUEST_PENDING','The original wallet request was already started');
+  const table={native:'native-plan',publication:'publication-plan',intent:'intent'}[r.kind],plan=this.store.get(table,r.planId)?.plan;
+  if(plan?.expiresAt&&Date.parse(plan.expiresAt)<=this.now()){
+   this.store.update('wallet-request',id,r.owner,r.version,{...r,status:'failed',errorCode:'EXPIRED_BEFORE_DISPATCH'});
+   assert(false,'EXPIRED_PLAN','This request expired before the wallet was opened. Prepare a fresh action.');
+  }
+  return this.store.update('wallet-request',id,r.owner,r.version,{...r,dispatched:true});
+ }
+ async submitIntent(wallet,id,signature){
+  let r=this.owned(wallet,id);assert(r.kind==='intent','INVALID_REQUEST','An Intents signature request is required');
+  if(['submitted','confirmed','failed'].includes(r.status))return this.reconcile(wallet,id);
+  assert(r.status==='requested','WALLET_REQUEST_PENDING','The original wallet request is still being processed');
+  r=this.store.update('wallet-request',id,r.owner,r.version,{...r,status:'authorizing'});
+  try{
+   const op=await this.chain.relay({buyerId:r.owner,planId:r.planId,signature}),intent=this.store.get('intent',r.planId);
+   for(const b of this.store.list('booking',r.owner).filter(b=>b.planId===r.planId)){
+    const accepted=this.chain.purchaseAccepted(intent.plan,op),status=op.phase==='confirmed'?(accepted?'accepted':'rejected'):op.phase==='failed'?'failed':'submitted';
+    this.store.update('booking',b.id,r.owner,b.version,{...b,operationId:op.id,status,accepted});
+   }
+   return this.reconcile(wallet,id);
+  }catch(error){
+   const op=this.chain.store.operation('relay-'+r.planId),lease=this.chain.store.get('intent-dispatch',r.planId),current=this.owned(wallet,id);
+   if(!op&&!lease&&error.code!=='INTENT_BUSY'){
+    this.store.update('wallet-request',id,r.owner,current.version,{...current,status:'failed',errorCode:error.code??'REQUEST_FAILED'});
+    for(const b of this.store.list('booking',r.owner).filter(b=>b.planId===r.planId&&b.status==='prepared'))this.store.update('booking',b.id,r.owner,b.version,{...b,status:'failed'});
+   }
+   throw error;
+  }
+ }
  owned(wallet,id){const r=this.store.get('wallet-request',id);assert(r?.owner===walletId(wallet),'NOT_FOUND','Wallet request not found',404);return r;}
  async reconcile(wallet,id,transactionHash){
   let r=this.owned(wallet,id);
   assert(r.status!=='rejected','REQUEST_REJECTED','This request was rejected before signing');
+  const funded=this.store.operation('funded-near-'+id);
+  if(!r.transactionHash&&funded?.scope===r.owner&&funded.transaction_hash)r=this.store.update('wallet-request',id,r.owner,r.version,{...r,status:'submitted',transactionHash:funded.transaction_hash});
   if(transactionHash){
    assert(r.kind!=='intent'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(transactionHash),'INVALID_TRANSACTION','NEAR transaction hash required',400);
    assert(!r.transactionHash||r.transactionHash===transactionHash,'TRANSACTION_CHANGED','Request already has another hash');
    if(!r.transactionHash)r=this.store.update('wallet-request',id,r.owner,r.version,{...r,status:'submitted',transactionHash});
   }
+  if(['confirmed','failed'].includes(r.status))return r;
   let result;
   if(r.kind==='intent'){
    const plan=this.store.get('intent',r.planId),op=plan.operationId&&await this.chain.near.reconcile(plan.operationId);
-   if(op){this.chain.updateIntentOutcome(r.planId,op);result={status:['confirmed','failed'].includes(op.phase)?op.phase:'submitted',transactionHash:op.transaction_hash};}
+   if(op){this.chain.updateIntentOutcome(r.planId,op);result={status:['confirmed','failed'].includes(op.phase)?op.phase:'submitted',transactionHash:op.transaction_hash};
+    if(['confirmed','failed'].includes(op.phase))for(const b of this.store.list('booking',r.owner).filter(b=>b.planId===r.planId&&['prepared','submitted'].includes(b.status))){
+     const accepted=op.phase==='confirmed'&&this.chain.purchaseAccepted(plan.plan,op),status=op.phase==='failed'?'failed':accepted?'accepted':'rejected';
+     this.store.update('booking',b.id,r.owner,b.version,{...b,status,accepted,operationId:op.id});
+    }
+   }
   }else if(r.transactionHash)result=await (r.kind==='native'?this.nativeActions:this.publication).confirm(r.owner,r.planId,r.transactionHash);
   if(result){
    const current=this.store.get('wallet-request',id),status=['confirmed','failed'].includes(result.status)?result.status:'submitted';

@@ -92,3 +92,10 @@ test('an underfunded legacy settlement can lower gas on the same nonce; only its
   assert.equal(s.store.get('near-lock','arbiter.near'),null);assert.equal((await s.executor.reconcile('old')).phase,'superseded');
  }finally{s.store.close();}
 });
+
+test('gas reservations use the purchase-price floor, covering fixed implicit-account creation charges',()=>{
+ const costs={transfer_cost:{execution:115123062500,send_not_sir:115123062500},create_account_cost:{execution:7200000000000,send_not_sir:500000000000},add_key_cost:{full_access_cost:{execution:101765125000,send_not_sir:101765125000}}};
+ const protocol={min_gas_price:'100000000',runtime_config:{min_gas_purchase_price:'1000000000',account_creation_charge:'7000000000000000000000',transaction_costs:{action_creation_config:costs}}};
+ const plan={signerId:'treasury.near',receiverId:'a'.repeat(64),actions:[{type:'transfer',amount:'1'}]};
+ assert.ok(gasReservation(plan,protocol,{gas_price:'100000000'})>7114989537500000000000n);
+});

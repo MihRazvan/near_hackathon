@@ -1,10 +1,24 @@
 import { assert, walletId, uint, hashObject } from './core.mjs';
 import { successfulNearOutcome } from './rpc.mjs';
 import { effectiveCodeHash } from './rpc.mjs';
+import { validateIntentPlan } from './intents.mjs';
 
 // Customer actions are prepared for their own NEAR wallet. This service has no signer or private-key input.
 export class NativeActions {
  constructor({store,chain,reads,config,now=Date.now}){Object.assign(this,{store,chain,reads,config,now});}
+ async prepareBooking(wallet,bookingId){
+  const actor=walletId(wallet),booking=this.store.get('booking',bookingId);
+  assert(!actor.startsWith('0x')&&booking?.owner===actor&&booking.status==='prepared','NOT_FOUND','Native wallet booking not found',404);
+  if(booking.nativePlanId)return this.store.get('native-plan',booking.nativePlanId).plan;
+  const original=this.store.get('intent',booking.planId)?.plan;validateIntentPlan(original,{now:this.now()});
+  const s=await this.chain.snapshot(booking.contractId),transfer=original.payload.intents[0];
+  assert(s.state.round===original.context.expectedRound&&s.state.next_price===original.context.amount,'PRICE_CHANGED','Refresh and prepare a booking at the current price');
+  const body={schema:'everywhere-native-action/v1',wallet:actor,contractId:booking.contractId,codeHash:this.config.assets.intentsCodeHash,kind:'purchase',bookingId,purchasePlanId:booking.planId,
+   createdAt:new Date(this.now()).toISOString(),expiresAt:original.expiresAt,transaction:{signerId:actor,receiverId:this.config.assets.intentsId,actions:[{type:'FunctionCall',params:{
+    methodName:'mt_transfer_call',args:{receiver_id:booking.contractId,token_id:this.config.assets.nearAsset,amount:original.context.amount,approval:null,memo:null,msg:transfer.msg},gas:'80000000000000',deposit:'1'}}]}};
+  const plan={...body,planId:hashObject(body)};this.store.insert('native-plan',plan.planId,actor,{plan,status:'prepared'});
+  this.store.update('booking',bookingId,actor,booking.version,{...booking,nativePlanId:plan.planId});return plan;
+ }
  async prepareToken(wallet,{kind,amount}){
   const actor=walletId(wallet),a=this.config?.assets;
   assert(!actor.startsWith('0x')&&a,'NEAR_WALLET_REQUIRED','Connect a native NEAR account for this token action');
@@ -81,6 +95,12 @@ export class NativeActions {
   let args;try{args=JSON.parse(Buffer.from(a.args,'base64').toString());}catch{}
   assert(args&&hashObject(args)===hashObject(expected.args),'TRANSACTION_CHANGED','Final wallet transaction arguments differ from the prepared action');
   const status=successfulNearOutcome(outcome)?'confirmed':'failed';
+  if(record.plan.kind==='purchase'){
+   const original=this.store.get('intent',record.plan.purchasePlanId),booking=this.store.get('booking',record.plan.bookingId);
+   const accepted=status==='confirmed'&&this.chain.purchaseAccepted(original.plan,{phase:'confirmed',result:{outcome}});
+   const state=status==='confirmed'?(accepted?'accepted':'rejected'):'failed';
+   if(booking.status!==state||booking.transactionHash!==transactionHash)this.store.update('booking',booking.id,actor,booking.version,{...booking,status:state,accepted,transactionHash});
+  }
   record=this.store.get('native-plan',id);
   if(record.status===status&&record.transactionHash===transactionHash)return record;
   return this.store.update('native-plan',id,actor,record.version,{...record,status,transactionHash});

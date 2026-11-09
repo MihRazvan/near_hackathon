@@ -49,6 +49,7 @@ export class BaseExecutor {
     const p=op.plan,amount=uint(p.response.quote.amountIn),recipient=p.response.quote.depositAddress;
     const data=encodeFunctionData({abi:USDC_ABI,functionName:'transfer',args:[recipient,amount]});
     assert(tx.hash===op.transaction_hash&&tx.from.toLowerCase()===p.wallet&&tx.to?.toLowerCase()===MAINNET.baseUsdc.toLowerCase()&&tx.input===data&&tx.value===0n,'UNBOUND_RECEIPT','Base transaction differs from signed funding');
+    if(op.result?.browserWallet)assert(tx.nonce===op.result.walletNonce,'NONCE_CHANGED','Wallet transfer nonce differs from its reserved transaction');
     assert(receipt.transactionHash===op.transaction_hash&&receipt.blockHash===tx.blockHash,'UNBOUND_RECEIPT','Base receipt differs from its transaction');
     const final=await this.client.getBlock({blockTag:'finalized'});if(receipt.blockNumber>final.number)return op;
     const canonical=await this.client.getBlock({blockNumber:receipt.blockNumber});assert(canonical.hash===receipt.blockHash,'REORG','Receipt is not in the canonical finalized chain');
@@ -61,7 +62,7 @@ export class BaseExecutor {
     const burn=receipt.gasUsed*receipt.effectiveGasPrice+(receipt.l1Fee??0n)+(receipt.operatorFee??0n);
     this.budget.settle(id,{sourceUsdc:success?amount.toString():'0',baseGas:burn.toString()},{evidence:{final:true,transactionHash:op.transaction_hash}});
     this.store.transaction(()=>{
-      this.store.transition(id,['signed','broadcast','broadcast-unknown'],success?'confirmed':'failed',{result:{final:true,successful:success,blockHash:receipt.blockHash,blockNumber:receipt.blockNumber.toString(),gasBurnWei:burn.toString()}});
+      this.store.transition(id,['signed','broadcast','broadcast-unknown'],success?'confirmed':'failed',{result:{...(op.result?.browserWallet?op.result:{}),final:true,successful:success,blockHash:receipt.blockHash,blockNumber:receipt.blockNumber.toString(),gasBurnWei:burn.toString()}});
       this.store.db.prepare('DELETE FROM objects WHERE kind=? AND id=?').run('base-lock',p.wallet);
     });return this.store.operation(id);
   }

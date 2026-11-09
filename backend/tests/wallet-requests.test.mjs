@@ -39,3 +39,18 @@ test('preparing a later request reconciles final prior actions but never clears 
   const second=await service.prepare(actor,{kind:'native',planId:'second'});assert.equal(second.dispatchAllowed,true);assert.equal(service.list(actor).find(r=>r.id===first.id).status,'confirmed');
  }finally{store.close();}
 });
+test('wallet dispatch is claimed once and a pre-send expiry cannot leave an active request',()=>{
+ const store=new Store(),actor='owner.near',now=1800000000000,service=new WalletRequests({store,now:()=>now});
+ try{store.insert('native-plan','fresh',actor,{plan:{expiresAt:new Date(now+60000).toISOString()},status:'prepared'});
+  const r=service.begin(actor,{kind:'native',planId:'fresh'});assert.equal(service.dispatch(actor,r.id).dispatched,true);assert.throws(()=>service.dispatch(actor,r.id),{code:'WALLET_REQUEST_PENDING'});
+  service.reject(actor,r.id,{code:4001});store.insert('native-plan','expired',actor,{plan:{expiresAt:new Date(now-1).toISOString()},status:'prepared'});
+  const expired=service.begin(actor,{kind:'native',planId:'expired'});assert.throws(()=>service.dispatch(actor,expired.id),{code:'EXPIRED_PLAN'});assert.equal(service.owned(actor,expired.id).status,'failed');
+ }finally{store.close();}
+});
+test('a signature rejected before broadcast releases its request and marks its booking failed',async()=>{
+ const store=new Store(),actor='0x'+'11'.repeat(20);const service=new WalletRequests({store,chain:{store,relay:async()=>{throw Object.assign(new Error('Price changed'),{code:'PRICE_CHANGED'});}}});
+ try{store.insert('intent','plan',actor,{plan:{},status:'prepared'});store.insert('booking','b',actor,{planId:'plan',status:'prepared'});
+  const request=service.begin(actor,{kind:'intent',planId:'plan'});await assert.rejects(service.submitIntent(actor,request.id,'signature'),{code:'PRICE_CHANGED'});
+  assert.equal(service.owned(actor,request.id).status,'failed');assert.equal(store.get('booking','b').status,'failed');
+ }finally{store.close();}
+});

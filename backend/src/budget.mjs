@@ -23,8 +23,8 @@ export class Budget {
       Object.entries(totals).map(([key, value]) => [key, value.toString()]),
     );
   }
-  reserve({ id, kind, scope, plan, amounts }) {
-    return this.store.transaction(() => {
+  reserve({ id, kind, scope, plan, amounts, transactionOpen=false }) {
+    const perform=() => {
       const existing = this.store.operation(id),
         digest = hashObject(plan);
       if (existing) {
@@ -63,7 +63,9 @@ export class Budget {
           )
           .run(id, category, amount, "reserved");
       return { operation: this.store.operation(id), dispatchAllowed: true };
-    });
+    };
+    if(transactionOpen){assert(this.store.db.isTransaction,'TRANSACTION_REQUIRED','An open transaction is required');return perform();}
+    return this.store.transaction(perform);
   }
   settle(id, actual, { evidence } = {}) {
     assert(
