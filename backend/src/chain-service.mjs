@@ -147,8 +147,18 @@ export class ChainService {
   async claimForWallet({contractId,creditorId}){
     const payer=walletId(creditorId),snapshot=await this.snapshot(contractId,[payer]),credit=snapshot.credits[payer];
     if(credit.available==='0')return {phase:'no-available-credit',credit};
-    const id='wallet-claim-'+hashObject({contractId,payer,round:snapshot.state.round,outcome:snapshot.state.outcome,amount:credit.available});
-    const prior=this.store.operation(id),op=prior?await this.near.reconcile(id):await this.release({contractId,creditorId:payer,id});
-    return {id:op.id,phase:op.phase,transactionHash:op.transaction_hash};
+    const root='wallet-claim-'+hashObject({contractId,payer,round:snapshot.state.round,outcome:snapshot.state.outcome,amount:credit.available});
+    let id=root;
+    for(let attempt=0;attempt<20;attempt++){
+      const prior=this.store.operation(id);
+      if(!prior){const op=await this.release({contractId,creditorId:payer,id});return {id:op.id,phase:op.phase,transactionHash:op.transaction_hash};}
+      const op=await this.near.reconcile(id);
+      if(op.phase!=='failed')return {id:op.id,phase:op.phase,transactionHash:op.transaction_hash};
+      assert(op.transaction_hash&&op.result?.outcome?.final_execution_status==='FINAL','RECONCILIATION_REQUIRED','The original payout needs final failure evidence before another attempt');
+      // The qualified snapshot above proves available credit and zero pending withdrawals.
+      // A retry gets one deterministic successor; an unknown outcome never creates one.
+      id=root+'-'+hashObject({failedTransaction:op.transaction_hash}).slice(0,16);
+    }
+    assert(false,'RECONCILIATION_REQUIRED','Inspect repeated finalized payout failures before retrying');
   }
 }

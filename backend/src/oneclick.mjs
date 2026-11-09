@@ -40,6 +40,8 @@ export class OneClick {
     try{response=await this.fetch(MAINNET.oneClick+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(this.apiKey?{'X-API-Key':this.apiKey}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});}
     catch{throw new AppError('ROUTE_UNAVAILABLE','Routing provider is temporarily unavailable',503);}
     const value=await response.json();
+    const minimum=response.status===400&&typeof value?.message==='string'&&value.message.match(/^Amount is too low for bridge, try at least ([0-9]{1,18})$/);
+    if(minimum){const micro=BigInt(minimum[1]),label=(micro/1000000n).toString()+'.'+(micro%1000000n).toString().padStart(6,'0');throw new AppError('ROUTE_MINIMUM',`This bridge currently requires at least ${label} USDC. Request a larger quote; no transfer was sent.`,409);}
     assert(response.ok,'ROUTE_REJECTED',`Routing provider rejected the request (HTTP ${response.status})`,502);return value;
   }
   async quote(options){

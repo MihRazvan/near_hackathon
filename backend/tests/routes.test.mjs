@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseTransaction, keccak256, encodeEventTopics, encodeAbiParameters } from 'viem';
-import { routeRequest, validateQuote, validateRoutePlan } from '../src/oneclick.mjs';
+import { routeRequest, validateQuote, validateRoutePlan, OneClick } from '../src/oneclick.mjs';
 import { hashObject } from '../src/core.mjs';
 import { Store } from '../src/store.mjs';
 import { Budget } from '../src/budget.mjs';
@@ -47,4 +47,9 @@ test('lost Base response cannot duplicate funding; unproven transfer cannot sett
   await assert.rejects(s.executor.reconcile('a'),/exact USDC transfer/);assert.equal(s.budget.totals().sourceUsdc,'252579');
   s.receipt().logs=logs;assert.equal((await s.executor.reconcile('a')).phase,'confirmed');assert.equal(s.sends(),1);
  }finally{s.store.close();}
+});
+
+test('a bridge minimum is shown in USDC without exposing an arbitrary provider payload',async()=>{
+ const api=new OneClick({fetchImpl:async()=>({ok:false,status:400,json:async()=>({message:'Amount is too low for bridge, try at least 149983',internal:'omitted'})})});
+ await assert.rejects(api.request('/quote',{}),e=>e.code==='ROUTE_MINIMUM'&&e.status===409&&e.message.includes('0.149983 USDC')&&!e.message.includes('omitted'));
 });

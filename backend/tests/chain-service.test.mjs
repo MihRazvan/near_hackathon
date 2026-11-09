@@ -34,3 +34,10 @@ test('exact principal can be purchased without a fictitious extra swap fee on an
   assert.equal((await service.preparePurchase({buyerId:wallet,contractId:'campaign.near',invoiceId:'exact-principal'})).context.amount,'100000');
  }finally{store.close();}
 });
+test('payout retries use a deterministic successor only after final failure and restored available credit',async()=>{
+ const operations=new Map(),payer='buyer.near';let sends=0;
+ const chain=Object.assign(Object.create(ChainService.prototype),{store:{operation:id=>operations.get(id)},near:{reconcile:async id=>operations.get(id)},snapshot:async()=>({credits:{[payer]:{available:'10000'}},state:{round:'1',outcome:'failure'}}),release:async({id})=>{sends++;const op={id,phase:'broadcast-unknown',transaction_hash:'hash-'+sends};operations.set(id,op);return op;}});
+ const first=await chain.claimForWallet({contractId:'campaign.near',creditorId:payer});assert.equal((await chain.claimForWallet({contractId:'campaign.near',creditorId:payer})).id,first.id);assert.equal(sends,1);
+ operations.set(first.id,{...operations.get(first.id),phase:'failed',result:{outcome:{final_execution_status:'FINAL'}}});const retry=await chain.claimForWallet({contractId:'campaign.near',creditorId:payer});assert.notEqual(retry.id,first.id);assert.equal((await chain.claimForWallet({contractId:'campaign.near',creditorId:payer})).id,retry.id);assert.equal(sends,2);
+ operations.set(retry.id,{...operations.get(retry.id),phase:'failed',result:{}});await assert.rejects(chain.claimForWallet({contractId:'campaign.near',creditorId:payer}),{code:'RECONCILIATION_REQUIRED'});assert.equal(sends,2);
+});
