@@ -9,7 +9,7 @@ import { validateRoutePlan } from './oneclick.mjs';
 export class ChainService {
   constructor(runtime){Object.assign(this,runtime);this.vault=new KeyVault(join(this.config.stateDir,'keys'));}
   treasurySigner(){return KeyPairSigner.fromSecretKey(this.config.keys.near);}
-  async call({id,signerId,signer,receiverId,method,args={},gas='150000000000000',deposit='0',codeHash}){
+  async call({id,signerId,signer,receiverId,method,args={},gas='25000000000000',deposit='0',codeHash}){
     return this.near.execute({id,signer,plan:{network:this.config.network,signerId,receiverId,...(signerId===this.config.treasury&&uint(deposit)>0n?{allocationAccount:receiverId}:{}),expectedReceiverCodeHash:codeHash,
       actions:[{type:'call',method,args,gas,deposit}]}});
   }
@@ -28,7 +28,7 @@ export class ChainService {
     assert(artifact.length===manifest.bytes&&sha256(artifact)===manifest.sha256,'ARTIFACT_CHANGED','Compiled campaign artifact differs from its manifest');
     const args={seller_id:sellerId,arbiter_id:arbiterId,ft_contract_id:this.config.assets.nearUsdc,intents_contract_id:this.config.assets.intentsId,settlement:'intents',initial_price_cents:initialPriceCents,terms};
     const plan={network:this.config.network,signerId:identity.accountId,receiverId:identity.accountId,
-      actions:[{type:'deploy',code:artifact.toString('base64'),sha256:manifest.sha256},{type:'call',method:'new_campaign',args,gas:'80000000000000',deposit:'0'}]};
+      actions:[{type:'deploy',code:artifact.toString('base64'),sha256:manifest.sha256},{type:'call',method:'new_campaign',args,gas:'20000000000000',deposit:'0'}]};
     const operation=await this.near.execute({id,signer:identity.signer,plan});
     if(operation.phase==='confirmed')this.registerDeployment(identity,label,operation);
     return {identity,operation};
@@ -98,7 +98,7 @@ export class ChainService {
   async release({contractId,creditorId,id}){
     const snapshot=await this.snapshot(contractId,[creditorId]);assert(uint(snapshot.credits[creditorId].available)>0n,'NO_CREDIT','Original creditor has no available claim');
     const op=await this.call({id,signerId:this.config.treasury,signer:await this.treasurySigner(),receiverId:contractId,codeHash:snapshot.codeHash,
-      method:'release_credit',args:{account_id:creditorId},gas:'150000000000000'});
+      method:'release_credit',args:{account_id:creditorId},gas:'60000000000000'});
     return op;
   }
 }

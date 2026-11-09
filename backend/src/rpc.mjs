@@ -13,7 +13,7 @@ export class Rpc {
     const value=await response.json();
     if(value.error){
       const type=value.error.cause?.name??value.error.data?.name;
-      const code=type==='UNKNOWN_ACCOUNT'?'UNKNOWN_ACCOUNT':type==='UNKNOWN_TRANSACTION'?'UNKNOWN_TRANSACTION':'RPC_REJECTED';
+      const code=type==='UNKNOWN_ACCOUNT'?'UNKNOWN_ACCOUNT':type==='UNKNOWN_TRANSACTION'?'UNKNOWN_TRANSACTION':value.error.code===30||['TIMEOUT_ERROR','DOES_NOT_TRACK_SHARD','INTERNAL_ERROR'].includes(type)?'RPC_UNAVAILABLE':'RPC_REJECTED';
       throw new AppError(code,`Chain query failed (${type??value.error.code})`,409);
     }
     return value.result;
