@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { assert, AppError, walletId } from './core.mjs';
+import { USDC_ABI } from './base-executor.mjs';
 
 async function jsonBody(request){
  assert(request.headers['content-type']?.split(';')[0]==='application/json','JSON_REQUIRED','Use application/json',415);
@@ -11,7 +12,7 @@ async function jsonBody(request){
  });
 }
 function publicOperation(op){return {id:op.id,phase:op.phase,transactionHash:op.transaction_hash};}
-export function httpApp({config,store,auth,marketplace,chain,nativeActions,assetAI,media,budget,near,source,routes}){
+export function httpApp({config,store,auth,marketplace,chain,nativeActions,assetAI,media,budget,near,source,routes,reads,client,returnVerifier}){
  const rates=new Map();
  const server=createServer(async(request,response)=>{
   function send(status,body){response.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify(body));}
@@ -64,7 +65,14 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,asset
    else if(path[1]==='bookings'&&path[3]==='messages'&&['GET','POST'].includes(method))result=marketplace.thread(wallet,path[2],method==='POST'?body.message:undefined);
    else if(method==='POST'&&path[1]==='bookings'&&path[3]==='issues'){result=marketplace.issue(wallet,path[2],body);status=201;}
    else if(method==='GET'&&path[1]==='intents'&&path.length===3){const record=store.get('intent',path[2]);assert(record?.owner===wallet,'NOT_FOUND','Intent not found',404);result=record.plan;}
-   else if(method==='POST'&&path[1]==='intents'&&path[3]==='relay')result=publicOperation(await chain.relay({buyerId:wallet,planId:path[2],signature:body.signature}));
+   else if(method==='POST'&&path[1]==='intents'&&path[3]==='relay'){const op=await chain.relay({buyerId:wallet,planId:path[2],signature:body.signature});result={...publicOperation(op),intentStatus:store.get('intent',path[2]).status};}
+   else if(method==='POST'&&path[1]==='withdrawal-intent')result=await chain.prepareWithdrawal({buyerId:wallet,recipientId:body.recipientId,amount:body.amount});
+   else if(method==='POST'&&path[1]==='claims')result=await chain.claimForWallet({contractId:body.contractId,creditorId:wallet});
+   else if(method==='GET'&&path[1]==='wallet'&&path[2]==='balances'){
+    result={wallet,intentsUsdc:await reads.view(config.assets.intentsId,'mt_balance_of',{account_id:wallet,token_id:config.assets.nearAsset})};
+    if(wallet.startsWith('0x'))Object.assign(result,{baseUsdc:(await client.readContract({address:config.assets.baseUsdc,abi:USDC_ABI,functionName:'balanceOf',args:[wallet]})).toString(),baseEth:(await client.getBalance({address:wallet})).toString()});
+    else Object.assign(result,{near:(await reads.account(wallet)).amount,nearUsdc:await reads.view(config.assets.nearUsdc,'ft_balance_of',{account_id:wallet})});
+   }
    else if(method==='POST'&&path[1]==='nomination')result=await chain.prepareNomination({buyerId:wallet,contractId:body.contractId,recipientId:body.recipientId});
    else if(method==='POST'&&path[1]==='native-actions'&&path.length===2)result=await nativeActions.prepare(wallet,body);
    else if(method==='POST'&&path[1]==='native-actions'&&path[3]==='confirm')result=await nativeActions.confirm(wallet,path[2],body.transactionHash);
@@ -75,6 +83,8 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,asset
     store.insert('route',plan.planId,wallet,{plan});result=plan;
    }
    else if(method==='POST'&&path[1]==='exit-intent')result=await chain.prepareExit({buyerId:wallet,routeId:body.routeId});
+   else if(method==='GET'&&path[1]==='routes'&&path[3]==='reconcile')result=await returnVerifier.verify(path[2],wallet);
+   else if(method==='GET'&&path[1]==='routes'&&path.length===3){const route=store.get('route',path[2]);assert(route?.owner===wallet,'NOT_FOUND','Route not found',404);const status=await routes.status(route.plan);result={providerStatus:status.status,updatedAt:status.updatedAt,swapDetails:status.swapDetails??null,providerStatusIsFinalChainEvidence:false};}
    else if(method==='GET'&&path[1]==='operations'&&path.length===3){
     let op=store.operation(path[2]);assert(op&&(op.scope===wallet||store.list('intent',wallet).some(i=>i.operationId===op.id)),'NOT_FOUND','Operation not found for this wallet',404);
     if(op.kind==='near')op=await near.reconcile(op.id);else if(op.kind==='base-fund')op=await source.reconcile(op.id);result=publicOperation(op);

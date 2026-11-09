@@ -7,11 +7,15 @@ import { runtime, qualifyNetwork } from '../src/runtime.mjs';
 import { assert } from '../src/core.mjs';
 import { USDC_ABI } from '../src/base-executor.mjs';
 import { Qualification } from '../src/qualification.mjs';
+import { ReturnVerifier } from '../src/returns.mjs';
 
 export async function command(args){
  const r=await runtime();
  try{
   const [verb,selected]=args;
+  if(verb==='verify-exit'){assert(['A','B'].includes(selected),'INVALID_BUYER','Choose A or B');return await new ReturnVerifier(r).verify('qualification-exit-'+selected,privateKeyToAccount(r.config.keys['buyer'+selected]).address.toLowerCase());}
+  const extras={'native-storage':'nativeStorage','native-withdraw':'nativeWithdraw','return-native':'returnNative','claim-seller':'claimSeller','consolidate-seller':'consolidateSeller','exit':'exit'};
+  if(extras[verb])return await new Qualification(r)[extras[verb]](selected);
   if(verb==='repair-settlement')return await new Qualification(r).repairSettlement(selected);
   if(verb==='rebroadcast'){const op=await r.near.rebroadcast(selected);return {id:op.id,phase:op.phase,hash:op.transaction_hash};}
   if(verb==='rights')return await new Qualification(r).rights(selected);

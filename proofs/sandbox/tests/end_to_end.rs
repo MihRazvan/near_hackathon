@@ -1721,6 +1721,21 @@ async fn real_cent_principal_intents_proof() -> Result<()> {
             "outcome":if success {"success"} else {"failure"},"two_distinct_erc191_buyers":true,
             "released_principal":true,"bonus_resolved":true,"storefront_balance_zero":true}));
     }
+    let exit = sdk_envelope(&world, "erc191", "unused.sandbox", json!([
+        {"intent":"ft_withdraw","token":"usdc.sandbox","receiver_id":"alice.sandbox","amount":"10000","min_gas":"15000000000000"}
+    ]))?;
+    let exit_owner = exit["signerId"].as_str().unwrap();
+    // The canonical fixture creates a fresh ephemeral key per invocation.
+    // Fund that exact public identity before asking it to withdraw.
+    world.ok("alice.sandbox", "usdc.sandbox", "ft_transfer_call", json!({"receiver_id":"verifier.sandbox","amount":"10000","msg":exit_owner,"memo":null}), 1).await?;
+    let native_before = world.balance("usdc.sandbox", "alice.sandbox").await?;
+    let credit_before = number(&world.view("verifier.sandbox", "mt_balance_of", json!({"account_id":exit_owner,"token_id":"nep141:usdc.sandbox"})).await?);
+    world.ok("carol.sandbox", "verifier.sandbox", "execute_intents", exit["executeArgs"].clone(), 0).await?;
+    assert_eq!(world.balance("usdc.sandbox", "alice.sandbox").await?, native_before + 10_000);
+    world.ok("alice.sandbox", "usdc.sandbox", "ft_transfer_call", json!({"receiver_id":"verifier.sandbox","amount":"10000","msg":exit_owner,"memo":null}), 1).await?;
+    assert_eq!(world.balance("usdc.sandbox", "alice.sandbox").await?, native_before);
+    assert_eq!(number(&world.view("verifier.sandbox", "mt_balance_of", json!({"account_id":exit_owner,"token_id":"nep141:usdc.sandbox"})).await?), credit_before);
+    checks.push(json!({"native_ft_withdrawal_and_return_deposit":true,"principal_micro_usdc":"10000","execute_intents_gas_tgas":60,"withdraw_min_gas_tgas":15}));
     let report = json!({"network":"local NEAR Sandbox","node_version":"2.14.0","funded_public_transactions":0,
         "intents_code_hash":code_hash,"intents_fee":1,"funding":"synthetic local test token; no public bridge", "checks":checks});
     std::fs::create_dir_all(root().join(".local/low-cost-review"))?;

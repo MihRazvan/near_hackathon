@@ -3,6 +3,14 @@ import { recoverMessageAddress } from 'viem';
 import { baseEncode } from 'near-api-js';
 import { assert, uint, hashObject, walletId, canonical } from './core.mjs';
 
+// Pinned Intents fees use pips (1/1,000,000), rounded upward for transfers.
+export function transferFee(amount,pips='1'){const rate=uint(pips);assert(rate<=1000000n,'INVALID_FEE','Protocol fee is out of range');return (uint(amount)*rate+999999n)/1000000n;}
+export function spendableTransfer(balance,pips='1'){
+  const total=uint(balance),rate=uint(pips);let amount=total*1000000n/(1000000n+rate);
+  while(amount+transferFee(amount.toString(),pips)>total)amount--;
+  return amount.toString();
+}
+
 export function freshNonce() {
   let bytes;
   do { bytes=randomBytes(32); } while(bytes.subarray(0,4).equals(Buffer.from([86,40,246,198])));
@@ -66,7 +74,7 @@ export function nominationPlan({snapshot,buyerId,recipientId,now=Date.now()}) {
 export function withdrawalPlan({signerId,verifier,token,recipientId,amount,now=Date.now()}) {
   const recipient=walletId(recipientId);assert(!recipient.startsWith('0x'),'NATIVE_RECIPIENT_REQUIRED','Native USDC receiver must be a NEAR account',400);
   assert(uint(amount)>0n,'ZERO_WITHDRAWAL','Withdrawal must be positive',400);
-  return intentPlan({signerId,verifier,now,intents:[{intent:'ft_withdraw',token,receiver_id:recipient,amount,min_gas:'50000000000000'}],
+  return intentPlan({signerId,verifier,now,intents:[{intent:'ft_withdraw',token,receiver_id:recipient,amount,min_gas:'15000000000000'}],
     context:{kind:'withdraw',token,recipientId:recipient,amount}});
 }
 

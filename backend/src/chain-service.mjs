@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { KeyVault } from './vault.mjs';
 import { assert, hashObject, sha256, walletId, uint } from './core.mjs';
-import { purchasePlan, nominationPlan, signedErc191, validateIntentPlan, intentPlan } from './intents.mjs';
+import { purchasePlan, nominationPlan, withdrawalPlan, transferFee, signedErc191, validateIntentPlan, intentPlan } from './intents.mjs';
 import { validateRoutePlan } from './oneclick.mjs';
 
 export class ChainService {
@@ -60,7 +60,7 @@ export class ChainService {
     assert(!(await this.reads.view(contractId,'is_invoice_used',{invoice_id:invoiceId})),'INVOICE_USED','Choose a fresh invoice for this booking');
     const balance=await this.reads.view(this.config.assets.intentsId,'mt_balance_of',{account_id:payer,token_id:this.config.assets.nearAsset});
     // Intents charges a ceil-rounded transfer fee in addition to receiver principal.
-    const principal=uint(snapshot.state.next_price),fee=(principal+9999n)/10000n;
+    const principal=uint(snapshot.state.next_price),fee=transferFee(snapshot.state.next_price,String(snapshot.intentsFee));
     assert(uint(balance)>=principal+fee,'INSUFFICIENT_INTENTS','Top up the original wallet Intents balance before purchase');
     const plan=purchasePlan({snapshot,buyerId:payer,invoiceId,asset:this.config.assets.nearAsset});
     this.store.insert('intent',plan.planId,payer,{plan,status:'prepared'});return plan;
@@ -74,13 +74,27 @@ export class ChainService {
     assert(stored?.owner===walletId(buyerId),'WRONG_WALLET','Return route must belong to the original wallet',403);
     validateRoutePlan(route,{maxInput:route.request.amount,minOutput:route.response.quote.minAmountOut});
     assert(route.direction==='exit'&&route.wallet===walletId(buyerId),'WRONG_WALLET','Return route must belong to the original wallet');
+    const balance=await this.reads.view(this.config.assets.intentsId,'mt_balance_of',{account_id:route.wallet,token_id:this.config.assets.nearAsset});
+    assert(uint(balance)>=uint(route.request.amount)+transferFee(route.request.amount),'INSUFFICIENT_INTENTS','Return amount plus protocol fee exceeds the wallet balance');
     const plan=intentPlan({signerId:buyerId,verifier:this.config.assets.intentsId,intents:[{intent:'transfer',receiver_id:route.response.quote.depositAddress,tokens:{[this.config.assets.nearAsset]:route.request.amount}}],
       context:{kind:'exit',routePlanId:route.planId}});
     this.store.insert('intent',plan.planId,plan.signerId,{plan,status:'prepared'});return plan;
   }
+  async prepareWithdrawal({buyerId,recipientId,amount}){
+    const payer=walletId(buyerId),recipient=walletId(recipientId);
+    assert(payer.startsWith('0x')&&!recipient.startsWith('0x'),'INVALID_WALLETS','Use an EVM Intents signer and a native NEAR recipient');
+    await this.reads.account(recipient);
+    const registration=await this.reads.view(this.config.assets.nearUsdc,'storage_balance_of',{account_id:recipient});
+    assert(registration,'STORAGE_REQUIRED','Native USDC recipient must register token storage first');
+    const balance=await this.reads.view(this.config.assets.intentsId,'mt_balance_of',{account_id:payer,token_id:this.config.assets.nearAsset});
+    assert(uint(balance)>=uint(amount),'INSUFFICIENT_INTENTS','Native withdrawal exceeds the original wallet balance');
+    const before=await this.reads.view(this.config.assets.nearUsdc,'ft_balance_of',{account_id:recipient});
+    const plan=withdrawalPlan({signerId:payer,verifier:this.config.assets.intentsId,token:this.config.assets.nearUsdc,recipientId:recipient,amount});
+    this.store.insert('intent',plan.planId,payer,{plan,status:'prepared',recipientBalanceBefore:before});return plan;
+  }
   async relay({buyerId,planId,signature}){
     const payer=walletId(buyerId),record=this.store.get('intent',planId);assert(record?.owner===payer,'WRONG_WALLET','Intent belongs to another wallet',403);
-    const id='relay-'+planId,prior=this.store.operation(id);if(prior)return this.near.reconcile(id);
+    const id='relay-'+planId,prior=this.store.operation(id);if(prior)return this.updateIntentOutcome(planId,await this.near.reconcile(id));
     const plan=validateIntentPlan(record.plan);
     if(plan.context.kind==='purchase'){
       const current=await this.snapshot(plan.context.contractId,[payer]);
@@ -90,10 +104,20 @@ export class ChainService {
     const signed=await signedErc191(plan,signature);
     const operation=await this.call({id,signerId:this.config.treasury,signer:await this.treasurySigner(),receiverId:this.config.assets.intentsId,
       codeHash:this.config.assets.intentsCodeHash,method:'execute_intents',args:{signed:[signed]},gas:'60000000000000'});
-    let status=operation.phase;
+    return this.updateIntentOutcome(planId,operation);
+  }
+  updateIntentOutcome(planId,operation){
+    const record=this.store.get('intent',planId),plan=record.plan;let status=operation.phase;
     if(status==='confirmed'&&plan.context.kind==='purchase')status=this.purchaseAccepted(plan,operation)?'accepted':'rejected';
-    this.store.update('intent',planId,payer,record.version,{plan:record.plan,status,operationId:id});
+    if(status==='confirmed'&&plan.context.kind==='withdraw')status=this.withdrawalReceived(plan,operation)?'settled':'rejected';
+    if(record.status!==status||record.operationId!==operation.id)this.store.update('intent',planId,record.owner,record.version,{...record,status,operationId:operation.id});
     return operation;
+  }
+  withdrawalReceived(plan,operation){
+    return operation.phase==='confirmed'&&operation.result.outcome.receipts_outcome.some(receipt=>receipt.outcome.executor_id===plan.context.token&&receipt.outcome.logs?.some(log=>{
+      if(!log.startsWith('EVENT_JSON:'))return false;let event;try{event=JSON.parse(log.slice(11));}catch{return false;}
+      return event.standard==='nep141'&&event.event==='ft_transfer'&&event.data?.some(data=>data.old_owner_id===plan.verifier&&data.new_owner_id===plan.context.recipientId&&data.amount===plan.context.amount);
+    }));
   }
   purchaseAccepted(plan,operation){
     if(operation.phase!=='confirmed')return false;
@@ -109,5 +133,12 @@ export class ChainService {
     const op=await this.call({id,signerId:this.config.treasury,signer:await this.treasurySigner(),receiverId:contractId,codeHash:snapshot.codeHash,
       method:'release_credit',args:{account_id:creditorId},gas:'60000000000000'});
     return op;
+  }
+  async claimForWallet({contractId,creditorId}){
+    const payer=walletId(creditorId),snapshot=await this.snapshot(contractId,[payer]),credit=snapshot.credits[payer];
+    if(credit.available==='0')return {phase:'no-available-credit',credit};
+    const id='wallet-claim-'+hashObject({contractId,payer,round:snapshot.state.round,outcome:snapshot.state.outcome,amount:credit.available});
+    const prior=this.store.operation(id),op=prior?await this.near.reconcile(id):await this.release({contractId,creditorId:payer,id});
+    return {id:op.id,phase:op.phase,transactionHash:op.transaction_hash};
   }
 }

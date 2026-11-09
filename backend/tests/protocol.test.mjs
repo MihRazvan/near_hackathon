@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseDecode } from 'near-api-js';
-import { purchasePlan, signedErc191, validateIntentPlan, nominationPlan, withdrawalPlan } from '../src/intents.mjs';
+import { purchasePlan, signedErc191, validateIntentPlan, nominationPlan, withdrawalPlan, transferFee, spendableTransfer } from '../src/intents.mjs';
 import { NearReads, successfulNearOutcome, nearBurn, successfulAccountClosure } from '../src/rpc.mjs';
 import { canonical } from '../src/core.mjs';
 const buyer=privateKeyToAccount('0x'+'01'.repeat(32)), other=privateKeyToAccount('0x'+'02'.repeat(32));
@@ -11,6 +11,10 @@ function snapshot(){return {qualified:true,accountId:'campaign.near',codeHash:'q
   state:{outcome:'open',intents_contract_id:'intents.near',intents_token_id:'nep141:usdc.near',round:'0',next_price:'10000',holder:null},
   campaign:{terms:{takeover_enabled:true,bidding_close_ns:String(BigInt(now+600000)*1000000n),published_terms_sha256:Buffer.alloc(32,7).toString('base64')}}};}
 const args=()=>({snapshot:snapshot(),buyerId:buyer.address,invoiceId:'invoice',asset:'nep141:usdc.near',now});
+test('pinned pip fees and maximum return principal leave room for the ceil-rounded protocol fee',()=>{
+ assert.equal(transferFee('100000'),1n);assert.equal(transferFee('1000001'),2n);assert.equal(spendableTransfer('250000'),'249999');
+ for(const balance of ['0','1','10000','1000001','100000000000000000000']){const max=BigInt(spendableTransfer(balance));assert.ok(max+transferFee(max.toString())<=BigInt(balance));assert.ok(max+1n+transferFee((max+1n).toString())>BigInt(balance));}
+});
 test('commercial signatures bind exact cents, round, rules, asset and receiver; stale/fixed/self bookings cannot be planned',()=>{
  const p=purchasePlan(args());assert.equal(p.payload.intents[0].tokens['nep141:usdc.near'],'10000');
  assert.equal(validateIntentPlan(JSON.parse(canonical(p)),{now}).message,p.message);

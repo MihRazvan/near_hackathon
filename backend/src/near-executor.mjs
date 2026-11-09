@@ -3,7 +3,7 @@ import { assert, uint, sha256, hashObject } from './core.mjs';
 import { successfulNearOutcome, nearBurn } from './rpc.mjs';
 
 const CALLS=new Set(['new_campaign','execute_intents','storage_deposit','release_credit','finalize_failure','finalize_success',
-  'accept_nft_nomination','mint_final_placement','submit_artwork','lock_artwork','submit_delivery_proof','record_issue_decision','nft_transfer']);
+  'accept_nft_nomination','mint_final_placement','submit_artwork','lock_artwork','submit_delivery_proof','record_issue_decision','nft_transfer','ft_transfer_call','mt_transfer']);
 const ZERO='11111111111111111111111111111111';
 export function gasReservation(plan,protocol,gasInfo){
   const costs=protocol.runtime_config.transaction_costs?.action_creation_config??{};

@@ -3,6 +3,7 @@ import { assert, hashObject, uint } from './core.mjs';
 import { ChainService } from './chain-service.mjs';
 import { qualifyNetwork } from './runtime.mjs';
 import { successfulAccountClosure } from './rpc.mjs';
+import { spendableTransfer } from './intents.mjs';
 
 // Accelerated, synthetic operator scenarios. Dates are not commercial policy defaults.
 export class Qualification {
@@ -143,5 +144,57 @@ export class Qualification {
   const arbiter=await this.chain.vault.identity('arbiter');
   return this.publicOperation(await this.near.execute({id:id+'-lower-gas',signer:arbiter.signer,
    plan:{...old.plan,replacesOperationId:id,actions:[{...old.plan.actions[0],gas:'20000000000000'}]}}));
+ }
+ async nativeStorage(){
+  const a=this.config.assets,id='qualification-native-usdc-storage',prior=this.store.operation(id);
+  if(prior)return this.publicOperation(await this.near.reconcile(id));
+  const balance=await this.reads.view(a.nearUsdc,'storage_balance_of',{account_id:this.config.treasury});if(balance)return {phase:'already-registered',balance};
+  const bounds=await this.reads.view(a.nearUsdc,'storage_balance_bounds');
+  assert(uint(bounds.min)<=2000000000000000000000n,'STORAGE_COST_CHANGED','USDC storage requirement exceeds the qualification allowance');
+  return this.publicOperation(await this.chain.call({id,signerId:this.config.treasury,signer:await this.chain.treasurySigner(),receiverId:a.nearUsdc,
+   codeHash:a.usdcCodeHash,method:'storage_deposit',args:{account_id:this.config.treasury,registration_only:true},deposit:bounds.min,gas:'15000000000000'}));
+ }
+ async nativeWithdraw(){
+  const account=privateKeyToAccount(this.config.keys.buyerA),wallet=account.address.toLowerCase(),id='qualification-native-withdraw';
+  let step=this.store.get('qualification-step',id),plan;
+  if(step)plan=this.store.get('intent',step.planId).plan;
+  else{plan=await this.chain.prepareWithdrawal({buyerId:wallet,recipientId:this.config.treasury,amount:'10000'});step=this.store.insert('qualification-step',id,wallet,{planId:plan.planId});}
+  const operation=await this.chain.relay({buyerId:wallet,planId:plan.planId,signature:await account.signMessage({message:plan.message})});
+  return {...this.publicOperation(operation),intentStatus:this.store.get('intent',plan.planId).status,nativeUsdc:await this.reads.view(this.config.assets.nearUsdc,'ft_balance_of',{account_id:this.config.treasury})};
+ }
+ async returnNative(){
+  const id='qualification-return-native-usdc',prior=this.store.operation(id);if(prior)return this.publicOperation(await this.near.reconcile(id));
+  const buyer=privateKeyToAccount(this.config.keys.buyerA).address.toLowerCase(),a=this.config.assets;
+  const balance=await this.reads.view(a.nearUsdc,'ft_balance_of',{account_id:this.config.treasury});assert(balance==='10000','UNEXPECTED_BALANCE','Only the synthetic one-cent native withdrawal may be returned');
+  return this.publicOperation(await this.chain.call({id,signerId:this.config.treasury,signer:await this.chain.treasurySigner(),receiverId:a.nearUsdc,
+   codeHash:a.usdcCodeHash,method:'ft_transfer_call',args:{receiver_id:a.intentsId,amount:balance,msg:buyer,memo:'Qualification return to the original buyer'},deposit:'1',gas:'60000000000000'}));
+ }
+ async claimSeller(){
+  const c=this.store.get('qualification','success'),id='qualification-claim-seller',prior=this.store.operation(id);
+  const op=prior?await this.near.reconcile(id):await this.chain.release({contractId:c.deploymentId,creditorId:this.config.treasury,id});return this.publicOperation(op);
+ }
+ async consolidateSeller(){
+  const id='qualification-consolidate-owned-seller-credit',prior=this.store.operation(id);if(prior)return this.publicOperation(await this.near.reconcile(id));
+  const a=this.config.assets,buyer=privateKeyToAccount(this.config.keys.buyerA).address.toLowerCase();
+  const balance=await this.reads.view(a.intentsId,'mt_balance_of',{account_id:this.config.treasury,token_id:a.nearAsset});assert(balance==='140000','UNEXPECTED_BALANCE','Only the settled synthetic seller proceeds may be consolidated');
+  // The original contract first pays its stored seller. That seller then signs a separate transfer between wallets controlled by this qualification operator.
+  return this.publicOperation(await this.chain.call({id,signerId:this.config.treasury,signer:await this.chain.treasurySigner(),receiverId:a.intentsId,
+   codeHash:a.intentsCodeHash,method:'mt_transfer',args:{receiver_id:buyer,token_id:a.nearAsset,amount:balance,approval:null,memo:'Controlled qualification wallet consolidation'},deposit:'1',gas:'20000000000000'}));
+ }
+ async exit(letter){
+  assert(['A','B'].includes(letter),'INVALID_BUYER','Choose A or B');
+  const account=privateKeyToAccount(this.config.keys['buyer'+letter]),wallet=account.address.toLowerCase(),id='qualification-exit-'+letter;
+  let step=this.store.get('qualification-step',id),plan,route;
+  if(step){plan=this.store.get('intent',step.planId).plan;route=this.store.get('route',step.routeId).plan;}
+  else{
+   const a=this.config.assets,balance=await this.reads.view(a.intentsId,'mt_balance_of',{account_id:wallet,token_id:a.nearAsset}),amount=spendableTransfer(balance);
+   assert(uint(amount)>=10000n,'ROUTE_TOO_SMALL','Consolidate existing credits before paying another bridge fee');
+   const minOutput=(uint(amount)-5000n).toString();
+   route=await this.routes.quote({direction:'exit',wallet,amount,maxInput:amount,minOutput,dry:false});
+   this.store.insert('route',id,wallet,{plan:route});plan=await this.chain.prepareExit({buyerId:wallet,routeId:id});
+   step=this.store.insert('qualification-step',id,wallet,{planId:plan.planId,routeId:id});
+  }
+  const op=await this.chain.relay({buyerId:wallet,planId:plan.planId,signature:await account.signMessage({message:plan.message})});
+  return {...this.publicOperation(op),routeId:step.routeId,sourceAmount:route.request.amount,minBaseUsdc:route.response.quote.minAmountOut,providerStatus:(await this.routes.status(route)).status};
  }
 }
