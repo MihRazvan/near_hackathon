@@ -1,0 +1,19 @@
+{
+  "network": "mainnet",
+  "account_id": "intents.near",
+  "recorded_at": "2026-11-07T13:51:12.029196Z",
+  "intents_account": {
+    "response": {
+      "result": {
+        "code_hash": "BtA1BEFNS619KkvXFsgcpQ21Tb5yMm32aaUkn7xNothk"
+      }
+    }
+  },
+  "deployed_code": {
+    "artifact": {
+      "bytes": 1297551,
+      "sha256": "a1afab98916d9f213746544dcf8e4e6bdb22c0be6bc5dfbd8ea8814c9922b547"
+    }
+  },
+  "source_commit_reported_by_contract": "16d04f6ec4401263f8914638710260da50bb46b0"
+}

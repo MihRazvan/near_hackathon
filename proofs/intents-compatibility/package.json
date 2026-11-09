@@ -1,0 +1,10 @@
+{
+  "name": "pitboard-intents-compatibility-proof",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@defuse-protocol/intents-sdk": "0.95.0",
+    "near-api-js": "5.1.1",
+    "viem": "2.38.5"
+  }
+}
