@@ -483,11 +483,15 @@ impl Marketplace {
             require!(self.nomination_accepted, "recipient has not accepted");
             return recipient.clone();
         }
+        let payer = self.holder.as_ref().expect("no holder").account_id.clone();
+        // Native NEAR accounts can also pay from the Intents ledger. Their account
+        // already controls a native NFT; external encoded signers still nominate.
         require!(
-            self.settlement == Settlement::Native,
+            self.settlement == Settlement::Native
+                || (!payer.as_str().starts_with("0x") && !payer.as_str().starts_with("0u")),
             "Intents payer must nominate a NEAR recipient"
         );
-        self.holder.as_ref().expect("no holder").account_id.clone()
+        payer
     }
 
     fn intents_token_id(&self) -> String {

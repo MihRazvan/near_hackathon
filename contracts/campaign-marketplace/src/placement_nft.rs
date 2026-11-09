@@ -395,6 +395,23 @@ mod tests {
     }
 
     #[test]
+    fn native_near_payer_on_intents_mints_to_its_own_account() {
+        let mut market = ready();
+        market.settlement = Settlement::Intents;
+        let token = mint(&mut market);
+        assert_eq!(token.owner_id, id("buyer.test.near"));
+    }
+
+    #[test]
+    #[should_panic(expected = "Intents payer must nominate a NEAR recipient")]
+    fn encoded_intents_payer_still_requires_native_nomination() {
+        let mut market = ready();
+        market.settlement = Settlement::Intents;
+        market.holder.as_mut().unwrap().account_id = id("0x1111111111111111111111111111111111111111");
+        mint(&mut market);
+    }
+
+    #[test]
     fn final_mint_transfer_moves_artwork_authority_without_moving_credits() {
         let mut market = ready();
         market.credits.insert(
