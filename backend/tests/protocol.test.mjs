@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseDecode } from 'near-api-js';
 import { purchasePlan, signedErc191, validateIntentPlan, nominationPlan, withdrawalPlan } from '../src/intents.mjs';
-import { NearReads, successfulNearOutcome, nearBurn } from '../src/rpc.mjs';
+import { NearReads, successfulNearOutcome, nearBurn, successfulAccountClosure } from '../src/rpc.mjs';
 import { canonical } from '../src/core.mjs';
 const buyer=privateKeyToAccount('0x'+'01'.repeat(32)), other=privateKeyToAccount('0x'+'02'.repeat(32));
 const now=1800000000000;
@@ -58,4 +58,14 @@ test('receipt-level failures remain failures even when the outer transaction suc
  const o={final_execution_status:'FINAL',status:good.status,transaction_outcome:{outcome:good},receipts_outcome:[{outcome:good}]};
  assert.equal(successfulNearOutcome(o),true);assert.equal(nearBurn(o),24n);
  o.receipts_outcome.push({outcome:{status:{Failure:{}}}});assert.equal(successfulNearOutcome(o),false);
+});
+test('closure verification isolates a failed refund to a deleted account from a failed beneficiary transfer',()=>{
+ const good={SuccessValue:''},gone={Failure:{ActionError:{kind:{AccountDoesNotExist:{account_id:'closed.near'}}}}};
+ const o={final_execution_status:'FINAL',status:good,transaction:{signer_id:'closed.near',receiver_id:'closed.near',actions:[{DeleteAccount:{beneficiary_id:'treasury.near'}}]},
+  transaction_outcome:{outcome:{status:{SuccessReceiptId:'delete'}}},receipts_outcome:[
+   {id:'delete',outcome:{executor_id:'closed.near',status:good,tokens_burnt:'100'}},
+   {id:'beneficiary',outcome:{executor_id:'treasury.near',status:good,tokens_burnt:'0'}},
+   {id:'gas-refund',outcome:{executor_id:'closed.near',status:gone,tokens_burnt:'0'}}]};
+ assert.equal(successfulNearOutcome(o),false);assert.equal(successfulAccountClosure(o,'closed.near','treasury.near'),true);
+ o.receipts_outcome[1].outcome.status=gone;assert.equal(successfulAccountClosure(o,'closed.near','treasury.near'),false);
 });

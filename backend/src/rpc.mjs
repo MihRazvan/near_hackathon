@@ -69,3 +69,16 @@ export function successfulNearOutcome(outcome){
 export function nearBurn(outcome){
   return [outcome.transaction_outcome,...(outcome.receipts_outcome??[])].reduce((sum,item)=>sum+BigInt(item?.outcome?.tokens_burnt??'0'),0n);
 }
+export function successfulAccountClosure(outcome,accountId,beneficiaryId){
+  const success=status=>status&&typeof status==='object'&&('SuccessValue'in status||'SuccessReceiptId'in status);
+  const tx=outcome?.transaction,actions=tx?.actions,receipts=outcome?.receipts_outcome;
+  if(outcome?.final_execution_status!=='FINAL'||!success(outcome.status)||!success(outcome.transaction_outcome?.outcome?.status)
+    ||tx?.signer_id!==accountId||tx.receiver_id!==accountId||actions?.length!==1||actions[0]?.DeleteAccount?.beneficiary_id!==beneficiaryId||!Array.isArray(receipts))return false;
+  const primaryId=outcome.transaction_outcome.outcome.status.SuccessReceiptId;
+  if(!receipts.some(r=>r.id===primaryId&&r.outcome.executor_id===accountId&&success(r.outcome.status))
+    ||!receipts.some(r=>r.outcome.executor_id===beneficiaryId&&success(r.outcome.status)))return false;
+  // Account deletion can leave a gas-refund receipt addressed to the removed signer.
+  // Its failure is distinct from the successful deletion and beneficiary transfer.
+  return receipts.every(r=>success(r.outcome.status)||(r.id!==primaryId&&r.outcome.executor_id===accountId&&r.outcome.tokens_burnt==='0'
+    &&r.outcome.status?.Failure?.ActionError?.kind?.AccountDoesNotExist?.account_id===accountId));
+}

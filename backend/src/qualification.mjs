@@ -2,6 +2,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { assert, hashObject, uint } from './core.mjs';
 import { ChainService } from './chain-service.mjs';
 import { qualifyNetwork } from './runtime.mjs';
+import { successfulAccountClosure } from './rpc.mjs';
 
 // Accelerated, synthetic operator scenarios. Dates are not commercial policy defaults.
 export class Qualification {
@@ -81,7 +82,8 @@ export class Qualification {
   }
   const operation=prior?await this.near.reconcile(id):await this.near.execute({id,signer:identity.signer,plan:{network:this.config.network,signerId:identity.accountId,receiverId:identity.accountId,recoveryVerified:true,
    actions:[{type:'delete',beneficiaryId:this.config.treasury}]}});
-  assert(operation.phase==='confirmed','RECOVERY_PENDING','Account closure requires reconciliation');
+  const closureVerified=successfulAccountClosure(operation.result?.outcome,identity.accountId,this.config.treasury);
+  assert(closureVerified,'RECOVERY_PENDING','Account closure and beneficiary transfer require final verification');
   let absent=false;try{await this.reads.account(identity.accountId);}catch(error){if(error.code==='UNKNOWN_ACCOUNT')absent=true;else throw error;}
   assert(absent,'ACCOUNT_STILL_PRESENT','Recovery account is still present');
   for(const row of this.store.db.prepare('SELECT id FROM operations WHERE kind=?').all('near')){
