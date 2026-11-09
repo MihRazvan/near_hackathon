@@ -115,3 +115,8 @@ Recovery keys remain in owner-only `.local/backend/keys/` files; the treasury ke
 Funded qualification covers Base funding, purchase/takeover, principal refunds, reward cancellation/vesting, final NFT nomination/transfer, artwork/proof, dispute decisions, settlement, native USDC redemption and original-wallet Base returns. Sandbox covers costly rejection/failure cases. Multi-owner application composition uses controlled chain adapters in tests; the funded scenarios use the dedicated qualification seller.
 
 The hosted frontend is not connected yet. Global-code factory creation is a separate Sandbox proof; no mainnet global publication was purchased. Development deployments retain recovery keys and are upgradeable test accounts. This is integration qualification, not a production security audit or automated physical verification.
+## Dedicated wallet interface
+
+The [integration lab](lab/README.md) exercises the full owner, buyer, takeover, NFT, fulfillment and payout lifecycle without changing the design prototype. It runs a real local NEAR Sandbox chain and also provides an external-wallet interface alongside the existing mainnet API. See its qualification file for what was tested and its remaining mainnet limits.
+
+Wallet publication uses `POST /api/sales/:id/prepare-publish` and `POST /api/publication-actions/:planId/confirm`. Request reservations, explicit rejections and reconciliation use `/api/wallet-requests`. `POST /api/token-actions` prepares owner-signed native USDC storage, self-withdrawal and redeposit actions. These return unsigned plans; the public API never accepts a customer private key.

@@ -26,7 +26,7 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
     response.setHeader('Access-Control-Allow-Methods','GET, POST, PATCH, OPTIONS');response.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type');response.writeHead(204);response.end();return;
    }
    const ip=request.socket.remoteAddress,now=Date.now(),rate=rates.get(ip);
-   if(!rate||now-rate.since>=60000)rates.set(ip,{since:now,count:1});else{rate.count++;assert(rate.count<=120,'RATE_LIMIT','Local API rate limit reached',429);}
+   if(!rate||now-rate.since>=60000)rates.set(ip,{since:now,count:1});else{rate.count++;assert(rate.count<=(config.network==='sandbox'?600:120),'RATE_LIMIT','Local API rate limit reached',429);}
    const url=new URL(request.url,origin);assert(url.origin===config.origin,'INVALID_HOST','Absolute request origin does not match',403);
    const path=url.pathname.split('/').filter(Boolean),method=request.method;
    if(lab&&await lab.serve(request,response,url))return;
@@ -46,6 +46,8 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    else if(method==='GET'&&path[1]==='lab-state'&&lab)result=await lab.state(wallet);
    else if(method==='POST'&&path[1]==='lab-wallet'&&lab?.sandbox)result=await lab.wallet(wallet,path[2],body);
    else if(method==='POST'&&path[1]==='lab-clock'&&lab?.sandbox)result=await lab.advance(wallet,body);
+   else if(method==='GET'&&path[1]==='lab-clock'&&lab?.sandbox)result=lab.clockState();
+   else if(method==='POST'&&path[1]==='lab-restart'&&lab?.sandbox)result=lab.restart(wallet);
    else if(method==='GET'&&path[1]==='integration')result={network:config.network,executionEnabled:config.enabled,budget:budget.totals()};
    else if(method==='POST'&&path[1]==='assets'&&path.length===2){result=marketplace.createAsset(wallet,body);status=201;}
    else if(method==='PATCH'&&path[1]==='assets'&&path.length===3)result=marketplace.updateAsset(wallet,path[2],body.version,body.asset);
@@ -79,14 +81,15 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    else if(method==='POST'&&path[1]==='claims')result=await chain.claimForWallet({contractId:body.contractId,creditorId:wallet});
    else if(method==='GET'&&path[1]==='wallet'&&path[2]==='balances'){
     result={wallet,intentsUsdc:await reads.view(config.assets.intentsId,'mt_balance_of',{account_id:wallet,token_id:config.assets.nearAsset})};
-    if(wallet.startsWith('0x'))Object.assign(result,{baseUsdc:(await client.readContract({address:config.assets.baseUsdc,abi:USDC_ABI,functionName:'balanceOf',args:[wallet]})).toString(),baseEth:(await client.getBalance({address:wallet})).toString()});
-    else Object.assign(result,{near:(await reads.account(wallet)).amount,nearUsdc:await reads.view(config.assets.nearUsdc,'ft_balance_of',{account_id:wallet})});
+    if(wallet.startsWith('0x')&&config.network==='mainnet')Object.assign(result,{baseUsdc:(await client.readContract({address:config.assets.baseUsdc,abi:USDC_ABI,functionName:'balanceOf',args:[wallet]})).toString(),baseEth:(await client.getBalance({address:wallet})).toString()});
+    else if(!wallet.startsWith('0x'))Object.assign(result,{near:(await reads.account(wallet)).amount,nearUsdc:await reads.view(config.assets.nearUsdc,'ft_balance_of',{account_id:wallet})});
    }
    else if(method==='POST'&&path[1]==='nomination')result=await chain.prepareNomination({buyerId:wallet,contractId:body.contractId,recipientId:body.recipientId});
    else if(method==='POST'&&path[1]==='native-actions'&&path.length===2)result=await nativeActions.prepare(wallet,body);
+   else if(method==='POST'&&path[1]==='token-actions'&&path.length===2)result=await nativeActions.prepareToken(wallet,body);
    else if(method==='POST'&&path[1]==='native-actions'&&path[3]==='confirm')result=await nativeActions.confirm(wallet,path[2],body.transactionHash);
    else if(method==='GET'&&path[1]==='wallet-requests')result=walletRequests.list(wallet);
-   else if(method==='POST'&&path[1]==='wallet-requests'&&path.length===2)result=walletRequests.begin(wallet,body);
+   else if(method==='POST'&&path[1]==='wallet-requests'&&path.length===2)result=await walletRequests.prepare(wallet,body);
    else if(method==='POST'&&path[1]==='wallet-requests'&&path[3]==='reject')result=walletRequests.reject(wallet,path[2],body);
    else if(method==='POST'&&path[1]==='wallet-requests'&&path[3]==='reconcile')result=await walletRequests.reconcile(wallet,path[2],body.transactionHash);
    else if(method==='POST'&&path[1]==='routes'){

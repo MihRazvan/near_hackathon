@@ -1,0 +1,65 @@
+{
+  "schema": "everywhere-interface-qualification/v1",
+  "runDateUtc": "2026-11-09T16:25:31.064057+00:00",
+  "network": "local NEAR Sandbox 2.14.0",
+  "realMainnetFundsSpent": false,
+  "chainTimeAccelerated": true,
+  "contracts": {
+    "campaignCodeHash": "2Vfc111YtRtuRYU7AegjKmbEWyuTxxaus1odcMRXqeSa",
+    "factoryCodeHash": "3jbvxsj8yRKDVqN97q1Jp12yMzKjG6Eq3MZaf24RVpAw",
+    "intentsCodeHash": "BtA1BEFNS619KkvXFsgcpQ21Tb5yMm32aaUkn7xNothk"
+  },
+  "success": {
+    "contractId": "ce253ae07e4ed791cb064b0fe.factory.sandbox",
+    "checks": [
+      "owner published current terms through wallet",
+      "rejected purchase leaves principal and round unchanged",
+      "buyer A accepted at ten cents",
+      "buyer B takeover accepted at fifteen cents",
+      "displaced principal claimed before service; reward remains conditional",
+      "final payer nominates native NFT recipient",
+      "recipient accepts and placement NFT mints",
+      "NFT transfer changes artwork controller",
+      "previous NFT owner cannot submit artwork",
+      "new owner artwork committed",
+      "seller locks exact artwork and supplies installation proof",
+      "arbiter opens on-chain issue",
+      "unresolved issue blocks payout",
+      "lost wallet response recovers original finalized settlement after reload",
+      "original displaced wallet receives reward",
+      "seller receives fourteen cents; all original claims settle",
+      "seller can withdraw spendable native USDC using its own NEAR wallet",
+      "native earnings redeposit verifies without EVM key registration"
+    ],
+    "totalReceivedMicroUsdc": "250000",
+    "totalWithdrawnMicroUsdc": "250000",
+    "finalEscrowMicroUsdc": "0",
+    "nftOwner": "transferee.sandbox"
+  },
+  "failureAndFixed": {
+    "cancelledContract": "cb89562a27a8fa9f6768f4a80.factory.sandbox",
+    "fixedContract": "cfd0992953b0adf57feb4cb52.factory.sandbox",
+    "checks": [
+      "one-cent takeover sale published",
+      "first principal is one cent",
+      "takeover principal rounds up to two cents",
+      "failed campaign closes without an NFT",
+      "both original principals refunded exactly; failed escrow empty",
+      "fixed-price spot accepts first buyer",
+      "fixed spot rejects takeover without a wallet request or token transfer",
+      "fixed-price qualification principal recovered"
+    ],
+    "allPrincipalsRecovered": true
+  },
+  "aiDraft": {
+    "provider": "separately consented ChatGPT connection",
+    "spotsReturned": 1,
+    "ownerReviewRequired": true,
+    "input": "text-only synthetic vehicle description"
+  },
+  "notCovered": [
+    "Real Meteor/Rabby/MetaMask extension approvals",
+    "Mainnet campaign factory/global code deployment",
+    "Base bridge through the browser wallet; the Sandbox faucet is not a bridge"
+  ]
+}

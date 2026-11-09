@@ -1,9 +1,39 @@
 import { assert, walletId, uint, hashObject } from './core.mjs';
 import { successfulNearOutcome } from './rpc.mjs';
+import { effectiveCodeHash } from './rpc.mjs';
 
 // Customer actions are prepared for their own NEAR wallet. This service has no signer or private-key input.
 export class NativeActions {
- constructor({store,chain,reads,now=Date.now}){Object.assign(this,{store,chain,reads,now});}
+ constructor({store,chain,reads,config,now=Date.now}){Object.assign(this,{store,chain,reads,config,now});}
+ async prepareToken(wallet,{kind,amount}){
+  const actor=walletId(wallet),a=this.config?.assets;
+  assert(!actor.startsWith('0x')&&a,'NEAR_WALLET_REQUIRED','Connect a native NEAR account for this token action');
+  const block=await this.reads.block();
+  assert(effectiveCodeHash(await this.reads.account(a.nearUsdc,block))===a.usdcCodeHash&&effectiveCodeHash(await this.reads.account(a.intentsId,block))===a.intentsCodeHash,
+   'ASSET_CHANGED','Token and Intents code must match qualification');
+  let receiverId=a.nearUsdc,method,args,deposit='1',gas='60000000000000';
+  if(kind==='token-storage'){
+   const existing=await this.reads.view(a.nearUsdc,'storage_balance_of',{account_id:actor},block);
+   assert(!existing,'ALREADY_REGISTERED','This wallet already has native USDC storage');
+   const bounds=await this.reads.view(a.nearUsdc,'storage_balance_bounds',{},block);
+   assert(uint(bounds.min)>0n&&uint(bounds.min)<=10000000000000000000000n,'STORAGE_PRICE_CHANGED','Token storage cost exceeds the local limit');
+   method='storage_deposit';args={account_id:actor,registration_only:true};deposit=bounds.min;gas='15000000000000';
+  }else{
+   assert(uint(amount)>0n,'ZERO_WITHDRAWAL','Choose a positive token amount');
+   if(kind==='withdraw-native'){
+    assert(await this.reads.view(a.nearUsdc,'storage_balance_of',{account_id:actor},block),'STORAGE_REQUIRED','Register this account for native USDC first');
+    assert(uint(await this.reads.view(a.intentsId,'mt_balance_of',{account_id:actor,token_id:a.nearAsset},block))>=uint(amount),'INSUFFICIENT_INTENTS','Withdrawal exceeds the original wallet balance');
+    receiverId=a.intentsId;method='ft_withdraw';args={token:a.nearUsdc,receiver_id:actor,amount,memo:null,msg:null};
+   }else if(kind==='deposit-intents'){
+    assert(uint(await this.reads.view(a.nearUsdc,'ft_balance_of',{account_id:actor},block))>=uint(amount),'INSUFFICIENT_USDC','Deposit exceeds native USDC balance');
+    method='ft_transfer_call';args={receiver_id:a.intentsId,amount,msg:actor,memo:null};
+   }else assert(false,'INVALID_ACTION','Unknown native token action',400);
+  }
+  const body={schema:'everywhere-native-action/v1',wallet:actor,contractId:receiverId,
+   codeHash:receiverId===a.intentsId?a.intentsCodeHash:a.usdcCodeHash,kind,createdAt:new Date(this.now()).toISOString(),expiresAt:new Date(this.now()+120000).toISOString(),
+   transaction:{signerId:actor,receiverId,actions:[{type:'FunctionCall',params:{methodName:method,args,gas,deposit}}]}};
+  const plan={...body,planId:hashObject(body)};this.store.insert('native-plan',plan.planId,actor,{plan,status:'prepared'});return plan;
+ }
  async prepare(wallet,{contractId,kind,mediaId,expectedRevision,receiverId,caseId,open}){
   const actor=walletId(wallet);assert(!actor.startsWith('0x'),'NEAR_WALLET_REQUIRED','Connect the NEAR wallet that owns this placement or role',400);
   const s=await this.chain.snapshot(contractId),state=s.state,rights=s.rights;

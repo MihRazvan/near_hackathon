@@ -12,14 +12,16 @@ import { reconciliationWorker } from '../src/worker.mjs';
 import { ReturnVerifier } from '../src/returns.mjs';
 import { Publication } from '../src/publication.mjs';
 import { WalletRequests } from '../src/wallet-requests.mjs';
+import { IntegrationLab } from '../src/lab.mjs';
 
 const r=await runtime(),chain=new ChainService(r);
 const auth=new Auth(r.store,{origin:r.config.origin,readKeys:account=>r.reads.keys(account)});
-const marketplace=new Marketplace({store:r.store,chain}),nativeActions=new NativeActions({store:r.store,chain:{snapshot:chain.snapshot.bind(chain)},reads:r.reads});
+const marketplace=new Marketplace({store:r.store,chain}),nativeActions=new NativeActions({store:r.store,chain:{snapshot:chain.snapshot.bind(chain)},reads:r.reads,config:r.config});
 const assetAI=new AssetAI(new ChatGPT({credentialsFile:r.config.chatgptCredentials})),media=new Media({store:r.store,token:r.config.keys.pinata});
 const returnVerifier=new ReturnVerifier(r);
 const publication=new Publication({...r,marketplace}),walletRequests=new WalletRequests({...r,chain,nativeActions,publication});
-const server=httpApp({...r,auth,chain,marketplace,nativeActions,publication,walletRequests,assetAI,media,returnVerifier});
+const lab=new IntegrationLab({...r,chain,auth,marketplace,walletRequests});
+const server=httpApp({...r,auth,chain,marketplace,nativeActions,publication,walletRequests,assetAI,media,returnVerifier,lab});
 const worker=reconciliationWorker({...r,marketplace,nativeActions,intentOutcomes:chain.updateIntentOutcome.bind(chain)});
 server.listen(r.config.port,r.config.host,()=>console.log('Local integration API: '+r.config.origin+'/api/health'));
 function stop(){worker.stop();server.close(()=>{if(!worker.isRunning())r.store.close();process.exit(0);});}
