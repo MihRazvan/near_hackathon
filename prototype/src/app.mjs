@@ -1,4 +1,6 @@
 import "./style.css";
+import { live, currentPerson, initializeConnected, renderConnected, topbar as connectedTopbar, handleAction as connectedAction, handleForm as connectedForm, legacyAction, mountConnected } from './integration/index.mjs';
+import { run as runConnected } from './integration/runtime.mjs';
 import {
   state,
   person,
@@ -90,6 +92,7 @@ function active(path) {
   );
 }
 function topbar() {
+  if(live.enabled)return connectedTopbar();
   return `<div class="prototype-bar"><span class="prototype-label"><i class="prototype-dot"></i><strong>INTERACTIVE PROTOTYPE</strong> <span class="reset-label">/ SAMPLE DATA · EVERYWHERE IS A WORKING NAME</span></span><div class="prototype-tools"><label><span class="sr-only">Review persona</span><select data-control="persona" aria-label="Review persona">${Object.entries(
     PERSONAS,
   )
@@ -102,7 +105,7 @@ function topbar() {
     )}</select></label><select class="state-select" data-control="review-state" aria-label="Preview page state">${["populated", "empty", "loading", "error"].map((v) => `<option ${state.reviewState === v ? "selected" : ""}>${v}</option>`).join("")}</select>${link("/_screens", "All screens ↗", "")}${button("demo-controls", "Demo controls", "", "")}${button("reset-demo", "Reset", "", "reset-label")}</div></div>`;
 }
 function publicShell(body) {
-  return `${topbar()}<header class="site-header"><a class="brand" href="/"><span class="brand-mark">≡</span>everywhere<span style="font-size:10px;color:#a3ac96;font-weight:400;letter-spacing:0">®</span></a><nav class="site-nav"><a href="/explore">Explore spaces</a><a href="/how-it-works/buy">How it works</a><a href="/how-it-works/list">For space owners</a></nav><div class="header-end">${link("/host/assets/new", `List a space ${icon("plus")}`, "button small")}${link(person().role === "public" ? "/sign-in" : person().role === "owner" ? "/host" : "/buy", person().role === "public" ? "Sign in" : person().name.split(" ")[0] + " ↗", "text-link")}</div></header><nav class="mobile-nav-links"><a href="/explore">Explore</a><a href="/buy">Buyer workspace</a><a href="/host">Owner workspace</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">everywhere</a><span>Advertise on everything. Start with vehicles.</span><nav><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/_screens">Prototype index</a></nav></footer>`;
+  return `${topbar()}<header class="site-header"><a class="brand" href="/"><span class="brand-mark">≡</span>everywhere<span style="font-size:10px;color:#a3ac96;font-weight:400;letter-spacing:0">®</span></a><nav class="site-nav"><a href="/explore">Explore spaces</a><a href="/how-it-works/buy">How it works</a><a href="/how-it-works/list">For space owners</a></nav><div class="header-end">${link("/host/assets/new", `List a space ${icon("plus")}`, "button small")}${link(person().role === "public" ? "/sign-in" : person().role === "owner" ? "/host" : "/buy", person().role === "public" ? "Sign in" : person().name.split(" ")[0] + " ↗", "text-link")}</div></header><nav class="mobile-nav-links"><a href="/explore">Explore</a><a href="/buy">Buyer workspace</a><a href="/host">Owner workspace</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">everywhere</a><span>Advertise on everything. Start with vehicles.</span><nav><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/_screens">${live.enabled?"Product map":"Prototype index"}</a></nav></footer>`;
 }
 function workspaceShell(body, scope) {
   const role =
@@ -117,7 +120,7 @@ function workspaceShell(body, scope) {
               ? "ops"
               : "buyer"
           : "buyer";
-  const nav = navs[role];
+  const nav = live.enabled&&role==='ops'?navs.ops.map((entry,index)=>index===1?['/ops/listings/'+(live.data?.arbiterSales?.[0]?.id??''),entry[1],entry[2]]:index===2?['/ops/cases/'+(live.data?.issues?.[0]?.id??''),entry[1],entry[2]]:index===3?['/account/recovery',entry[1],entry[2]]:entry):navs[role];
   return `${topbar()}<div class="workspace"><aside class="sidebar"><a class="brand" href="/"><span class="brand-mark">≡</span>everywhere</a><div class="workspace-switch"><a href="/buy" class="${role === "buyer" ? "active" : ""}">Buy space</a><a href="/host" class="${role === "owner" ? "active" : ""}">List space</a></div><div><div class="nav-section-label">${role === "ops" ? "PLATFORM OPERATIONS" : role === "owner" ? "OWNER WORKSPACE" : "BUYER WORKSPACE"}</div><nav>${nav.map(([url, title, i]) => `<a href="${url}" class="${active(url) ? "active" : ""}">${icon(i)}${title}</a>`).join("")}</nav></div><div><div class="nav-section-label">YOUR WORKSPACE</div><nav>${[
     ["/inbox", "Inbox", "mail"],
     ["/notifications", "Notifications", "bell"],
@@ -135,7 +138,7 @@ function workspaceShell(body, scope) {
       .map((x) => x[0])
       .slice(0, 2)
       .join(""),
-  )}</span><div><strong>${esc(person().name)}</strong><small>${esc(person().brand || "Sample workspace")}</small></div></div></div></aside><div class="workspace-main"><header class="workspace-topbar"><div class="workspace-breadcrumb"><a href="${role === "owner" ? "/host" : role === "ops" ? "/ops" : "/buy"}">${role === "owner" ? "Owner" : role === "ops" ? "Operations" : "Buyer"}</a><span>/</span><strong>${esc(currentRoute.title)}</strong></div><div class="actions"><a class="wallet-label" href="/settings/wallets">${icon("wallet")}${esc(short(person().wallet) || "Connect wallet")}</a>${link("/notifications", icon("bell"), "icon-button")}${link("/settings/profile", '<span class="avatar">' + esc(person().name[0]) + "</span>", "")}</div></header><nav class="mobile-workspace-nav">${[...nav, ["/buy", "Buy", "grid"], ["/host", "List", "car"], ["/_screens", "All screens", "file"]].map(([url, title]) => `<a href="${url}" class="${active(url) ? "active" : ""}">${title}</a>`).join("")}</nav><main class="workspace-content" id="main">${body}<div class="screenshot-notes"><span>${currentRoute.id} / ${esc(currentRoute.title)} · Interactive sample data</span><a href="/_screens">Browse all screens ↗</a></div></main></div></div>`;
+  )}</span><div><strong>${esc(person().name)}</strong><small>${esc(person().brand || (live.enabled?"Wallet workspace":"Sample workspace"))}</small></div></div></div></aside><div class="workspace-main"><header class="workspace-topbar"><div class="workspace-breadcrumb"><a href="${role === "owner" ? "/host" : role === "ops" ? "/ops" : "/buy"}">${role === "owner" ? "Owner" : role === "ops" ? "Operations" : "Buyer"}</a><span>/</span><strong>${esc(currentRoute.title)}</strong></div><div class="actions"><a class="wallet-label" href="/settings/wallets">${icon("wallet")}${esc(short(person().wallet) || "Connect wallet")}</a>${link("/notifications", icon("bell"), "icon-button")}${link("/settings/profile", '<span class="avatar">' + esc(person().name[0]) + "</span>", "")}</div></header><nav class="mobile-workspace-nav">${[...nav, ["/buy", "Buy", "grid"], ["/host", "List", "car"], ["/_screens", "All screens", "file"]].map(([url, title]) => `<a href="${url}" class="${active(url) ? "active" : ""}">${title}</a>`).join("")}</nav><main class="workspace-content" id="main">${body}<div class="screenshot-notes"><span>${currentRoute.id} / ${esc(currentRoute.title)} · ${live.enabled?"Verified backend records":"Interactive sample data"}</span><a href="/_screens">Browse all screens ↗</a></div></main></div></div>`;
 }
 function screenIndex() {
   const groups = [
@@ -198,12 +201,15 @@ function globalPage(r) {
   );
 }
 function render() {
+  if(live.enabled)state.connectedPerson=currentPerson();
   currentRoute =
+    live.enabled&&location.pathname==='/_testing'?{id:'T01',title:'Local testing',scope:'shared',params:{}}:
     location.pathname === "/_screens"
       ? { id: "INDEX", title: "Screen index", scope: "public", params: {} }
       : matchRoute(location.pathname);
   let body;
-  if (currentRoute.id === "INDEX") body = screenIndex();
+  if(live.enabled)body=renderConnected(currentRoute);
+  else if (currentRoute.id === "INDEX") body = screenIndex();
   else if (currentRoute.scope === "global") body = globalPage(currentRoute);
   else {
     body = publicPage(currentRoute);
@@ -238,11 +244,11 @@ function render() {
     body = body
       .replace("<h2>", '<h1 tabindex="-1" class="empty-title">')
       .replace("</h2>", "</h1>");
-  document.title = `${currentRoute.title} · Everywhere prototype`;
-  app.innerHTML = ["public", "account", "global"].includes(currentRoute.scope)
+  document.title = `${currentRoute.title} · Everywhere${live.enabled?'':' prototype'}`;
+  app.innerHTML = ["public", "account", "global"].includes(currentRoute.scope)||live.enabled&&currentRoute.id==='O05'
     ? publicShell(body)
     : workspaceShell(body, currentRoute.scope);
-  for (const x of extensions) x.mount?.(currentRoute);
+  if(live.enabled)mountConnected(currentRoute);else for (const x of extensions) x.mount?.(currentRoute);
 }
 const baseActions = {
   "close-modal": closeModal,
@@ -368,6 +374,10 @@ const baseActions = {
   },
 };
 document.addEventListener("click", async (event) => {
+  if(live.enabled){
+    const real=event.target.closest('[data-live-action]');if(real){event.preventDefault();await runConnected(()=>connectedAction(real,event));return;}
+    const legacy=event.target.closest('[data-action]');if(legacy){event.preventDefault();legacyAction(legacy,currentRoute);return;}
+  }
   const target = event.target.closest("[data-action]");
   if (target) {
     event.preventDefault();
@@ -400,7 +410,7 @@ document.addEventListener("click", async (event) => {
   )
     return;
   event.preventDefault();
-  if (a.dataset.persona)
+  if (a.dataset.persona&&!live.enabled)
     update(
       (s) => {
         s.persona = a.dataset.persona;
@@ -412,6 +422,7 @@ document.addEventListener("click", async (event) => {
 });
 document.addEventListener("submit", async (event) => {
   const form = event.target;
+  if(live.enabled){if(form.dataset.liveForm){event.preventDefault();await runConnected(()=>connectedForm(form));}else if(form.dataset.form){event.preventDefault();toast('This design-review form is unavailable in the connected product.');}return;}
   if (!form.dataset.form) return;
   event.preventDefault();
   try {
@@ -514,4 +525,5 @@ window.addEventListener("app:toast", (event) => {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove("visible"), 5000);
 });
+if(live.enabled){render();try{await initializeConnected();}catch(error){live.error=error.message;}}
 render();

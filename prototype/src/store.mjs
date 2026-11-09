@@ -6,7 +6,7 @@ try {
 } catch {}
 if (!current || current.version !== 1) current = initialState();
 export const state = current;
-export const person = () => ({
+export const person = () => state.connectedPerson ?? ({
   ...(PERSONAS[state.persona] ?? PERSONAS.visitor),
   ...state.profiles?.[state.persona],
 });
