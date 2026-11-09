@@ -6,6 +6,11 @@ import { assert, walletId } from './core.mjs';
 export class WalletRequests {
  constructor({store,nativeActions,publication,chain}){Object.assign(this,{store,nativeActions,publication,chain});}
  list(wallet){return this.store.list('wallet-request',walletId(wallet)).map(({signedTransaction,...r})=>r);}
+ async prepare(wallet,input){
+  const actor=walletId(wallet);
+  for(const request of this.list(actor).filter(r=>!['rejected','confirmed','failed'].includes(r.status)))await this.reconcile(actor,request.id);
+  return this.begin(actor,input);
+ }
  begin(wallet,{kind,planId}){
   const actor=walletId(wallet),table={native:'native-plan',publication:'publication-plan',intent:'intent'}[kind];
   assert(table,'INVALID_REQUEST','Choose a known wallet action',400);
@@ -13,9 +18,9 @@ export class WalletRequests {
   assert(plan.status==='prepared','PLAN_SUBMITTED','Reconcile the original wallet action before starting another');
   return this.store.transaction(()=>{
    const pending=this.store.list('wallet-request',actor).filter(r=>!['rejected','confirmed','failed'].includes(r.status));
-   const same=pending.find(r=>r.kind===kind&&r.planId===planId);if(same)return same;
+   const same=pending.find(r=>r.kind===kind&&r.planId===planId);if(same)return {...same,dispatchAllowed:false};
    assert(!pending.length,'WALLET_REQUEST_PENDING','An earlier wallet request needs reconciliation');
-   return this.store.insert('wallet-request',randomUUID(),actor,{kind,planId,status:'requested'});
+   return {...this.store.insert('wallet-request',randomUUID(),actor,{kind,planId,status:'requested'}),dispatchAllowed:true};
   });
  }
  reject(wallet,id,{code}){

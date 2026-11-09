@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { loadConfig } from './config.mjs';
 import { Store } from './store.mjs';
 import { Budget } from './budget.mjs';
-import { Rpc, NearReads } from './rpc.mjs';
+import { Rpc, NearReads, effectiveCodeHash } from './rpc.mjs';
 import { NearExecutor } from './near-executor.mjs';
 import { BaseExecutor, USDC_ABI } from './base-executor.mjs';
 import { OneClick } from './oneclick.mjs';
@@ -26,6 +26,6 @@ export async function qualifyNetwork(r){
  assert(intents.code_hash===a.intentsCodeHash&&usdc.code_hash===a.usdcCodeHash,'PROTOCOL_CHANGED','Protocol code differs from the qualified deployments');
  assert(fee===1&&(paused===null||(Array.isArray(paused)&&paused.length===0)),'PROTOCOL_UNAVAILABLE','Qualified fee and unpaused Intents required');
  assert(decimals===6,'ASSET_CHANGED','Base USDC decimals changed');
- assert(treasury.code_hash==='11111111111111111111111111111111'&&keys.some(k=>k.access_key.permission==='FullAccess'),'TREASURY_CHANGED','Recovery treasury must retain full access and no contract');
+ assert(effectiveCodeHash(treasury)==='11111111111111111111111111111111'&&keys.some(k=>k.access_key.permission==='FullAccess'),'TREASURY_CHANGED','Recovery treasury must retain full access and no contract');
  return {network:'mainnet',baseChainId:a.chainId,blockHash:block.header.hash,fee,treasuryBalance:treasury.amount,budget:r.budget.totals()};
 }

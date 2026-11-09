@@ -40,9 +40,18 @@ test('timeout preserves signed hash and signer lock; reconciliation never sends 
  const s=setup();s.unknown();try{
   const op=await s.executor.execute({id:'fund',plan:s.plan,signer:s.signer});assert.equal(op.phase,'broadcast-unknown');
   assert.ok(op.transaction_hash);assert.ok(op.result.signedTransaction);assert.ok(BigInt(s.budget.totals().nearFees)>0n);
+  s.hide(true);
   await assert.rejects(s.executor.execute({id:'another',plan:s.plan,signer:s.signer}),/requires reconciliation/);
+  s.hide(false);
   const bad=structuredClone(s.final());bad.transaction.hash='other';assert.throws(()=>s.executor.finish('fund',bad),/does not match/);
   assert.equal(s.budget.totals().nearAllocation,near(7));assert.equal((await s.executor.reconcile('fund')).phase,'confirmed');assert.equal(s.calls(),1);
+ }finally{s.store.close();}
+});
+test('a new action reconciles an already-final preceding signer operation before enforcing the remaining budget',async()=>{
+ const s=setup();s.unknown();try{
+  await s.executor.execute({id:'first',plan:s.plan,signer:s.signer});
+  await assert.rejects(s.executor.execute({id:'second',plan:s.plan,signer:s.signer}),{code:'BUDGET_EXCEEDED'});
+  assert.equal(s.store.operation('first').phase,'confirmed');assert.equal(s.store.get('near-lock',s.plan.signerId),null);assert.equal(s.calls(),1);
  }finally{s.store.close();}
 });
 test('no broadcast happens when disabled, crossing recovery floor, exceeding total budget or targeting changed code',async()=>{

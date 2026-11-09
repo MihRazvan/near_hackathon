@@ -44,6 +44,16 @@ export class NearExecutor {
     assert(this.config.enabled,'MAINNET_DISABLED','Live integration execution is disabled');
     const prior=this.store.operation(id);
     if(prior){assert(prior.plan_hash===hashObject(plan),'OPERATION_CHANGED','Operation differs from committed plan');return this.reconcile(id);}
+    // A preceding transaction may already be final even when the background worker has not ticked.
+    // Reconcile it before reading the next nonce; unknown outcomes keep the signer locked.
+    const signerLock=this.store.get('near-lock',plan.signerId);
+    if(signerLock&&!plan.replacesOperationId){
+      for(let attempt=0;attempt<12;attempt++){
+        await this.reconcile(signerLock.operationId);
+        if(!this.store.get('near-lock',plan.signerId))break;
+        if(attempt<11)await new Promise(resolve=>setTimeout(resolve,150));
+      }
+    }
     assert(plan.network===this.config.network&&plan.signerId&&plan.receiverId,'WRONG_NETWORK','Transaction network or identities missing');
     const decoded=decodeActions(plan),publicKey=await signer.getPublicKey(),block=await this.reads.block();
     await this.reads.status();
@@ -61,13 +71,13 @@ export class NearExecutor {
     const liquid=uint(account.amount)-BigInt(account.storage_usage)*storagePrice;
     assert(liquid>=outgoing+feeReserve,'INSUFFICIENT_NEAR','Signer lacks liquid NEAR after storage collateral and reserved fees');
     if(plan.signerId===this.config.treasury){
-      assert(account.code_hash===ZERO,'TREASURY_CODE_CHANGED','Treasury must remain an ordinary recovery account');
+      assert(effectiveCodeHash(account)===ZERO,'TREASURY_CODE_CHANGED','Treasury must remain an ordinary recovery account');
       assert(liquid-outgoing-feeReserve>=uint(this.config.treasuryFloor),'TREASURY_FLOOR','Transaction would cross the treasury recovery floor');
       assert(!plan.actions.some(a=>a.type==='deploy'||a.type==='delete'),'TREASURY_ACTION_BLOCKED','Treasury cannot deploy code or be deleted');
     }
     if(plan.actions.some(a=>a.type==='deploy')){
       assert(plan.signerId===plan.receiverId,'SELF_DEPLOY_REQUIRED','Deploy only to a dedicated account with its own key');
-      assert(account.code_hash===ZERO,'EXISTING_CODE','Never overwrite a funded deployed contract');
+      assert(effectiveCodeHash(account)===ZERO,'EXISTING_CODE','Never overwrite a funded deployed contract');
       const codeBytes=plan.actions.filter(a=>a.type==='deploy').reduce((n,a)=>n+Buffer.from(a.code,'base64').length,0);
       assert(liquid>=BigInt(codeBytes+5000)*storagePrice+outgoing+feeReserve,'INSUFFICIENT_STORAGE','Deployment requires code, state and gas collateral');
     }
