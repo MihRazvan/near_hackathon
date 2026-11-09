@@ -55,6 +55,13 @@ export class BrowserFunding {
    this.store.event('browser_wallet_rejected',id,op.scope,{code:4001});
   });return this.public(this.store.operation(id));
  }
+ cancelUnsent(wallet,id){
+  const op=this.owned(wallet,id);assert(op.phase==='wallet-review'&&!op.transaction_hash,'RECONCILIATION_REQUIRED','The wallet was already opened; reconcile its original transfer or explicit rejection');
+  this.store.transaction(()=>{this.store.transition(id,['wallet-review'],'cancelled',{result:{...op.result,cancelledBeforeDispatch:true}});
+   this.store.db.prepare("UPDATE budget_entries SET status='released' WHERE operation_id=? AND status='reserved'").run(id);
+   this.store.db.prepare('DELETE FROM objects WHERE kind=? AND id=?').run('base-lock',op.scope);});
+  return this.public(this.store.operation(id));
+ }
  async reconcile(wallet,id,hash){
   let op=this.owned(wallet,id);
   if(hash){

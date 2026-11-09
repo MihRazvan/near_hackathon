@@ -53,3 +53,7 @@ test('a hash from a different wallet nonce cannot confirm the prepared transfer'
   await assert.rejects(f.funding.reconcile(wallet,r.id,hash),{code:'NONCE_CHANGED'});assert.equal(f.store.operation(r.id).phase,'broadcast-unknown');assert.equal(f.budget.totals().sourceUsdc,'252579');
  }finally{f.store.close();}
 });
+test('an unopened funding review can be cancelled; a dispatched unknown transfer cannot',async()=>{
+ const f=fixture();try{const r=await f.funding.prepare(wallet,f.plan.planId);assert.equal(f.funding.cancelUnsent(wallet,r.id).phase,'cancelled');assert.equal(f.budget.totals().sourceUsdc,'0');assert.equal(f.store.get('base-lock',wallet),null);}finally{f.store.close();}
+ const g=fixture();try{const r=await g.funding.prepare(wallet,g.plan.planId);g.funding.dispatch(wallet,r.id);assert.throws(()=>g.funding.cancelUnsent(wallet,r.id),{code:'RECONCILIATION_REQUIRED'});assert.equal(g.budget.totals().sourceUsdc,'252579');}finally{g.store.close();}
+});

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { assert, walletId, text, uint, hashObject } from './core.mjs';
-import { validateDraft } from './asset-ai.mjs';
+import { validateDraft, imageInput } from './asset-ai.mjs';
 
 const DATE_KEYS=['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'];
 function dates(input,now){
@@ -14,15 +14,31 @@ function native(value){const id=walletId(value);assert(!id.startsWith('0x'),'NEA
 
 export class Marketplace {
  constructor({store,chain,now=Date.now}){Object.assign(this,{store,chain,now});}
+ assertSaleEditable(sale){
+  const factoryPlans=this.store.list('publication-plan',sale.owner).filter(p=>p.plan.saleId===sale.id);
+  const ids=new Set(factoryPlans.map(p=>p.id));
+  const started=factoryPlans.some(p=>p.transactionHash)||this.store.list('wallet-request',sale.owner).some(r=>ids.has(r.planId)&&r.dispatched&&r.status!=='rejected')||
+   this.store.list('provision-plan',sale.owner).some(p=>p.plan.saleId===sale.id&&(p.approvedAt||p.plan.spots.some(s=>this.store.operation('identity-fund-'+s.label))));
+  assert(!started,'PUBLICATION_IN_PROGRESS','Publication has started. Reconcile its original contracts before changing these terms');
+ }
+ assetMedia(owner,input){
+  const data={};
+  if(input.photoDataUrl){imageInput(input.photoDataUrl);data.photoDataUrl=input.photoDataUrl;}
+  if(input.coverMediaId){const m=owned(this.store,'media',input.coverMediaId,owner);assert(m.status==='verified'&&['image/png','image/jpeg'].includes(m.mime),'INVALID_COVER','A verified image belonging to this wallet is required');
+   Object.assign(data,{coverMediaId:m.id,coverUri:m.uri,coverSha256:m.sha256});}
+  return data;
+ }
+
  createAsset(owner,input){
-  const draft=validateDraft({...input,assumptions:input.assumptions??[]});
-  const data={...draft,city:text(input.city,'city',100),source:input.source==='ai'?'ai':'manual',status:'draft'};
+  const draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
+  const data={...draft,...this.assetMedia(owner,input),city:text(input.city,'city',100),source:input.source==='ai'?'ai':'manual',status:'draft'};
   return this.store.insert('asset',randomUUID(),walletId(owner),data);
  }
  updateAsset(owner,id,version,input){
-  const row=owned(this.store,'asset',id,owner),draft=validateDraft({...input,assumptions:input.assumptions??[]});
+  for(const sale of this.store.list('sale',walletId(owner)).filter(s=>s.assetId===id&&s.status==='draft'))this.assertSaleEditable(sale);
+  const row=owned(this.store,'asset',id,owner),draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
   assert(row.version===version,'STALE_VERSION','Asset changed; reload before editing');
-  return this.store.update('asset',id,row.owner,version,{...draft,city:text(input.city,'city',100),source:row.source,status:'draft'});
+  return this.store.update('asset',id,row.owner,version,{...draft,...this.assetMedia(owner,{...row,...input}),city:text(input.city,'city',100),source:row.source,status:'draft'});
  }
  saleData(owner,input){
   const asset=owned(this.store,'asset',input.assetId,owner),schedule=dates(input.schedule,this.now());
@@ -40,12 +56,17 @@ export class Marketplace {
  }
  createSale(owner,input){return this.store.insert('sale',randomUUID(),walletId(owner),this.saleData(owner,input));}
  updateSale(owner,id,version,input){const sale=owned(this.store,'sale',id,owner);assert(sale.status==='draft','IMMUTABLE_SALE','Published sale rules cannot be changed');
+  this.assertSaleEditable(sale);
   return this.store.update('sale',id,sale.owner,version,this.saleData(owner,{...sale,...input}));}
  publication(owner,id){
   const sale=owned(this.store,'sale',id,owner);assert(sale.status==='draft','IMMUTABLE_SALE','Published sales cannot change their commercial terms');
+  for(const other of this.store.list('sale',sale.owner).filter(s=>s.status==='published'&&s.assetId===sale.assetId&&s.id!==sale.id)){
+   const overlaps=Date.parse(other.schedule.serviceStart)<Date.parse(sale.schedule.serviceEnd)&&Date.parse(sale.schedule.serviceStart)<Date.parse(other.schedule.serviceEnd);
+   assert(!overlaps||!other.spots.some(a=>sale.spots.some(b=>a.id===b.id)),'OVERLAPPING_SALE','A published campaign already uses this physical spot during these dates');
+  }
   dates(sale.schedule,this.now());const asset=owned(this.store,'asset',sale.assetId,owner);
   const manifest={version:1,saleId:sale.id,title:sale.title,sellerId:sale.owner,arbiterId:sale.arbiterId,
-   asset:{id:asset.id,title:asset.title,description:asset.description,assetType:asset.assetType,city:asset.city,spots:asset.spots},
+   asset:{id:asset.id,title:asset.title,description:asset.description,assetType:asset.assetType,city:asset.city,spots:asset.spots,...(asset.coverUri?{coverUri:asset.coverUri,coverSha256:asset.coverSha256}:{})},
    schedule:sale.schedule,spots:sale.spots,rules:sale.rules,printingAndInstallationIncluded:true,
    settlement:'USDC in NEAR Intents',ownerPayout:'after service and review; open issues block settlement',artworkReview:'after immediate booking; exact revision locked before printing'};
   const hash=Buffer.from(hashObject(manifest),'hex').toString('base64');
@@ -134,6 +155,18 @@ export class Marketplace {
   const wallet=walletId(actor),booking=this.store.get('booking',bookingId);assert(booking&&(wallet===booking.owner||wallet===booking.sellerId),'NOT_FOUND','Booking conversation not found',404);
   if(message!==undefined)this.store.insert('message',randomUUID(),wallet,{bookingId,text:text(message,'message',2000)});
   return this.store.list('message').filter(m=>m.bookingId===bookingId);
+ }
+ async placementThread(actor,contractId,message){
+  const wallet=walletId(actor),s=await this.chain.snapshot(contractId);
+  assert([s.state.seller_id,s.state.holder?.account_id,s.rights.current_owner_id,s.state.nominated_recipient].includes(wallet),'NOT_FOUND','Placement conversation not found',404);
+  if(message!==undefined)this.store.insert('placement-message',randomUUID(),wallet,{contractId,text:text(message,'message',2000)});
+  return this.store.list('placement-message').filter(m=>m.contractId===contractId);
+ }
+ async placementIssue(actor,contractId,{reason,mediaId}){
+  const wallet=walletId(actor),s=await this.chain.snapshot(contractId);
+  assert([s.state.seller_id,s.state.holder?.account_id,s.rights.current_owner_id].includes(wallet),'NOT_FOUND','Placement not found for issue review',404);
+  const media=owned(this.store,'media',mediaId,wallet);assert(media.status==='verified','UNVERIFIED_EVIDENCE','Public issue evidence must be verified');
+  return this.store.insert('issue',randomUUID(),wallet,{contractId,reason:text(reason,'issue reason',2000),mediaId,evidenceSha256:media.sha256,status:'awaiting-arbiter'});
  }
  issue(actor,bookingId,{reason,mediaId}){
   const wallet=walletId(actor),booking=this.store.get('booking',bookingId);assert(booking&&['accepted','outbid'].includes(booking.status)&&(wallet===booking.owner||wallet===booking.sellerId),'NOT_FOUND','Booked placement not found',404);

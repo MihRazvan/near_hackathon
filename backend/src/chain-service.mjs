@@ -97,7 +97,7 @@ export class ChainService {
     if(prior){const record=this.store.get('intent',planId);assert(record?.owner===walletId(buyerId),'WRONG_WALLET','Intent belongs to another wallet',403);
       return this.updateIntentOutcome(planId,await this.near.reconcile(prior.id));}
     this.store.transaction(()=>{assert(!this.store.get('intent-dispatch',planId),'INTENT_BUSY','The original signature is being reconciled');
-      this.store.insert('intent-dispatch',planId,walletId(buyerId),{startedAt:Date.now()});});
+      this.store.insert('intent-dispatch',planId,walletId(buyerId),{startedAt:Date.now(),pid:process.pid});});
     try{return await this.relayUnlocked({buyerId,planId,signature});}
     finally{this.store.db.prepare('DELETE FROM objects WHERE kind=? AND id=?').run('intent-dispatch',planId);}
   }

@@ -29,7 +29,12 @@ export class WalletRequests {
   assert(r.status==='requested'&&!r.transactionHash&&!r.signedTransaction,'ALREADY_SENT','Signed or submitted actions require reconciliation');
   return this.store.update('wallet-request',id,r.owner,r.version,{...r,status:'rejected'});
  }
+ cancelUnsent(wallet,id){
+  const r=this.owned(wallet,id);assert(r.status==='requested'&&!r.dispatched&&!r.transactionHash,'RECONCILIATION_REQUIRED','The original wallet was already opened; reconcile it before starting again');
+  return this.store.update('wallet-request',id,r.owner,r.version,{...r,status:'rejected',errorCode:'CANCELLED_BEFORE_DISPATCH'});
+ }
  dispatch(wallet,id){
+  assert(this.store.get('lab-clock','current')?.status!=='advancing','CLOCK_BUSY','Wait for the local chain clock to finish before dispatching a wallet transaction');
   const r=this.owned(wallet,id);assert(r.status==='requested'&&!r.dispatched,'WALLET_REQUEST_PENDING','The original wallet request was already started');
   const table={native:'native-plan',publication:'publication-plan',intent:'intent'}[r.kind],plan=this.store.get(table,r.planId)?.plan;
   if(plan?.expiresAt&&Date.parse(plan.expiresAt)<=this.now()){
@@ -59,6 +64,21 @@ export class WalletRequests {
    throw error;
   }
  }
+ async resumeIntent(wallet,id){
+  let r=await this.reconcile(wallet,id);assert(r.kind==='intent','INVALID_REQUEST','Only the original Intents message can be resumed');
+  if(['confirmed','failed'].includes(r.status)||r.transactionHash||this.chain.store.operation('relay-'+r.planId))return r;
+  const lease=this.chain.store.get('intent-dispatch',r.planId);
+  if(lease){
+   assert(Number.isSafeInteger(lease.pid)&&lease.pid>0,'RECONCILIATION_REQUIRED','The original dispatch needs operator reconciliation');
+   let dead=false;try{process.kill(lease.pid,0);}catch(error){if(error.code==='ESRCH')dead=true;}
+   assert(dead,'INTENT_BUSY','The original signing process is still active');
+   this.chain.store.db.prepare('DELETE FROM objects WHERE kind=? AND id=?').run('intent-dispatch',r.planId);
+  }
+  const plan=this.store.get('intent',r.planId).plan,expired=Date.parse(plan.expiresAt)<=this.now();
+  r=this.store.update('wallet-request',id,r.owner,r.version,{...r,status:expired?'failed':'rejected',errorCode:expired?'EXPIRED_BEFORE_DISPATCH':'ORIGINAL_INTENT_RESUMABLE'});
+  if(expired)for(const b of this.store.list('booking',r.owner).filter(b=>b.planId===r.planId&&b.status==='prepared'))this.store.update('booking',b.id,r.owner,b.version,{...b,status:'failed'});
+  return r;
+ }
  owned(wallet,id){const r=this.store.get('wallet-request',id);assert(r?.owner===walletId(wallet),'NOT_FOUND','Wallet request not found',404);return r;}
  async reconcile(wallet,id,transactionHash){
   let r=this.owned(wallet,id);
@@ -73,7 +93,7 @@ export class WalletRequests {
   if(['confirmed','failed'].includes(r.status))return r;
   let result;
   if(r.kind==='intent'){
-   const plan=this.store.get('intent',r.planId),op=plan.operationId&&await this.chain.near.reconcile(plan.operationId);
+   const plan=this.store.get('intent',r.planId),operationId=plan.operationId??this.chain.store.operation('relay-'+r.planId)?.id,op=operationId&&await this.chain.near.reconcile(operationId);
    if(op){this.chain.updateIntentOutcome(r.planId,op);result={status:['confirmed','failed'].includes(op.phase)?op.phase:'submitted',transactionHash:op.transaction_hash};
     if(['confirmed','failed'].includes(op.phase))for(const b of this.store.list('booking',r.owner).filter(b=>b.planId===r.planId&&['prepared','submitted'].includes(b.status))){
      const accepted=op.phase==='confirmed'&&this.chain.purchaseAccepted(plan.plan,op),status=op.phase==='failed'?'failed':accepted?'accepted':'rejected';

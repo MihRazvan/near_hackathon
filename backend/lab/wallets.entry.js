@@ -25,6 +25,15 @@ export class ExternalWallets {
   if(current[0]?.toLowerCase()!==address)throw new Error('Wallet changed during approval; the signature was not submitted');
   return signature;
  }
+ async ensureBase(address){
+  if(!this.provider)throw new Error('Reconnect your EVM wallet app before approving a Base transfer');
+  const accounts=await this.provider.request({method:'eth_accounts'});
+  if(accounts[0]?.toLowerCase()!==address)throw new Error('Wallet changed; reconnect the original funding account');
+  if(Number(await this.provider.request({method:'eth_chainId'}))!==8453)await this.provider.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x2105'}]});
+  if(Number(await this.provider.request({method:'eth_chainId'}))!==8453)throw new Error('Select Base mainnet in your wallet');
+  const current=await this.provider.request({method:'eth_accounts'});if(current[0]?.toLowerCase()!==address)throw new Error('Wallet changed before funding');
+ }
+ async sendBase(transaction){await this.ensureBase(transaction.from);return this.provider.request({method:'eth_sendTransaction',params:[transaction]});}
  async connectNear(network){
   this.connector??=new NearConnector({network,autoConnect:false,cspNonce:document.querySelector('meta[name="lab-csp-nonce"]')?.content,features:{signInWithoutAddKey:true,signAndSendTransaction:true,signMessage:true}});
   this.native=await this.connector.connect({walletId:'meteor-wallet'});

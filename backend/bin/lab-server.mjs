@@ -15,6 +15,9 @@ import { NativeActions } from '../src/native-actions.mjs';
 import { Publication } from '../src/publication.mjs';
 import { WalletRequests } from '../src/wallet-requests.mjs';
 import { IntegrationLab } from '../src/lab.mjs';
+import { Product } from '../src/product.mjs';
+import { Capture } from '../src/capture.mjs';
+import { Provisioning } from '../src/provisioning.mjs';
 import { Media } from '../src/media.mjs';
 import { AssetAI } from '../src/asset-ai.mjs';
 import { ChatGPT } from '../src/chatgpt.mjs';
@@ -37,6 +40,7 @@ const config={network:'sandbox',enabled:true,host:'127.0.0.1',port,origin:'http:
  assets:{intentsId:'verifier.sandbox',intentsCodeHash:f.intentsCodeHash,nearUsdc:'usdc.sandbox',nearAsset:'nep141:usdc.sandbox',usdcCodeHash:f.usdcCodeHash},
  factory:{accountId:'factory.sandbox',codeHash:f.factoryCodeHash,campaignSha256:Buffer.from(baseDecode(f.campaignCodeHash)).toString('hex')}};
 Object.defineProperty(config,'keys',{value:{near:f.testSecretKey}});
+if(process.env.LAB_PUBLICATION_MODE==='recoverable'){config.factory=null;config.allowRecoverablePublication=true;}
 const store=new Store(join(run,'state.sqlite')),budget=new Budget(store,config.limits),reads=new NearReads(rpc,{network:status.chain_id,now:()=>clock.now()});
 const near=new NearExecutor({store,budget,reads,config}),r={config,store,budget,reads,near,now:()=>clock.now()},chain=new ChainService(r);
 const auth=new Auth(store,{origin:config.origin,network:'sandbox',readKeys:account=>reads.keys(account)});
@@ -51,7 +55,10 @@ const testWallets=[{label:'Owner',address:'seller.sandbox'},{label:'Buyer A',acc
 const lab=new IntegrationLab({...r,chain,auth,marketplace,walletRequests,testWallets,testSecretKey:f.testSecretKey,clock});
 // Optional public-artifact/AI providers use their real APIs. No funded signer is passed into this runtime.
 const optional=await loadConfig(),media=new Media({store,token:optional.keys.pinata}),assetAI=new AssetAI(new ChatGPT({credentialsFile:optional.chatgptCredentials}));
-const server=httpApp({...r,auth,chain,marketplace,nativeActions,publication,walletRequests,media,assetAI,lab});
+const product=new Product({...r,chain,marketplace,walletRequests});
+const capture=new Capture({...r,now:Date.now});
+const provisioning=new Provisioning({...r,chain,marketplace});
+const server=httpApp({...r,auth,chain,marketplace,nativeActions,publication,walletRequests,media,assetAI,lab,product,capture,provisioning});
 const worker=reconciliationWorker({...r,marketplace,nativeActions,intentOutcomes:chain.updateIntentOutcome.bind(chain)});
 server.listen(port,config.host,()=>console.log('Integration lab: '+config.origin+'/lab (valueless local NEAR Sandbox)'));
 function stop(){worker.stop();server.close(()=>{if(!worker.isRunning())store.close();process.exit(0);});}

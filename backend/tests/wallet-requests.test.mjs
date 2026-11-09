@@ -54,3 +54,23 @@ test('a signature rejected before broadcast releases its request and marks its b
   assert.equal(service.owned(actor,request.id).status,'failed');assert.equal(store.get('booking','b').status,'failed');
  }finally{store.close();}
 });
+test('original signatures resume only before a durable send; a live dispatch cannot be displaced',async()=>{
+ const store=new Store(),actor='0x'+'11'.repeat(20),chain={store},service=new WalletRequests({store,chain});try{
+  store.insert('intent','original',actor,{status:'prepared',plan:{expiresAt:new Date(Date.now()+60000).toISOString()}});
+  const r=service.begin(actor,{kind:'intent',planId:'original'});service.dispatch(actor,r.id);
+  store.insert('intent-dispatch','original',actor,{pid:process.pid});
+  await assert.rejects(service.resumeIntent(actor,r.id),{code:'INTENT_BUSY'});assert.equal(service.owned(actor,r.id).status,'requested');
+  store.db.prepare("DELETE FROM objects WHERE kind='intent-dispatch'").run();
+  assert.equal((await service.resumeIntent(actor,r.id)).errorCode,'ORIGINAL_INTENT_RESUMABLE');
+  const next=service.begin(actor,{kind:'intent',planId:'original'});assert.notEqual(next.id,r.id);assert.equal(next.planId,r.planId);
+ }finally{store.close();}
+});
+test('final wallet receipts remain final after upstream history pruning',async()=>{
+ const store=new Store(),service=new WalletRequests({store,nativeActions:{confirm:async()=>{throw Error('pruned receipt');}}});try{
+  store.insert('wallet-request','final','owner.near',{kind:'native',planId:'plan',status:'confirmed',transactionHash:'1'.repeat(44)});
+  assert.equal((await service.reconcile('owner.near','final')).status,'confirmed');await assert.rejects(service.reconcile('owner.near','final','2'.repeat(44)),{code:'TRANSACTION_CHANGED'});
+ }finally{store.close();}
+});
+test('a wallet switch before dispatch can cancel the unopened review without clearing a dispatched request',()=>{
+ const store=new Store(),service=new WalletRequests({store}),actor='owner.near';try{store.insert('native-plan','p',actor,{status:'prepared'});const r=service.begin(actor,{kind:'native',planId:'p'});assert.equal(service.cancelUnsent(actor,r.id).errorCode,'CANCELLED_BEFORE_DISPATCH');const next=service.begin(actor,{kind:'native',planId:'p'});service.dispatch(actor,next.id);assert.throws(()=>service.cancelUnsent(actor,next.id),{code:'RECONCILIATION_REQUIRED'});}finally{store.close();}
+});

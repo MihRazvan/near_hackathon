@@ -26,6 +26,7 @@ export class IntegrationLab {
  async publicConfig(){return {network:this.config.network,executionEnabled:this.config.enabled,origin:this.config.origin,
   sandbox:this.sandbox,walletMode:this.sandbox?'Valueless Sandbox test wallets; real signatures and NEAR receipts':'External wallets only',
   wallets:this.sandbox?this.testWallets.map(({label,address})=>({label,address})):[],factory:this.config.factory?.accountId??null,
+  defaultArbiter:this.config.defaultArbiter??(this.sandbox?'arbiter.sandbox':null),publicationMode:this.config.factory?'factory':'recoverable',
   time:new Date(this.clock?.now()??Date.now()).toISOString()};}
  async state(actor){
   const snapshots=[];
@@ -48,30 +49,36 @@ export class IntegrationLab {
   return {challengeId,accountId:w.address,publicKey:key.getPublicKey().toString(),signature:Buffer.from(signature.signature).toString('base64')};
  }
  async wallet(actor,kind,body){
+  if(kind==='faucet'){
+   assert(this.sandbox,'SANDBOX_ONLY','The faucet is only available on the local test chain');
+   actor=walletId(actor);if(!actor.startsWith('0x'))this.testAccount(actor);
+   this.store.transaction(()=>{if(!this.store.get('lab-faucet',actor)){assert(this.store.list('lab-faucet').length<8,'FAUCET_LIMIT','This test run supports up to eight funded wallets');this.store.insert('lab-faucet',actor,actor,{amount:'250000'});}});
+   const transaction={signerId:'usdc.sandbox',receiverId:'usdc.sandbox',actions:[
+    {type:'FunctionCall',params:{methodName:'mint',args:{account_id:'usdc.sandbox',amount:'250000'},gas:'10000000000000',deposit:'0'}},
+    {type:'FunctionCall',params:{methodName:'ft_transfer_call',args:{receiver_id:'verifier.sandbox',amount:'250000',msg:actor,memo:null},gas:'60000000000000',deposit:'1'}}]};
+   return this.sendTestTransaction('usdc.sandbox',transaction,'faucet-'+actor);
+  }
   const w=this.testAccount(actor);
   if(kind==='intent-sign'){
    assert(w.account,'EVM_WALLET_REQUIRED','Choose a test EVM wallet');
    const record=this.store.get('intent',body.planId);assert(record?.owner===w.address,'NOT_FOUND','Intent not found',404);
    const request=this.walletRequests.owned(actor,body.requestId);assert(request.planId===record.id&&request.status==='requested','INVALID_REQUEST','Wallet request does not match');
+   if(!request.dispatched)this.walletRequests.dispatch(actor,request.id);
    return {signature:await w.account.signMessage({message:record.plan.message})};
   }
   if(kind==='send'){
    assert(!w.account,'NEAR_WALLET_REQUIRED','Choose a test NEAR wallet');
    let r=this.walletRequests.owned(actor,body.requestId);
    assert(['native','publication'].includes(r.kind)&&!['rejected','failed'].includes(r.status),'INVALID_REQUEST','A native wallet request is required');
+   if(!r.dispatched&&r.status==='requested')r=this.walletRequests.dispatch(actor,r.id);
    const p=this.store.get(r.kind==='native'?'native-plan':'publication-plan',r.planId);
    assert(p.owner===actor&&p.plan.transaction.signerId===actor,'WRONG_WALLET','Test signer differs from the action owner');
    const sent=await this.sendTestTransaction(actor,p.plan.transaction,'wallet-'+r.id);
+   r=this.walletRequests.owned(actor,body.requestId);
    if(!r.transactionHash)r=this.store.update('wallet-request',r.id,actor,r.version,{...r,status:'submitted',transactionHash:sent.transactionHash});
    return {transactionHash:sent.transactionHash};
   }
-  if(kind==='faucet'){
-   assert(w.account,'EVM_WALLET_REQUIRED','Faucet funds a test EVM Intents account');
-   const transaction={signerId:'usdc.sandbox',receiverId:'usdc.sandbox',actions:[
-    {type:'FunctionCall',params:{methodName:'mint',args:{account_id:'usdc.sandbox',amount:'250000'},gas:'10000000000000',deposit:'0'}},
-    {type:'FunctionCall',params:{methodName:'ft_transfer_call',args:{receiver_id:'verifier.sandbox',amount:'250000',msg:actor,memo:null},gas:'60000000000000',deposit:'1'}}]};
-   return this.sendTestTransaction('usdc.sandbox',transaction,'faucet-'+actor);
-  }
+
   assert(false,'NOT_FOUND','Unknown test wallet action',404);
  }
  async sendTestTransaction(actor,transaction,id){
@@ -96,14 +103,14 @@ export class IntegrationLab {
    r=this.store.update('lab-transaction',id,actor,r.version,{...r,status:'broadcast-unknown'});
    try{await this.reads.rpc.call('send_tx',{signed_tx_base64:r.signedTransaction,wait_until:'NONE'});}catch{}
   }
-  if(r.status==='confirmed')return {transactionHash:r.transactionHash,status:'confirmed'};
+  if(['confirmed','failed'].includes(r.status))return {transactionHash:r.transactionHash,status:r.status};
   for(let i=0;i<50;i++){
    try{const outcome=await this.reads.rpc.call('tx',{tx_hash:r.transactionHash,sender_account_id:actor,wait_until:'NONE'});
     if(outcome.final_execution_status==='FINAL'){
-     assert(successfulNearOutcome(outcome),'TEST_TRANSACTION_FAILED','Sandbox wallet transaction failed; inspect chain receipts');
+     const successful=successfulNearOutcome(outcome);
      const current=this.store.get('lab-transaction',id);
-     this.store.update('lab-transaction',id,actor,current.version,{...current,status:'confirmed',finalBlockHash:outcome.transaction_outcome.block_hash});
-     return {transactionHash:r.transactionHash,status:'confirmed'};
+     this.store.update('lab-transaction',id,actor,current.version,{...current,status:successful?'confirmed':'failed',finalBlockHash:outcome.transaction_outcome.block_hash});
+     return {transactionHash:r.transactionHash,status:successful?'confirmed':'failed'};
     }}catch(e){if(!['UNKNOWN_TRANSACTION','RPC_UNAVAILABLE'].includes(e.code))throw e;}
    await new Promise(resolve=>setTimeout(resolve,150));
   }
@@ -139,10 +146,10 @@ export class IntegrationLab {
   const job=this.store.get('lab-clock','current');if(!job||job.status!=='advancing'||this.advancePromise)return;
   this.advancePromise=(async()=>{
    try{
-    for(let i=0;i<120;i++){
+    for(let i=0;i<2400;i++){
      await this.clock.refresh();
      if(this.clock.now()>=job.target){const r=this.store.get('lab-clock','current');this.store.update('lab-clock','current',r.owner,r.version,{...r,status:'complete'});return;}
-     const before=await this.reads.block(),delta=500;
+     const before=await this.reads.block(),delta=Math.max(1,Math.min(100,Math.ceil((job.target-this.clock.now())/300)));
      // Sandbox produces roughly 0.3-second blocks. Bound every skip and verify actual timestamps.
      await this.reads.rpc.call('sandbox_fast_forward',{delta_height:delta},{timeoutMs:30000});
      for(let n=0;n<100;n++){const b=await this.reads.block();if(b.header.height>=before.header.height+delta)break;await new Promise(r=>setTimeout(r,100));}

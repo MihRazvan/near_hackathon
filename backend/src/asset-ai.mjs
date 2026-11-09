@@ -7,18 +7,20 @@ export function imageInput(dataUrl){
  assert(match[1]==='png'?bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):bytes[0]===255&&bytes[1]===216&&bytes[2]===255,'INVALID_IMAGE','Image content does not match its type',400);
  return {bytes,mime:'image/'+match[1],dataUrl};
 }
-export function validateDraft(value){
+export function validateDraft(value,{preserveIds=false}={}){
  assert(value&&Array.isArray(value.spots)&&value.spots.length>0&&value.spots.length<=8,'INVALID_AI_DRAFT','Draft requires one to eight spots',502);
  const title=text(value.title,'title',100),description=text(value.description,'description',1000);
  assert(['car','bike','motorcycle','van','truck','other'].includes(value.assetType),'INVALID_AI_DRAFT','Unsupported asset type',502);
- const spots=value.spots.map((spot,index)=>{
+ const seen=new Set();const spots=value.spots.map((spot,index)=>{
   assert(['left','right','front','rear','top'].includes(spot.side),'INVALID_AI_DRAFT','Invalid spot side',502);
   const box=spot.box;
   assert(box&&['x','y','width','height'].every(k=>typeof box[k]==='number'&&Number.isFinite(box[k])&&box[k]>=0&&box[k]<=1)
    &&box.width>0&&box.height>0&&box.x+box.width<=1.000001&&box.y+box.height<=1.000001,'INVALID_AI_DRAFT','Spot must fit its normalized image bounds',502);
   assert(uint(spot.suggestedPriceCents)>0n&&uint(spot.suggestedPriceCents)<=1000000n,'INVALID_AI_DRAFT','Invalid suggested price',502);
   assert(['low','medium','high'].includes(spot.confidence),'INVALID_AI_DRAFT','Confidence required',502);
-  return {id:'spot-'+(index+1),name:text(spot.name,'spot name',80),side:spot.side,box:{x:box.x,y:box.y,width:box.width,height:box.height},
+  const id=preserveIds&&spot.id!==undefined?spot.id:'spot-'+(index+1);
+  assert(typeof id==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(id)&&!seen.has(id),'INVALID_SPOT','Spot identifiers must be unique and stable',400);seen.add(id);
+  return {id,name:text(spot.name,'spot name',80),side:spot.side,box:{x:box.x,y:box.y,width:box.width,height:box.height},
    suggestedPriceCents:spot.suggestedPriceCents,confidence:spot.confidence,requiresMeasurement:true,dimensionsCm:null};
  });
  assert(Array.isArray(value.assumptions)&&value.assumptions.length<=8,'INVALID_AI_DRAFT','Draft assumptions required',502);

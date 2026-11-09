@@ -65,6 +65,9 @@ export function configFromEnv(env = {}) {
     origin: "http://127.0.0.1:4318",
     stateDir: resolve(ROOT, ".local/backend"),
     enabled: env.INTEGRATION_ALLOW_MAINNET === "true",
+    allowRecoverablePublication:env.INTEGRATION_ALLOW_RECOVERABLE_PUBLICATION==='true',
+    allowFundedWallets:env.INTEGRATION_ALLOW_FUNDED_BROWSER_WALLETS==='true',
+    defaultArbiter:env.INTEGRATION_DEFAULT_ARBITER_ID||null,
     treasury: env.INTEGRATION_NEAR_ACCOUNT_ID
       ? walletId(env.INTEGRATION_NEAR_ACCOUNT_ID)
       : null,
