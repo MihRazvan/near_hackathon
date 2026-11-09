@@ -7,7 +7,7 @@ import { purchasePlan, nominationPlan, withdrawalPlan, signedErc191, validateInt
 import { validateRoutePlan } from './oneclick.mjs';
 
 export class ChainService {
-  constructor(runtime){Object.assign(this,runtime);this.vault=new KeyVault(join(this.config.stateDir,'keys'));}
+  constructor(runtime){Object.assign(this,{now:Date.now},runtime);this.vault=new KeyVault(join(this.config.stateDir,'keys'));}
   treasurySigner(){return KeyPairSigner.fromSecretKey(this.config.keys.near);}
   async call({id,signerId,signer,receiverId,method,args={},gas='25000000000000',deposit='0',codeHash}){
     return this.near.execute({id,signer,plan:{network:this.config.network,signerId,receiverId,...(signerId===this.config.treasury&&uint(deposit)>0n?{allocationAccount:receiverId}:{}),expectedReceiverCodeHash:codeHash,
@@ -61,11 +61,11 @@ export class ChainService {
     const balance=await this.reads.view(this.config.assets.intentsId,'mt_balance_of',{account_id:payer,token_id:this.config.assets.nearAsset});
     // The pinned transfer intent moves exact principal. Pip fees apply to swap netting, not ordinary transfers.
     assert(uint(balance)>=uint(snapshot.state.next_price),'INSUFFICIENT_INTENTS','Top up the original wallet Intents balance before purchase');
-    const plan=purchasePlan({snapshot,buyerId:payer,invoiceId,asset:this.config.assets.nearAsset});
+    const plan=purchasePlan({snapshot,buyerId:payer,invoiceId,asset:this.config.assets.nearAsset,now:this.now()});
     this.store.insert('intent',plan.planId,payer,{plan,status:'prepared'});return plan;
   }
   async prepareNomination({buyerId,contractId,recipientId}){
-    const plan=nominationPlan({snapshot:await this.snapshot(contractId),buyerId,recipientId});
+    const plan=nominationPlan({snapshot:await this.snapshot(contractId),buyerId,recipientId,now:this.now()});
     this.store.insert('intent',plan.planId,plan.signerId,{plan,status:'prepared'});return plan;
   }
   async prepareExit({buyerId,routeId}){
@@ -88,20 +88,20 @@ export class ChainService {
     const balance=await this.reads.view(this.config.assets.intentsId,'mt_balance_of',{account_id:payer,token_id:this.config.assets.nearAsset});
     assert(uint(balance)>=uint(amount),'INSUFFICIENT_INTENTS','Native withdrawal exceeds the original wallet balance');
     const before=await this.reads.view(this.config.assets.nearUsdc,'ft_balance_of',{account_id:recipient});
-    const plan=withdrawalPlan({signerId:payer,verifier:this.config.assets.intentsId,token:this.config.assets.nearUsdc,recipientId:recipient,amount});
+    const plan=withdrawalPlan({signerId:payer,verifier:this.config.assets.intentsId,token:this.config.assets.nearUsdc,recipientId:recipient,amount,now:this.now()});
     this.store.insert('intent',plan.planId,payer,{plan,status:'prepared',recipientBalanceBefore:before});return plan;
   }
   async relay({buyerId,planId,signature}){
     const payer=walletId(buyerId),record=this.store.get('intent',planId);assert(record?.owner===payer,'WRONG_WALLET','Intent belongs to another wallet',403);
     const id='relay-'+planId,prior=this.store.operation(id);if(prior)return this.updateIntentOutcome(planId,await this.near.reconcile(id));
     assert(this.config.enabled,'MAINNET_DISABLED','Live integration execution is disabled');
-    const plan=validateIntentPlan(record.plan);
+    const plan=validateIntentPlan(record.plan,{now:this.now()});
     if(plan.context.kind==='purchase'){
       const current=await this.snapshot(plan.context.contractId,[payer]);
       assert(current.state.round===plan.context.expectedRound&&current.state.next_price===plan.context.amount,'PRICE_CHANGED','Campaign price changed; sign a fresh purchase');
       assert(current.campaign.terms.published_terms_sha256===plan.context.publishedTermsHash,'TERMS_CHANGED','Campaign rules changed');
     }
-    const signed=await signedErc191(plan,signature);
+    const signed=await signedErc191(plan,signature,{now:this.now()});
     const operation=await this.call({id,signerId:this.config.treasury,signer:await this.treasurySigner(),receiverId:this.config.assets.intentsId,
       codeHash:this.config.assets.intentsCodeHash,method:'execute_intents',args:{signed:[signed]},gas:'60000000000000'});
     return this.updateIntentOutcome(planId,operation);

@@ -12,7 +12,7 @@ async function jsonBody(request){
  });
 }
 function publicOperation(op){return {id:op.id,phase:op.phase,transactionHash:op.transaction_hash};}
-export function httpApp({config,store,auth,marketplace,chain,nativeActions,assetAI,media,budget,near,source,routes,reads,client,returnVerifier}){
+export function httpApp({config,store,auth,marketplace,chain,nativeActions,publication,walletRequests,assetAI,media,budget,near,source,routes,reads,client,returnVerifier,lab}){
  const rates=new Map();
  const server=createServer(async(request,response)=>{
   function send(status,body){response.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify(body));}
@@ -29,8 +29,11 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,asset
    if(!rate||now-rate.since>=60000)rates.set(ip,{since:now,count:1});else{rate.count++;assert(rate.count<=120,'RATE_LIMIT','Local API rate limit reached',429);}
    const url=new URL(request.url,origin);assert(url.origin===config.origin,'INVALID_HOST','Absolute request origin does not match',403);
    const path=url.pathname.split('/').filter(Boolean),method=request.method;
+   if(lab&&await lab.serve(request,response,url))return;
    assert(path[0]==='api','NOT_FOUND','API route not found',404);
    if(method==='GET'&&path[1]==='health'){send(200,{ok:true,service:'everywhere-local-backend'});return;}
+   if(method==='GET'&&path[1]==='lab-config'&&lab){send(200,await lab.publicConfig());return;}
+   if(method==='POST'&&path[1]==='lab-wallet'&&path[2]==='sign-in'&&lab?.sandbox){send(200,await lab.signIn(await jsonBody(request)));return;}
    if(method==='GET'&&path[1]==='browse'){send(200,marketplace.browse({city:url.searchParams.get('city')||undefined,assetType:url.searchParams.get('type')||undefined}));return;}
    if(method==='GET'&&path[1]==='sales'&&path.length===3){send(200,marketplace.sale(path[2]));return;}
    if(method==='POST'&&path[1]==='auth'&&path[2]==='challenge'){const body=await jsonBody(request);send(201,auth.challenge(body.wallet));return;}
@@ -40,6 +43,9 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,asset
    const body=['POST','PATCH'].includes(method)?await jsonBody(request):{};
    let result,status=200;
    if(method==='GET'&&path[1]==='me')result={wallet,dashboard:marketplace.dashboard(wallet)};
+   else if(method==='GET'&&path[1]==='lab-state'&&lab)result=await lab.state(wallet);
+   else if(method==='POST'&&path[1]==='lab-wallet'&&lab?.sandbox)result=await lab.wallet(wallet,path[2],body);
+   else if(method==='POST'&&path[1]==='lab-clock'&&lab?.sandbox)result=await lab.advance(wallet,body);
    else if(method==='GET'&&path[1]==='integration')result={network:config.network,executionEnabled:config.enabled,budget:budget.totals()};
    else if(method==='POST'&&path[1]==='assets'&&path.length===2){result=marketplace.createAsset(wallet,body);status=201;}
    else if(method==='PATCH'&&path[1]==='assets'&&path.length===3)result=marketplace.updateAsset(wallet,path[2],body.version,body.asset);
@@ -57,11 +63,14 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,asset
    else if(method==='POST'&&path[1]==='sales'&&path.length===2){result=marketplace.createSale(wallet,body);status=201;}
    else if(method==='PATCH'&&path[1]==='sales'&&path.length===3)result=marketplace.updateSale(wallet,path[2],body.version,body.sale);
    else if(method==='POST'&&path[1]==='sales'&&path[3]==='publication')result=marketplace.publication(wallet,path[2]);
+   else if(method==='POST'&&path[1]==='sales'&&path[3]==='prepare-publish')result=await publication.prepare(wallet,path[2]);
+   else if(method==='POST'&&path[1]==='publication-actions'&&path[3]==='confirm')result=await publication.confirm(wallet,path[2],body.transactionHash);
    else if(method==='POST'&&path[1]==='sales'&&path[3]==='publish')result=await marketplace.publish(wallet,path[2],body);
    else if(method==='POST'&&path[1]==='campaigns'&&path.length===2){result=marketplace.createCampaign(wallet,body);status=201;}
    else if(method==='POST'&&path[1]==='bookings'&&path.length===2){result=await marketplace.prepareBooking(wallet,body);status=201;}
    else if(method==='GET'&&path[1]==='bookings'&&path.length===3)result=await marketplace.booking(wallet,path[2]);
    else if(method==='POST'&&path[1]==='bookings'&&path[3]==='submit')result=await marketplace.submitBooking(wallet,path[2],body.signature);
+   else if(method==='POST'&&path[1]==='bookings'&&path[3]==='cancel')result=marketplace.cancelBooking(wallet,path[2]);
    else if(path[1]==='bookings'&&path[3]==='messages'&&['GET','POST'].includes(method))result=marketplace.thread(wallet,path[2],method==='POST'?body.message:undefined);
    else if(method==='POST'&&path[1]==='bookings'&&path[3]==='issues'){result=marketplace.issue(wallet,path[2],body);status=201;}
    else if(method==='GET'&&path[1]==='intents'&&path.length===3){const record=store.get('intent',path[2]);assert(record?.owner===wallet,'NOT_FOUND','Intent not found',404);result=record.plan;}
@@ -76,6 +85,10 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,asset
    else if(method==='POST'&&path[1]==='nomination')result=await chain.prepareNomination({buyerId:wallet,contractId:body.contractId,recipientId:body.recipientId});
    else if(method==='POST'&&path[1]==='native-actions'&&path.length===2)result=await nativeActions.prepare(wallet,body);
    else if(method==='POST'&&path[1]==='native-actions'&&path[3]==='confirm')result=await nativeActions.confirm(wallet,path[2],body.transactionHash);
+   else if(method==='GET'&&path[1]==='wallet-requests')result=walletRequests.list(wallet);
+   else if(method==='POST'&&path[1]==='wallet-requests'&&path.length===2)result=walletRequests.begin(wallet,body);
+   else if(method==='POST'&&path[1]==='wallet-requests'&&path[3]==='reject')result=walletRequests.reject(wallet,path[2],body);
+   else if(method==='POST'&&path[1]==='wallet-requests'&&path[3]==='reconcile')result=await walletRequests.reconcile(wallet,path[2],body.transactionHash);
    else if(method==='POST'&&path[1]==='routes'){
     assert(wallet.startsWith('0x'),'EVM_WALLET_REQUIRED','Connect a Base wallet for this route',400);
     assert(['fund','exit'].includes(body.direction),'INVALID_ROUTE','Choose fund or exit',400);

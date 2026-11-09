@@ -1,6 +1,6 @@
 import { actions, createTransaction, baseEncode, baseDecode, SignedTransaction } from 'near-api-js';
 import { assert, uint, sha256, hashObject } from './core.mjs';
-import { successfulNearOutcome, nearBurn } from './rpc.mjs';
+import { successfulNearOutcome, nearBurn, effectiveCodeHash } from './rpc.mjs';
 
 const CALLS=new Set(['new_campaign','execute_intents','storage_deposit','release_credit','finalize_failure','finalize_success',
   'accept_nft_nomination','mint_final_placement','submit_artwork','lock_artwork','submit_delivery_proof','record_issue_decision','nft_transfer','ft_transfer_call','mt_transfer']);
@@ -73,7 +73,7 @@ export class NearExecutor {
     }
     if(plan.expectedReceiverCodeHash){
       const receiver=plan.receiverId===plan.signerId?account:await this.reads.account(plan.receiverId,block);
-      assert(receiver.code_hash===plan.expectedReceiverCodeHash,'CODE_CHANGED','Transaction receiver code differs from qualification');
+      assert(effectiveCodeHash(receiver)===plan.expectedReceiverCodeHash,'CODE_CHANGED','Transaction receiver code differs from qualification');
     }
     // Deletion is restricted to a previously verified recovery plan. No HTTP handler accepts raw plans.
     if(plan.actions.some(a=>a.type==='delete'))assert(plan.recoveryVerified===true&&plan.receiverId===plan.signerId&&plan.actions.length===1&&plan.actions[0].beneficiaryId===this.config.treasury,'RECOVERY_REQUIRED','Account closure requires zero-liability recovery evidence');

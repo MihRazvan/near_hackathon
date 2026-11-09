@@ -20,7 +20,7 @@ export class Rpc {
   }
 }
 
-const VIEWS=new Set(['get_state','get_campaign','get_credit','get_withdrawal','get_placement_rights','get_artwork','nft_token',
+const VIEWS=new Set(['get_config','get_creation','get_state','get_campaign','get_credit','get_withdrawal','get_placement_rights','get_artwork','nft_token',
   'is_invoice_used','mt_balance_of','storage_balance_of','storage_balance_bounds','ft_balance_of','fee','pa_all_paused']);
 export class NearReads {
   constructor(rpc,{network='mainnet',now=Date.now}={}){this.rpc=rpc;this.network=network;this.now=now;}
@@ -43,7 +43,7 @@ export class NearReads {
     const block=await this.block(),account=await this.account(accountId,block);
     const age=BigInt(this.now())*1000000n-uint(block.header.timestamp_nanosec);
     assert(age>=-5000000000n&&age<=60000000000n,'STALE_BLOCK','Finalized chain state must be recent before preparing an action');
-    assert(expectedCodeHash&&account.code_hash===expectedCodeHash,'CODE_CHANGED','Contract code differs from the registered deployment');
+    assert(expectedCodeHash&&effectiveCodeHash(account)===expectedCodeHash,'CODE_CHANGED','Contract code differs from the registered deployment');
     const [state,campaign,rights]=await Promise.all([this.view(accountId,'get_state',{},block),this.view(accountId,'get_campaign',{},block),this.view(accountId,'get_placement_rights',{},block)]);
     assert(campaign?.terms&&state.cutoff_ns===campaign.terms.bidding_close_ns&&state.refund_end_ns===campaign.terms.review_end_ns,'CAMPAIGN_MISMATCH','Campaign schedule does not match financial state');
     assert(state.settlement==='intents'&&expectedAssets&&state.intents_contract_id===expectedAssets.intentsId&&state.ft_contract_id===expectedAssets.nearUsdc&&state.intents_token_id===expectedAssets.nearAsset,'ASSET_CHANGED','Campaign settlement assets do not match configuration');
@@ -60,9 +60,15 @@ export class NearReads {
     assert(paused===null||(Array.isArray(paused)&&paused.length===0),'INTENTS_PAUSED','Intents transfers are paused');
     assert(fee===1,'FEE_CHANGED','Intents fee differs from the qualified value');
     const credits={};for(const wallet of new Set(wallets))credits[wallet]=await this.view(accountId,'get_credit',{account_id:wallet},block);
-    return {accountId,codeHash:account.code_hash,observedAt:new Date(this.now()).toISOString(),blockHash:block.header.hash,blockHeight:block.header.height,
+    return {accountId,codeHash:effectiveCodeHash(account),observedAt:new Date(this.now()).toISOString(),blockHash:block.header.hash,blockHeight:block.header.height,
       blockTimestampNs:block.header.timestamp_nanosec,state,campaign,rights,credits,escrowBalance:balances,liabilities:liabilities.toString(),intentsFee:fee,qualified:true};
   }
+}
+
+// Account-based global code can change behind its publisher ID. Only immutable hashes qualify.
+export function effectiveCodeHash(account){
+  assert(!account.global_contract_account_id,'MUTABLE_GLOBAL_CODE','Account-based global code is not qualified');
+  return account.global_contract_hash??account.code_hash;
 }
 
 export function successfulNearOutcome(outcome){

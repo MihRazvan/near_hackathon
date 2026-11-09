@@ -282,6 +282,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "campaign-factory"
+version = "0.1.0"
+dependencies = [
+ "near-sdk",
+ "near-sys",
+]
+
+[[package]]
 name = "campaign-marketplace"
 version = "0.1.0"
 dependencies = [
@@ -3533,6 +3541,7 @@ name = "technical-proof"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "near-api",
  "near-sandbox",
  "serde_json",

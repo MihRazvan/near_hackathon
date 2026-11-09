@@ -98,12 +98,20 @@ export class Marketplace {
  }
  async submitBooking(owner,id,signature){
   const booking=owned(this.store,'booking',id,owner);
+  assert(!['cancelled-before-send','expired'].includes(booking.status),'BOOKING_CLOSED','Prepare a fresh booking');
   const operation=await this.chain.relay({buyerId:booking.owner,planId:booking.planId,signature});
   const record=this.store.get('intent',booking.planId),accepted=this.chain.purchaseAccepted(record.plan,operation);
   const status=operation.phase==='confirmed'?(accepted?'accepted':'rejected'):operation.phase==='failed'?'failed':'submitted';
   const latest=owned(this.store,'booking',id,owner);
   if(latest.operationId===operation.id&&latest.status===status)return latest;
   return this.store.update('booking',id,latest.owner,latest.version,{...latest,status,accepted,operationId:operation.id});
+ }
+ cancelBooking(owner,id){
+  const booking=owned(this.store,'booking',id,owner),intent=this.store.get('intent',booking.planId);
+  assert(booking.status==='prepared'&&!intent.operationId,'BOOKING_SUBMITTED','A submitted booking must be reconciled, not cancelled');
+  const request=this.store.list('wallet-request',booking.owner).find(r=>r.planId===booking.planId&&!['rejected','confirmed','failed'].includes(r.status));
+  assert(!request,'WALLET_REQUEST_PENDING','Resolve the earlier wallet request before cancelling');
+  return this.store.update('booking',id,booking.owner,booking.version,{...booking,status:'cancelled-before-send'});
  }
  async syncBooking(id){
   const b=this.store.get('booking',id);if(!b?.operationId)return b;
