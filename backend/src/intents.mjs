@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { recoverMessageAddress } from 'viem';
 import { baseEncode } from 'near-api-js';
-import { assert, uint, hashObject, walletId } from './core.mjs';
+import { assert, uint, hashObject, walletId, canonical } from './core.mjs';
 
 export function freshNonce() {
   let bytes;
@@ -25,7 +25,8 @@ export function intentPlan({signerId,verifier,intents,now=Date.now(),expiresMs=n
 export function validateIntentPlan(plan,{now=Date.now()}={}) {
   const {planId,...body}=plan??{};
   assert(typeof planId==='string'&&hashObject(body)===planId,'PLAN_CHANGED','Intent differs from its committed plan');
-  assert(plan.message===JSON.stringify(plan.payload)&&plan.signerId===plan.payload.signer_id
+  let messagePayload;try{messagePayload=JSON.parse(plan.message);}catch{}
+  assert(messagePayload&&canonical(messagePayload)===canonical(plan.payload)&&plan.signerId===plan.payload.signer_id
     &&plan.verifier===plan.payload.verifying_contract,'PLAN_CHANGED','Intent signer, verifier or serialization changed');
   assert(Date.parse(plan.expiresAt)>now&&plan.expiresAt===plan.payload.deadline,'EXPIRED_INTENT','Intent has expired');
   const created=Date.parse(plan.createdAt);

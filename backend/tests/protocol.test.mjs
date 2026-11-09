@@ -4,6 +4,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { baseDecode } from 'near-api-js';
 import { purchasePlan, signedErc191, validateIntentPlan, nominationPlan, withdrawalPlan } from '../src/intents.mjs';
 import { NearReads, successfulNearOutcome, nearBurn } from '../src/rpc.mjs';
+import { canonical } from '../src/core.mjs';
 const buyer=privateKeyToAccount('0x'+'01'.repeat(32)), other=privateKeyToAccount('0x'+'02'.repeat(32));
 const now=1800000000000;
 function snapshot(){return {qualified:true,accountId:'campaign.near',codeHash:'qualified',observedAt:new Date(now).toISOString(),
@@ -12,6 +13,7 @@ function snapshot(){return {qualified:true,accountId:'campaign.near',codeHash:'q
 const args=()=>({snapshot:snapshot(),buyerId:buyer.address,invoiceId:'invoice',asset:'nep141:usdc.near',now});
 test('commercial signatures bind exact cents, round, rules, asset and receiver; stale/fixed/self bookings cannot be planned',()=>{
  const p=purchasePlan(args());assert.equal(p.payload.intents[0].tokens['nep141:usdc.near'],'10000');
+ assert.equal(validateIntentPlan(JSON.parse(canonical(p)),{now}).message,p.message);
  assert.equal(JSON.parse(p.payload.intents[0].msg).expected_round,'0');
  for(const change of [a=>a.asset='nep141:fake.near',a=>a.snapshot.qualified=false,a=>a.snapshot.observedAt=new Date(now-30001).toISOString(),
    a=>a.snapshot.state.holder={account_id:buyer.address.toLowerCase()},a=>{a.snapshot.state.holder={account_id:other.address};a.snapshot.campaign.terms.takeover_enabled=false;},
