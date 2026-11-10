@@ -41,9 +41,14 @@ test('a snapshot rejects cross-block responses, changed verifier, insufficient e
  const s=snapshot();Object.assign(s.state,{settlement:'intents',ft_contract_id:'usdc.near',cutoff_ns:s.campaign.terms.bidding_close_ns,
   refund_end_ns:'1900000000000000000',total_received:'10000',total_withdrawn:'0',total_pending:'0'});s.campaign.terms.review_end_ns=s.state.refund_end_ns;
  const values={get_state:s.state,get_campaign:s.campaign,get_placement_rights:{},mt_balance_of:'10000',fee:1,pa_all_paused:null};
- let cross=false,verifier='intents-hash';
- const rpc={call:async(method,p)=>method==='block'?block:{block_hash:cross?'other':'final',block_height:10,
-  ...(p.request_type==='view_account'?{code_hash:p.account_id==='campaign.near'?'qualified':p.account_id==='usdc.near'?'usdc-hash':verifier}:{result:[...Buffer.from(JSON.stringify(values[p.method_name]))]})}};
+ let cross=false,verifier='intents-hash',height=10;
+ // A changed verifier, balance or transfer policy exists in a new block; bytes
+ // at an already observed immutable block hash do not change retroactively.
+ const rpc={call:async(method,p)=>{
+  if(method==='block'){block.header.height=++height;block.header.hash='final-'+height;return structuredClone(block);}
+  return{block_hash:cross?'other':p.block_id,block_height:height,
+   ...(p.request_type==='view_account'?{code_hash:p.account_id==='campaign.near'?'qualified':p.account_id==='usdc.near'?'usdc-hash':verifier}:{result:[...Buffer.from(JSON.stringify(values[p.method_name]))]})};
+ }};
  const reads=new NearReads(rpc,{now:()=>now}),opts={expectedCodeHash:'qualified',expectedIntentsCodeHash:'intents-hash',expectedAssets:{intentsId:'intents.near',nearUsdc:'usdc.near',nearAsset:'nep141:usdc.near',usdcCodeHash:'usdc-hash'}};
  assert.equal((await reads.snapshot('campaign.near',opts)).liabilities,'10000');
  cross=true;await assert.rejects(reads.snapshot('campaign.near',opts),/same finalized block/);cross=false;
