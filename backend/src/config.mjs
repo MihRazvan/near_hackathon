@@ -1,6 +1,6 @@
 import { readFile, lstat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
+import { resolve, isAbsolute } from "node:path";
 import { assert, units, walletId } from "./core.mjs";
 
 export const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -58,15 +58,32 @@ export async function readPrivateFile(path) {
   return readFile(path, "utf8");
 }
 export function configFromEnv(env = {}) {
+  const environment=env.APP_ENV || (env.NODE_ENV==='production'?'production':'development');
+  assert(['production','development','test'].includes(environment),'INVALID_ENV','APP_ENV must be production, development or test');
+  const production=environment==='production';
+  const originOf=value=>{let url;try{url=new URL(value);}catch{}assert(url&&['http:','https:'].includes(url.protocol)&&!url.username&&!url.password&&url.pathname==='/'&&!url.search&&!url.hash,'INVALID_ORIGIN','Configure an absolute HTTP(S) origin without a path');assert(!production||url.protocol==='https:','HTTPS_REQUIRED','Production public origins must use HTTPS');return url.origin;};
+  assert(!production||env.APP_ORIGIN,'ORIGIN_REQUIRED','APP_ORIGIN is required in production');
+  assert(!production||(env.APP_STATE_DIR&&isAbsolute(env.APP_STATE_DIR)),'PERSISTENT_STATE_REQUIRED','Production requires an explicit absolute APP_STATE_DIR on persistent storage');
+  const origin=originOf(env.APP_ORIGIN||'http://127.0.0.1:4318'),apiOrigin=originOf(env.APP_API_ORIGIN||origin);
+  const port=Number(env.PORT||env.APP_PORT||4318);assert(Number.isInteger(port)&&port>0&&port<=65535,'INVALID_PORT','PORT must be between 1 and 65535');
+  const host=env.APP_BIND_HOST||(production?'0.0.0.0':'127.0.0.1');
+  assert(['127.0.0.1','localhost','0.0.0.0','::','::1'].includes(host),'INVALID_HOST','Use a local or wildcard bind address');
+  const sessionHours=Number(env.APP_SESSION_HOURS||168);assert(Number.isSafeInteger(sessionHours)&&sessionHours>=1&&sessionHours<=720,'INVALID_SESSION','Session duration must be 1 to 720 hours');
   const config = {
     network: "mainnet",
-    host: "127.0.0.1",
-    port: 4318,
-    origin: "http://127.0.0.1:4318",
-    stateDir: resolve(ROOT, ".local/backend"),
+    environment,production,host,port,origin,apiOrigin,
+    allowedOrigins:[...new Set([origin,apiOrigin])],
+    stateDir: resolve(ROOT, env.APP_STATE_DIR||'.local/backend'),
+    authSessionMs:sessionHours*60*60*1000,
+    crossSiteSessions:production&&env.APP_CROSS_SITE_SESSIONS==='true',
+    customerRouteMax:units(env.APP_CUSTOMER_ROUTE_MAX_USDC||'1000',6),
+    customerGasMax:units(env.APP_CUSTOMER_ROUTE_MAX_ETH_GAS||'0.005',18),
+    mediaMaxFiles:Number(env.APP_MEDIA_MAX_FILES||(production?'1000':'20')),
+    aiDailyLimit:Number(env.APP_AI_DAILY_LIMIT||'5'),
+    aiGlobalDailyLimit:Number(env.APP_AI_GLOBAL_DAILY_LIMIT||(production?'100':'25')),
     enabled: env.INTEGRATION_ALLOW_MAINNET === "true",
     allowRecoverablePublication:env.INTEGRATION_ALLOW_RECOVERABLE_PUBLICATION==='true',
-    allowFundedWallets:env.INTEGRATION_ALLOW_FUNDED_BROWSER_WALLETS==='true',
+    allowFundedWallets:!production&&env.INTEGRATION_ALLOW_FUNDED_BROWSER_WALLETS==='true',
     defaultArbiter:env.INTEGRATION_DEFAULT_ARBITER_ID||null,
     treasury: env.INTEGRATION_NEAR_ACCOUNT_ID
       ? walletId(env.INTEGRATION_NEAR_ACCOUNT_ID)
@@ -85,7 +102,7 @@ export function configFromEnv(env = {}) {
     treasuryFloor: units(env.INTEGRATION_MIN_TREASURY_NEAR || "12", 24),
     nearRpc: env.INTEGRATION_NEAR_RPC_URL || "https://near.drpc.org",
     baseRpc: env.INTEGRATION_BASE_RPC_URL || "https://mainnet.base.org",
-    artifact: resolve(ROOT, "target/proof-artifacts/campaign-marketplace.wasm"),
+    artifact: resolve(ROOT, env.APP_ARTIFACT_PATH||"target/proof-artifacts/campaign-marketplace.wasm"),
     chatgptCredentials: resolve(
       ROOT,
       env.INTEGRATION_CHATGPT_CREDENTIALS_PATH ||
@@ -101,8 +118,8 @@ export function configFromEnv(env = {}) {
   const keys = {};
   for (const [name, value] of Object.entries({
     near: env.INTEGRATION_NEAR_PRIVATE_KEY,
-    buyerA: env.INTEGRATION_BUYER_A_PRIVATE_KEY,
-    buyerB: env.INTEGRATION_BUYER_B_PRIVATE_KEY,
+    buyerA: production?null:env.INTEGRATION_BUYER_A_PRIVATE_KEY,
+    buyerB: production?null:env.INTEGRATION_BUYER_B_PRIVATE_KEY,
     oneClick: env.INTEGRATION_ONECLICK_API_KEY,
     pinata: env.INTEGRATION_IPFS_PINNING_TOKEN,
   }))
@@ -111,11 +128,20 @@ export function configFromEnv(env = {}) {
       enumerable: false,
     });
   Object.defineProperty(config, "keys", { value: keys, enumerable: false });
+  for(const name of ['mediaMaxFiles','aiDailyLimit','aiGlobalDailyLimit'])assert(Number.isSafeInteger(config[name])&&config[name]>0&&config[name]<=100000,'INVALID_LIMIT','Application quotas must be positive bounded integers');
+  assert(BigInt(config.customerRouteMax)>0n&&BigInt(config.customerGasMax)>0n,'INVALID_LIMIT','Customer route limits must be positive');
+  if(env.INTEGRATION_FACTORY_ACCOUNT_ID||env.INTEGRATION_FACTORY_CODE_HASH||env.INTEGRATION_CAMPAIGN_SHA256){
+   assert(env.INTEGRATION_FACTORY_ACCOUNT_ID&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(env.INTEGRATION_FACTORY_CODE_HASH??'')&&/^[0-9a-f]{64}$/.test(env.INTEGRATION_CAMPAIGN_SHA256??''),'INVALID_FACTORY','Factory account, pinned code hash and campaign SHA256 are required together');
+   config.factory={accountId:walletId(env.INTEGRATION_FACTORY_ACCOUNT_ID),codeHash:env.INTEGRATION_FACTORY_CODE_HASH,campaignSha256:env.INTEGRATION_CAMPAIGN_SHA256};
+  }
+  assert(!production||!config.enabled||(config.treasury&&keys.near),'OPERATOR_NOT_CONFIGURED','Mainnet execution requires a dedicated operator account and signing key');
   return config;
 }
-export async function loadConfig(
-  path = resolve(ROOT, ".local/integration.env"),
-) {
-  try{return configFromEnv(parseEnv(await readPrivateFile(path)));}
-  catch(error){if(error.code==='ENOENT')return configFromEnv({});throw error;}
+export async function loadConfig(path,environment=process.env) {
+  const production=(environment.APP_ENV||(environment.NODE_ENV==='production'?'production':'development'))==='production';
+  const file=path??environment.APP_ENV_FILE??(!production?resolve(ROOT,'.local/integration.env'):null);
+  let values={};
+  if(file)try{values=parseEnv(await readPrivateFile(file));}catch(error){if(error.code!=='ENOENT')throw error;if(path||environment.APP_ENV_FILE)throw error;}
+  // Hosted process secrets override files; production never discovers a developer's local credentials.
+  return configFromEnv({...values,...environment});
 }

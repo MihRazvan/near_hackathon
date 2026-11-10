@@ -220,24 +220,13 @@ export class Auth {
       expiresAt: new Date(this.now() + this.sessionMs).toISOString(),
     };
   }
-  authenticate(token) {
-    assert(
-      typeof token === "string" && token.length >= 32,
-      "AUTH_REQUIRED",
-      "Wallet sign-in required",
-      401,
-    );
-    const session = this.store.db
-      .prepare("SELECT wallet,expires_ms FROM sessions WHERE token_hash=?")
-      .get(sha256(token));
-    assert(
-      session && session.expires_ms > this.now(),
-      "AUTH_REQUIRED",
-      "Session expired or signed out",
-      401,
-    );
-    return session.wallet;
+  session(token) {
+    assert(typeof token==='string'&&token.length>=32,'AUTH_REQUIRED','Wallet sign-in required',401);
+    const session=this.store.db.prepare('SELECT wallet,expires_ms FROM sessions WHERE token_hash=?').get(sha256(token));
+    assert(session&&session.expires_ms>this.now(),'AUTH_REQUIRED','Session expired or signed out',401);
+    return {wallet:session.wallet,expiresAt:new Date(session.expires_ms).toISOString()};
   }
+  authenticate(token) {return this.session(token).wallet;}
   revoke(token) {
     this.store.db
       .prepare("DELETE FROM sessions WHERE token_hash=?")

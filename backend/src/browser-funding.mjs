@@ -1,3 +1,4 @@
+import { reserveCustomerFunding,releaseCustomerFunding } from './customer-funding.mjs';
 import { encodeFunctionData, toHex } from 'viem';
 import { assert, walletId, uint } from './core.mjs';
 import { MAINNET } from './config.mjs';
@@ -15,7 +16,8 @@ export class BrowserFunding {
   assert(this.config.network==='mainnet'&&this.config.enabled,'MAINNET_DISABLED','Mainnet wallet funding is disabled');
   assert(row?.owner===actor&&actor.startsWith('0x'),'NOT_FOUND','Original wallet route not found',404);
   const prior=this.store.operation(id);if(prior)return this.public(this.owned(actor,id));
-  validateRoutePlan(plan,{maxInput:'300000'});assert(plan.direction==='fund','INVALID_ROUTE','A Base-to-Intents funding route is required');
+  const customerFunding=this.config.production===true||this.config.environment==='production';
+  validateRoutePlan(plan,{maxInput:customerFunding?this.config.customerRouteMax??'1000000000':'300000'});assert(plan.direction==='fund','INVALID_ROUTE','A Base-to-Intents funding route is required');
   assert(await this.client.getChainId()===MAINNET.chainId,'WRONG_NETWORK','Base mainnet is required');
   const lock=this.store.get('base-lock',actor);if(lock)await this.source.reconcile(lock.operationId);
   assert(!this.store.get('base-lock',actor),'SIGNER_BUSY','An earlier Base wallet transfer requires reconciliation');
@@ -35,14 +37,16 @@ export class BrowserFunding {
   this.store.transaction(()=>{
    assert(!this.store.get('base-lock',actor),'SIGNER_BUSY','Earlier Base transfer requires reconciliation');
    this.store.insert('base-lock',actor,actor,{operationId:id});
-   this.budget.reserve({id,kind:'base-fund',scope:actor,plan,amounts:{sourceUsdc:amount.toString(),baseGas:reserve.toString()},transactionOpen:true});
-   this.store.transition(id,['reserved'],'wallet-review',{result:{browserWallet:true,walletNonce:nonce,walletTransaction:transaction}});
+   const amounts={sourceUsdc:amount.toString(),baseGas:reserve.toString()};
+   if(customerFunding)reserveCustomerFunding({store:this.store,budget:this.budget,config:this.config,id,scope:actor,plan,amounts});
+   else this.budget.reserve({id,kind:'base-fund',scope:actor,plan,amounts,transactionOpen:true});
+   this.store.transition(id,['reserved'],'wallet-review',{result:{browserWallet:true,...(customerFunding?{customerFunding:true}:{}),walletNonce:nonce,walletTransaction:transaction}});
   });
   return this.public(this.store.operation(id),true);
  }
  dispatch(wallet,id){
   const op=this.owned(wallet,id);assert(op.phase==='wallet-review','WALLET_REQUEST_PENDING','This wallet request was already started; reconcile it instead');
-  validateRoutePlan(op.plan,{maxInput:'300000'});
+  validateRoutePlan(op.plan,{maxInput:op.result.customerFunding?this.config.customerRouteMax??'1000000000':'300000'});
   this.store.transition(id,['wallet-review'],'wallet-pending');return this.public(this.store.operation(id),true);
  }
  reject(wallet,id,{code}){
@@ -52,6 +56,7 @@ export class BrowserFunding {
    this.store.transition(id,[op.phase],'cancelled',{result:{...op.result,walletRejected:true}});
    this.store.db.prepare("UPDATE budget_entries SET status='released' WHERE operation_id=? AND status='reserved'").run(id);
    this.store.db.prepare('DELETE FROM objects WHERE kind=? AND id=?').run('base-lock',op.scope);
+   if(op.result.customerFunding)releaseCustomerFunding(this.store,op);
    this.store.event('browser_wallet_rejected',id,op.scope,{code:4001});
   });return this.public(this.store.operation(id));
  }
@@ -59,7 +64,7 @@ export class BrowserFunding {
   const op=this.owned(wallet,id);assert(op.phase==='wallet-review'&&!op.transaction_hash,'RECONCILIATION_REQUIRED','The wallet was already opened; reconcile its original transfer or explicit rejection');
   this.store.transaction(()=>{this.store.transition(id,['wallet-review'],'cancelled',{result:{...op.result,cancelledBeforeDispatch:true}});
    this.store.db.prepare("UPDATE budget_entries SET status='released' WHERE operation_id=? AND status='reserved'").run(id);
-   this.store.db.prepare('DELETE FROM objects WHERE kind=? AND id=?').run('base-lock',op.scope);});
+   this.store.db.prepare('DELETE FROM objects WHERE kind=? AND id=?').run('base-lock',op.scope);if(op.result.customerFunding)releaseCustomerFunding(this.store,op);});
   return this.public(this.store.operation(id));
  }
  async reconcile(wallet,id,hash){

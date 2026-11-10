@@ -20,12 +20,12 @@ import { FundedWallets } from '../src/funded-wallets.mjs';
 import { Provisioning } from '../src/provisioning.mjs';
 
 const r=await runtime(),chain=new ChainService(r);
-const auth=new Auth(r.store,{origin:r.config.origin,readKeys:account=>r.reads.keys(account)});
+const auth=new Auth(r.store,{origin:r.config.origin,sessionMs:r.config.authSessionMs,readKeys:account=>r.reads.keys(account)});
 const marketplace=new Marketplace({store:r.store,chain}),nativeActions=new NativeActions({store:r.store,chain,reads:r.reads,config:r.config});
-const assetAI=new AssetAI(new ChatGPT({credentialsFile:r.config.chatgptCredentials})),media=new Media({store:r.store,token:r.config.keys.pinata});
+const assetAI=new AssetAI(new ChatGPT({credentialsFile:r.config.chatgptCredentials})),media=new Media({store:r.store,token:r.config.keys.pinata,maxFiles:r.config.mediaMaxFiles});
 const returnVerifier=new ReturnVerifier(r);
 const publication=new Publication({...r,marketplace}),walletRequests=new WalletRequests({...r,chain,nativeActions,publication});
-const lab=new IntegrationLab({...r,chain,auth,marketplace,walletRequests});
+const lab=r.config.production?null:new IntegrationLab({...r,chain,auth,marketplace,walletRequests});
 const product=new Product({...r,chain,marketplace,walletRequests});
 const funding=new BrowserFunding(r);
 const capture=new Capture(r);
@@ -33,6 +33,6 @@ const provisioning=new Provisioning({...r,chain,marketplace});
 const fundedWallets=await new FundedWallets({...r,chain,walletRequests,funding}).load();
 const server=httpApp({...r,auth,chain,marketplace,nativeActions,publication,walletRequests,assetAI,media,returnVerifier,lab,product,funding,capture,provisioning,fundedWallets});
 const worker=reconciliationWorker({...r,marketplace,nativeActions,walletRequests,intentOutcomes:chain.updateIntentOutcome.bind(chain)});
-server.listen(r.config.port,r.config.host,()=>console.log('Local integration API: '+r.config.origin+'/api/health'));
+server.listen(r.config.port,r.config.host,()=>console.log('Everywhere API listening on port '+r.config.port));
 function stop(){worker.stop();server.close(()=>{if(!worker.isRunning())r.store.close();process.exit(0);});}
 process.once('SIGINT',stop);process.once('SIGTERM',stop);

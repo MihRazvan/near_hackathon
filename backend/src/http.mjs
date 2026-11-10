@@ -1,5 +1,7 @@
 import { createServer } from 'node:http';
 import { assert, AppError, walletId } from './core.mjs';
+import { sessionToken,sessionCookie } from './session-http.mjs';
+import { serveWalletAssets } from './wallet-assets.mjs';
 import { USDC_ABI } from './base-executor.mjs';
 
 async function jsonBody(request){
@@ -18,23 +20,33 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
   function send(status,body){response.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify(body));}
   response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('Referrer-Policy','no-referrer');
   try{
-   const origin=new URL(config.origin);
-   assert(request.headers.host===origin.host,'INVALID_HOST','Local API host does not match configuration',403);
-   assert(!request.headers.origin||request.headers.origin===config.origin,'INVALID_ORIGIN','This origin is not allowed',403);
-   if(request.headers.origin){response.setHeader('Access-Control-Allow-Origin',config.origin);response.setHeader('Vary','Origin');}
+   const production=config.production===true||config.environment==='production',origin=new URL(config.apiOrigin??config.origin),allowedOrigins=config.allowedOrigins??[config.origin];
+   assert(request.headers.host===origin.host,'INVALID_HOST','API host does not match its public configuration',403);
+   assert(!request.headers.origin||allowedOrigins.includes(request.headers.origin),'INVALID_ORIGIN','This origin is not allowed',403);
+   if(request.headers.origin){response.setHeader('Access-Control-Allow-Origin',request.headers.origin);response.setHeader('Access-Control-Allow-Credentials','true');response.setHeader('Vary','Origin');}
+   if(production){response.setHeader('Strict-Transport-Security','max-age=31536000');response.setHeader('Permissions-Policy','camera=(self), microphone=(), geolocation=(self)');}
+
    if(request.method==='OPTIONS'){
     response.setHeader('Access-Control-Allow-Methods','GET, POST, PATCH, OPTIONS');response.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type');response.writeHead(204);response.end();return;
    }
-   const url=new URL(request.url,origin);assert(url.origin===config.origin,'INVALID_HOST','Absolute request origin does not match',403);
+   const url=new URL(request.url,origin);assert(url.origin===origin.origin,'INVALID_HOST','Absolute request origin does not match',403);
    if(url.pathname.startsWith('/api/')){
-    const read=['GET','HEAD'].includes(request.method),key=request.socket.remoteAddress+':'+(read?'read':'write'),now=Date.now(),rate=rates.get(key);
+    let principal=request.socket.remoteAddress;try{const token=sessionToken(request,config);if(token)principal=auth.authenticate(token);}catch{}
+    const read=['GET','HEAD'].includes(request.method),key=principal+':'+(read?'read':'write'),now=Date.now(),rate=rates.get(key);
     if(!rate||now-rate.since>=60000)rates.set(key,{since:now,count:1});else{rate.count++;assert(rate.count<=(read?600:config.network==='sandbox'?600:120),'RATE_LIMIT','Local API rate limit reached',429);}
    }
    const path=url.pathname.split('/').filter(Boolean),method=request.method;
-   if(lab&&await lab.serve(request,response,url))return;
+   if(await serveWalletAssets(request,response,url))return;
+   const developmentRoute=url.pathname==='/lab'||url.pathname.startsWith('/lab/')||path[0]==='api'&&(['funded-wallet','integration'].includes(path[1])||path[1]?.startsWith('lab-'));
+   assert(!production||!developmentRoute,'NOT_FOUND','Route not found',404);
+   if(!production&&lab&&await lab.serve(request,response,url))return;
    if(product&&await product.serve(request,response,url))return;
    assert(path[0]==='api','NOT_FOUND','API route not found',404);
-   if(method==='GET'&&path[1]==='health'){send(200,{ok:true,service:'everywhere-local-backend'});return;}
+   if(method==='GET'&&path[1]==='health'){send(200,{ok:true,service:'everywhere-backend',network:config.network});return;}
+   if(method==='GET'&&path[1]==='config'){
+    const defaults={network:config.network,executionEnabled:config.enabled,origin:config.origin,sandbox:false,walletMode:'External wallets',wallets:[],factory:config.factory?.accountId??null,defaultArbiter:config.defaultArbiter??null,publicationMode:config.factory?'factory':'recoverable',time:new Date().toISOString()};
+    send(200,{...(lab&&!production?await lab.publicConfig():defaults),production,apiOrigin:config.apiOrigin??config.origin,customerRouteMax:config.customerRouteMax??'300000',developmentWallets:!production?fundedWallets?.list()??[]:[]});return;
+   }
    if(method==='GET'&&path[1]==='lab-config'&&lab){send(200,{...await lab.publicConfig(),developmentWallets:fundedWallets?.list()??[]});return;}
    if(method==='POST'&&path[1]==='funded-wallet'&&path[2]==='sign-in'&&fundedWallets?.enabled){send(200,await fundedWallets.signIn(await jsonBody(request)));return;}
    if(method==='GET'&&path[1]==='catalog'&&product){send(200,await product.catalog());return;}
@@ -43,9 +55,10 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    if(method==='GET'&&path[1]==='browse'){send(200,marketplace.browse({city:url.searchParams.get('city')||undefined,assetType:url.searchParams.get('type')||undefined}));return;}
    if(method==='GET'&&path[1]==='sales'&&path.length===3){send(200,marketplace.sale(path[2]));return;}
    if(method==='POST'&&path[1]==='auth'&&path[2]==='challenge'){const body=await jsonBody(request);send(201,auth.challenge(body.wallet));return;}
-   if(method==='POST'&&path[1]==='auth'&&path[2]==='verify'){send(200,await auth.verify(await jsonBody(request)));return;}
-   const token=request.headers.authorization?.match(/^Bearer ([A-Za-z0-9_-]+)$/)?.[1],wallet=auth.authenticate(token);
-   if(method==='POST'&&path[1]==='auth'&&path[2]==='logout'){auth.revoke(token);send(200,{signedOut:true});return;}
+   if(method==='POST'&&path[1]==='auth'&&path[2]==='verify'){const session=await auth.verify(await jsonBody(request));response.setHeader('Set-Cookie',sessionCookie(session.token,config));send(200,production?{wallet:session.wallet,expiresAt:session.expiresAt}:session);return;}
+   const token=sessionToken(request,config),wallet=auth.authenticate(token);
+   if(method==='GET'&&path[1]==='auth'&&path[2]==='session'){send(200,auth.session(token));return;}
+   if(method==='POST'&&path[1]==='auth'&&path[2]==='logout'){auth.revoke(token);response.setHeader('Set-Cookie',sessionCookie('',config,{clear:true}));send(200,{signedOut:true});return;}
    const body=['POST','PATCH'].includes(method)?await jsonBody(request):{};
    let result,status=200;
    if(method==='GET'&&path[1]==='me')result={wallet,dashboard:marketplace.dashboard(wallet)};
@@ -71,8 +84,11 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    else if(method==='PATCH'&&path[1]==='assets'&&path.length===3)result=marketplace.updateAsset(wallet,path[2],body.version,body.asset);
    else if(method==='POST'&&path[1]==='ai'&&path[2]==='draft'){
     const day=new Date().toISOString().slice(0,10),quotaId=wallet+'-'+day;
-    store.transaction(()=>{const quota=store.get('ai-quota',quotaId);assert((quota?.count??0)<5,'AI_QUOTA','Local draft limit reached for this wallet today',429);
-     if(quota)store.update('ai-quota',quotaId,wallet,quota.version,{count:quota.count+1});else store.insert('ai-quota',quotaId,wallet,{count:1});});
+    store.transaction(()=>{const quota=store.get('ai-quota',quotaId),globalId='global-'+day,global=store.get('ai-quota-global',globalId);
+     assert((quota?.count??0)<(config.aiDailyLimit??5),'AI_QUOTA','AI draft limit reached for this wallet today',429);
+     assert((global?.count??0)<(config.aiGlobalDailyLimit??100),'AI_QUOTA','AI drafting is at its daily capacity. You can continue editing manually.',429);
+     if(quota)store.update('ai-quota',quotaId,wallet,quota.version,{count:quota.count+1});else store.insert('ai-quota',quotaId,wallet,{count:1});
+     if(global)store.update('ai-quota-global',globalId,'platform',global.version,{count:global.count+1});else store.insert('ai-quota-global',globalId,'platform',{count:1});});
     assert(assetAI,'AI_UNAVAILABLE','AI drafting is not configured',503);result=await assetAI.draft(body);
    }
    else if(method==='POST'&&path[1]==='media'&&path[2]==='import')result=await media.reuseVerified({owner:wallet,uri:body.uri,publicContentAcknowledged:body.publicContentAcknowledged});
@@ -124,7 +140,7 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    else if(method==='POST'&&path[1]==='routes'){
     assert(wallet.startsWith('0x'),'EVM_WALLET_REQUIRED','Connect a Base wallet for this route',400);
     assert(['fund','exit'].includes(body.direction),'INVALID_ROUTE','Choose fund or exit',400);
-    const plan=await routes.quote({direction:body.direction,wallet,amount:body.amount,maxInput:body.direction==='fund'?'300000':body.amount,minOutput:body.minOutput??'1',dry:body.dry!==false});
+    const plan=await routes.quote({direction:body.direction,wallet,amount:body.amount,maxInput:body.direction==='fund'?(production?config.customerRouteMax??'1000000000':'300000'):body.amount,minOutput:body.minOutput??'1',dry:body.dry!==false});
     store.insert('route',plan.planId,wallet,{plan});result=plan;
    }
    else if(method==='POST'&&path[1]==='exit-intent')result=await chain.prepareExit({buyerId:wallet,routeId:body.routeId});

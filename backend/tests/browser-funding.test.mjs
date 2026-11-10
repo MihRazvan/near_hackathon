@@ -9,7 +9,7 @@ import { routeRequest } from '../src/oneclick.mjs';
 import { hashObject } from '../src/core.mjs';
 import { MAINNET } from '../src/config.mjs';
 const wallet='0x'+'11'.repeat(20),other='0x'+'33'.repeat(20),recipient='0x'+'22'.repeat(20),hash='0x'+'ab'.repeat(32);
-function fixture(){
+function fixture(configOverrides={}){
  const store=new Store(),budget=new Budget(store,{sourceUsdc:'1000000',baseGas:'100000000000000',nearFees:'0',nearAllocation:'0',nearAllocationGross:'0'}),now=Date.now();
  const request=routeRequest({direction:'fund',wallet,amount:'250000',dry:false,now}),body={schema:'everywhere-route/v1',direction:'fund',wallet,request,
   response:{quoteRequest:request,quote:{amountIn:'252579',minAmountIn:'250000',amountOut:'250000',minAmountOut:'250000',depositAddress:recipient}},createdAt:new Date(now).toISOString(),expiresAt:new Date(now+120000).toISOString()};
@@ -20,7 +20,7 @@ function fixture(){
   getTransaction:async()=>{if(!transaction)throw Object.assign(new Error('not found'),{name:'TransactionNotFoundError'});return transaction;},
   getTransactionReceipt:async()=>{if(!receipt)throw Object.assign(new Error('not found'),{name:'TransactionReceiptNotFoundError'});return receipt;},
   getBlock:async({blockTag})=>blockTag?{number:finalized?11n:9n}:{hash:'block'}};
- const config={network:'mainnet',enabled:true},source=new BaseExecutor({store,budget,client,config});let hints=0;
+ const config={network:'mainnet',enabled:true,...configOverrides},source=new BaseExecutor({store,budget,client,config});let hints=0;
  const funding=new BrowserFunding({store,budget,client,config,source,routes:{submit:async()=>{hints++;}}});
  return {store,budget,plan,funding,source,client,hints:()=>hints,land:tx=>{transaction={hash,from:wallet,to:MAINNET.baseUsdc,input:tx.data,value:0n,nonce:Number(BigInt(tx.nonce)),blockHash:'block'};
   receipt={transactionHash:hash,blockHash:'block',blockNumber:10n,status:'success',gasUsed:50000n,effectiveGasPrice:10000000n,l1Fee:100n,
@@ -56,4 +56,17 @@ test('a hash from a different wallet nonce cannot confirm the prepared transfer'
 test('an unopened funding review can be cancelled; a dispatched unknown transfer cannot',async()=>{
  const f=fixture();try{const r=await f.funding.prepare(wallet,f.plan.planId);assert.equal(f.funding.cancelUnsent(wallet,r.id).phase,'cancelled');assert.equal(f.budget.totals().sourceUsdc,'0');assert.equal(f.store.get('base-lock',wallet),null);}finally{f.store.close();}
  const g=fixture();try{const r=await g.funding.prepare(wallet,g.plan.planId);g.funding.dispatch(wallet,r.id);assert.throws(()=>g.funding.cancelUnsent(wallet,r.id),{code:'RECONCILIATION_REQUIRED'});assert.equal(g.budget.totals().sourceUsdc,'252579');}finally{g.store.close();}
+});
+
+test('public customer funding has its own exact ledger and does not consume operator development caps',async()=>{
+ const f=fixture({production:true,customerRouteMax:'1000000000',customerGasMax:'5000000000000000'});try{
+  f.budget.limits.sourceUsdc='0';f.budget.limits.baseGas='0';
+  const r=await f.funding.prepare(wallet,f.plan.planId);assert.equal(f.budget.totals().sourceUsdc,'0');assert.equal(f.budget.totals().baseGas,'0');assert.equal(f.store.get('customer-funding-budget',r.id).reserved.sourceUsdc,'252579');
+  f.funding.dispatch(wallet,r.id);f.land(r.transaction);f.finalize();assert.equal((await f.funding.reconcile(wallet,r.id,hash)).phase,'confirmed');
+  const ledger=f.store.get('customer-funding-budget',r.id);assert.equal(ledger.status,'settled');assert.equal(ledger.actual.sourceUsdc,'252579');assert.equal(ledger.actual.baseGas,'500000000100');assert.equal(f.budget.totals().sourceUsdc,'0');
+ }finally{f.store.close();}
+});
+test('customer route caps and cancellation remain bound to the original wallet',async()=>{
+ const f=fixture({production:true,customerRouteMax:'1'});try{await assert.rejects(f.funding.prepare(wallet,f.plan.planId),{code:'INPUT_CAP'});assert.equal(f.store.get('base-lock',wallet),null);}finally{f.store.close();}
+ const g=fixture({production:true,customerRouteMax:'1000000',customerGasMax:'5000000000000000'});try{const r=await g.funding.prepare(wallet,g.plan.planId);g.funding.cancelUnsent(wallet,r.id);assert.equal(g.store.get('customer-funding-budget',r.id).status,'released');assert.equal(g.budget.totals().sourceUsdc,'0');}finally{g.store.close();}
 });

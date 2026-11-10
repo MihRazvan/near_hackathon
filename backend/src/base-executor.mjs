@@ -1,3 +1,4 @@
+import { settleCustomerFunding } from './customer-funding.mjs';
 import { encodeFunctionData, parseAbi, keccak256, decodeEventLog } from 'viem';
 import { assert, uint, hashObject } from './core.mjs';
 import { MAINNET } from './config.mjs';
@@ -6,6 +7,7 @@ export const USDC_ABI=parseAbi(['function transfer(address to,uint256 value) ret
 export class BaseExecutor {
   constructor({store,budget,client,config}){Object.assign(this,{store,budget,client,config});}
   async fund({id,plan,account}){
+    assert(this.config.production!==true&&this.config.environment!=='production','CUSTOMER_WALLET_REQUIRED','Production source transfers must be signed by the customer wallet');
     assert(this.config.enabled,'MAINNET_DISABLED','Live integration execution is disabled');
     const prior=this.store.operation(id);if(prior){assert(prior.plan_hash===hashObject(plan),'OPERATION_CHANGED','Funding id already bound to another quote');return this.reconcile(id);}
     validateRoutePlan(plan,{maxInput:'300000'});
@@ -60,7 +62,9 @@ export class BaseExecutor {
       });assert(matches,'TRANSFER_NOT_PROVEN','Final receipt does not prove the exact USDC transfer');
     }
     const burn=receipt.gasUsed*receipt.effectiveGasPrice+(receipt.l1Fee??0n)+(receipt.operatorFee??0n);
-    this.budget.settle(id,{sourceUsdc:success?amount.toString():'0',baseGas:burn.toString()},{evidence:{final:true,transactionHash:op.transaction_hash}});
+    const actual={sourceUsdc:success?amount.toString():'0',baseGas:burn.toString()},evidence={final:true,transactionHash:op.transaction_hash};
+    if(op.result?.customerFunding)settleCustomerFunding(this.store,op,actual,evidence);
+    else this.budget.settle(id,actual,{evidence});
     this.store.transaction(()=>{
       this.store.transition(id,['signed','broadcast','broadcast-unknown'],success?'confirmed':'failed',{result:{...(op.result?.browserWallet?op.result:{}),final:true,successful:success,blockHash:receipt.blockHash,blockNumber:receipt.blockNumber.toString(),gasBurnWei:burn.toString()}});
       this.store.db.prepare('DELETE FROM objects WHERE kind=? AND id=?').run('base-lock',p.wallet);

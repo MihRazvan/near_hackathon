@@ -11,7 +11,7 @@ import {validateIntentPlan} from './intents.mjs';
 export class FundedWallets {
  #identities=new Map();
  constructor({config,store,reads,near,client,chain,walletRequests,funding}){Object.assign(this,{config,store,reads,near,client,chain,walletRequests,funding});}
- get enabled(){return this.config.network==='mainnet'&&this.config.enabled&&this.config.allowFundedWallets===true;}
+ get enabled(){return this.config.environment!=='production'&&this.config.production!==true&&this.config.network==='mainnet'&&this.config.enabled&&this.config.allowFundedWallets===true&&['127.0.0.1','localhost','[::1]'].includes(new URL(this.config.origin).hostname);}
  async load(){
   if(!this.enabled)return this;
   for(const [label,key]of [['Buyer A',this.config.keys.buyerA],['Buyer B',this.config.keys.buyerB]])if(key){const account=privateKeyToAccount(key);this.#identities.set(account.address.toLowerCase(),{label,account});}

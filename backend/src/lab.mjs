@@ -14,7 +14,7 @@ const files=new Map([['/lab',['index.html','text/html']],['/lab/',['index.html',
 export class IntegrationLab {
  constructor({config,store,reads,chain,marketplace,walletRequests,auth,testWallets,testSecretKey,clock}){
   Object.assign(this,{config,store,reads,chain,marketplace,walletRequests,auth,testWallets,testSecretKey,clock});
-  this.sandbox=config.network==='sandbox';this.signerBusy=new Set();
+  this.sandbox=config.environment!=='production'&&config.production!==true&&config.network==='sandbox';this.signerBusy=new Set();
  }
  async serve(request,response,url){
   if(this.sandbox&&url.pathname.startsWith('/api/'))await this.clock.refresh();
