@@ -23,10 +23,15 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
   response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('Referrer-Policy','no-referrer');
   try{
    const production=config.production===true||config.environment==='production',origin=new URL(config.apiOrigin??config.origin),allowedOrigins=config.allowedOrigins??[config.origin];
-   assert(request.headers.host===origin.host,'INVALID_HOST','API host does not match its public configuration',403);
+   // Railway's deployment probe uses its fixed internal Host. This exception
+   // never reaches authentication, application routes or wallet configuration.
+   const railwayProbe=production&&request.headers.host==='healthcheck.railway.app'&&['GET','HEAD'].includes(request.method)&&request.url==='/api/health';
+   assert(request.headers.host===origin.host||railwayProbe,'INVALID_HOST','API host does not match its public configuration',403);
    assert(!request.headers.origin||allowedOrigins.includes(request.headers.origin),'INVALID_ORIGIN','This origin is not allowed',403);
    if(request.headers.origin){response.setHeader('Access-Control-Allow-Origin',request.headers.origin);response.setHeader('Access-Control-Allow-Credentials','true');response.setHeader('Vary','Origin');}
    if(production){response.setHeader('Strict-Transport-Security','max-age=31536000');response.setHeader('Permissions-Policy','camera=(self), microphone=(), geolocation=(self)');}
+
+   if(railwayProbe){response.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});response.end(request.method==='HEAD'?undefined:JSON.stringify({ok:true}));return;}
 
    if(request.method==='OPTIONS'){
     response.setHeader('Access-Control-Allow-Methods','GET, POST, PATCH, OPTIONS');response.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type');response.writeHead(204);response.end();return;
