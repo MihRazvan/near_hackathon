@@ -5,8 +5,6 @@ export const routes = [
     ["P02","/explore","Explore spaces"],
     ["P03","/spaces/:slug","Vehicle & spot selection"],
     ["P04","/owners/:slug","Owner profile"],
-    ["P05","/how-it-works/buy","How buying works"],
-    ["P06","/how-it-works/list","How listing works"],
     ["P07","/help","Help center"],
     ["P08","/help/:article","Help article"],
     ["P09","/policies/:policy","Policies"],

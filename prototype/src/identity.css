@@ -483,7 +483,7 @@ input[type="radio"] {
   overflow: hidden;
   background: var(--petrol);
 }
-.street-picture > svg {
+.street-picture > .preview-original {
   display: block;
   width: 100%;
   height: auto;
@@ -495,27 +495,17 @@ input[type="radio"] {
 .street-hero .street-preview {
   padding-top: 20px;
 }
-.preview-message {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 73px;
-  letter-spacing: -0.5px;
-  fill: #123e42;
-}
-.preview-campaign {
+.preview-ad {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   opacity: 1;
-  transition: opacity 0.25s;
+  transition: opacity .25s;
 }
-.preview-outline {
-  opacity: 0;
-  transition: opacity 0.25s;
-}
-.is-blank .preview-campaign {
-  opacity: 0;
-}
-.is-blank .preview-outline {
-  opacity: 1;
-}
+.is-blank .preview-ad { opacity: 0; }
 .street-preview figcaption {
   display: flex;
   align-items: center;
@@ -1270,7 +1260,7 @@ body[data-route="P09"] .panel p {
   .hero-copy {
     padding-right: 45px;
   }
-  .street-hero .street-picture > svg {
+  .street-hero .street-picture > .preview-original {
     aspect-ratio: 1.6;
     object-fit: cover;
   }

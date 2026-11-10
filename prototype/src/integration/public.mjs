@@ -1,7 +1,7 @@
 import { live,sale,snapshot,usdc,dateTime,byNs } from './runtime.mjs';
 import { esc,link,badge,card,empty,heading,act,select,input,submit,scene,scheduleSummary,unavailable,notice } from './ui.mjs';
 import {listingAvailability,micro} from './buyer-state.mjs';
-import { homeView, categoryLinks, howItWorksHero } from './marketing.mjs';
+import { homeView, categoryLinks } from './marketing.mjs';
 import { outwardArrow } from '../brand.mjs';
 const clock=()=>Date.parse(live.catalog?.time)||Date.now();
 const assetFor=offer=>offer.publication?.manifest.asset;
@@ -48,10 +48,6 @@ export function publicView(r){
   const values=sales.filter(s=>s.owner===r.params.slug),owner=live.catalog?.owners?.find(o=>o.wallet===r.params.slug);
   if(!owner&&!values.length)return unavailable('Space owner not found.');
   return heading('SPACE OWNER',owner?.name??'Independent space owner',owner?.brand??'Advertising inventory from an independent owner.')+(values.length?offerCards(values):empty('No published campaigns yet.','This owner’s spaces will appear here when they publish a campaign.',link('/explore','Explore spaces')));
- }
- if(['P05','P06'].includes(r.id)){
-  const owner=r.id==='P06',steps=owner?[['Add your space','Describe your vehicle or upload a photo. Review the suggested panels and confirm the physical measurements.'],['Set your campaign','Choose the dates, all-in price and content rules. Enable takeovers for the spots where you want them.'],['Deliver the campaign','Review the final advertiser’s artwork, arrange printing and installation, and share evidence.'],['Get paid','Your earnings become available after service and issue review are complete.']]:[['Choose a space','Find a surface in the right location and review the campaign dates and advertising rules.'],['Book your campaign','Pay the displayed USDC price. If takeovers are enabled, your booking can change until booking closes.'],['Send your creative','After booking closes, send artwork for the owner to approve before printing.'],['Follow delivery','Keep the conversation, installation evidence and any refunds together in your campaign workspace.']];
-  return howItWorksHero(owner)+`<div class="guide-steps grid two">${steps.map(([t,d],i)=>card('',`<div class="step-number">0${i+1}</div><h2>${t}</h2><p>${d}</p>`)).join('')}</div><div class="actions">${link(owner?'/host/assets/new':'/explore',owner?'List your space':'Find a space','button primary')}${link('/help','Browse help')}</div>`;
  }
  if(r.id==='P07')return heading('HELP','A little help, right here.','Find answers about booking, artwork, takeovers and payouts.')+`<div class="grid two">${Object.entries(articles).map(([slug,a])=>card(a.title,`<p>${a.summary}</p>${link('/help/'+slug,'Read guide','text-link')}`)).join('')}</div>`+card('Need help with a campaign?',`<p>Open your placement to contact the owner or request an issue review.</p>${link('/support/new','Contact support','button primary')}`);
  if(r.id==='P08'){
