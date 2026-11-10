@@ -9,6 +9,12 @@ The photographs below illustrate the kinds of physical surfaces that can carry a
 
 These photographs were downloaded from Unsplash and are used under the [Unsplash License](https://unsplash.com/license), which permits downloading, copying, modifying, distributing, and commercial use. The license does not permit selling unmodified images or compiling a competing image service. The photographers do not endorse Everywhere.
 
+## AI-edited placement example
+
+`images/van-dublin-ad.webp` is an AI-edited derivative of Mathias Reding’s photograph above, created with OpenAI’s built-in image-generation tool. It illustrates a possible vinyl placement, not an actual installation. The “See the blank canvas” control shows the untouched `van-dublin.webp` source image.
+
+Edit prompt: Preserve the original van, street, camera angle, building, lighting and photographic texture. Apply a signal-yellow vinyl advertising decal inside the recessed cargo panel with dark petrol condensed lettering reading “GOOD THINGS” and “GET AROUND.” plus a diagonal arrow. Follow the panel perspective, curvature and central door seam so the decal looks physically installed. Add no interface graphics or other scene changes.
+
 ## Fonts
 
 Fonts are served locally; displaying the interface does not make a Google Fonts request.
