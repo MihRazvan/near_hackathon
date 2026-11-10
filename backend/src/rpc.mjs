@@ -74,13 +74,29 @@ export class Rpc {
 const VIEWS=new Set(['get_config','get_creation','get_state','get_campaign','get_credit','get_withdrawal','get_placement_rights','get_artwork','nft_token',
   'get_totals','get_sponsor_usage','get_offer_exists','is_participant','is_invoice_used','mt_balance_of','storage_balance_of','storage_balance_bounds','ft_balance_of','fee','pa_all_paused']);
 export class NearReads {
-  constructor(rpc,{network='mainnet',now=Date.now}={}){this.rpc=rpc;this.network=network;this.now=now;}
+  constructor(rpc,{network='mainnet',now=Date.now}={}){this.rpc=rpc;this.network=network;this.now=now;this.pinnedQueries=new Map();this.pendingQueries=new Map();this.pinnedBytes=0;}
   async block(){return this.rpc.call('block',{finality:'final'});}
   async status(){const value=await this.rpc.call('status',[]);assert(value.chain_id===this.network,'WRONG_NETWORK','NEAR network does not match configuration');return value;}
   async query(params,block){
-    const result=await this.rpc.call('query',{...params,...(block?{block_id:block.header.hash}:{finality:'final'})});
-    if(block)assert(result.block_hash===block.header.hash&&result.block_height===block.header.height,'UNBOUND_QUERY','RPC views must come from the same finalized block');
-    return result;
+    const request={...params,...(block?{block_id:block.header.hash}:{finality:'final'})};
+    // Only an explicitly pinned block is immutable. Head queries and transaction
+    // preparation still fetch a fresh finalized block; successful old-block reads
+    // may share verified bytes across offers and concurrent visitors.
+    if(!block)return this.rpc.call('query',request);
+    const key=JSON.stringify(request),cached=this.pinnedQueries.get(key);
+    if(cached){assert(cached.result.block_height===block.header.height,'UNBOUND_QUERY','RPC views must come from the same finalized block');return structuredClone(cached.result);}
+    let pending=this.pendingQueries.get(key);
+    if(!pending){pending=(async()=>{try{
+      const result=await this.rpc.call('query',request);
+      assert(result.block_hash===block.header.hash&&result.block_height===block.header.height,'UNBOUND_QUERY','RPC views must come from the same finalized block');
+      const bytes=Buffer.byteLength(JSON.stringify(result))+Buffer.byteLength(key);
+      if(bytes<=4194304){
+        while(this.pinnedQueries.size>=256||this.pinnedBytes+bytes>4194304){const oldest=this.pinnedQueries.keys().next().value,entry=this.pinnedQueries.get(oldest);this.pinnedQueries.delete(oldest);this.pinnedBytes-=entry.bytes;}
+        this.pinnedQueries.set(key,{result,bytes});this.pinnedBytes+=bytes;
+      }
+      return result;
+    }finally{this.pendingQueries.delete(key);}})();this.pendingQueries.set(key,pending);}
+    const result=await pending;assert(result.block_height===block.header.height,'UNBOUND_QUERY','RPC views must come from the same finalized block');return structuredClone(result);
   }
   async account(accountId,block){return this.query({request_type:'view_account',account_id:accountId},block);}
   async keys(accountId,block){return (await this.query({request_type:'view_access_key_list',account_id:accountId},block)).keys;}

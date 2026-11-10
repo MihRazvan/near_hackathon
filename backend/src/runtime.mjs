@@ -12,7 +12,7 @@ import { assert } from './core.mjs';
 
 export async function runtime(){
  const config=await loadConfig(),store=new Store(join(config.stateDir,'state.sqlite')),budget=new Budget(store,config.limits);
- const reads=new NearReads(new Rpc(config.nearRpc)),client=createPublicClient({chain:base,transport:http(config.baseRpc,{retryCount:0,timeout:15000})});
+ const reads=new NearReads(new Rpc(config.nearRpc,{intervalMs:config.nearRpcIntervalMs})),client=createPublicClient({chain:base,transport:http(config.baseRpc,{retryCount:0,timeout:15000})});
  const near=new NearExecutor({store,budget,reads,config}),source=new BaseExecutor({store,budget,client,config}),routes=new OneClick({apiKey:config.keys.oneClick});
  return {config,store,budget,reads,client,near,source,routes};
 }
