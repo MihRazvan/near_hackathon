@@ -12,7 +12,7 @@ test('mainnet lab serves isolated static files with a fresh connector nonce and 
  const server=httpApp({config,store,auth,lab});server.listen(0,'127.0.0.1');await once(server,'listening');config.origin='http://127.0.0.1:'+server.address().port;
  try{
   const response=await fetch(config.origin+'/lab'),html=await response.text(),csp=response.headers.get('content-security-policy');assert.equal(response.status,200);
-  const nonce=html.match(/name="lab-csp-nonce" content="([A-Za-z0-9+/=]+)"/)[1];assert.ok(csp.includes("'nonce-"+nonce+"'"));assert.equal(html.includes('must-not-be-returned'),false);
+  const nonce=html.match(/name="lab-csp-nonce" content="([A-Za-z0-9+/=]+)"/)[1];assert.ok(csp.includes("'nonce-"+nonce+"'"));assert.ok(csp.includes('wss://mc.meteorwallet.app'));assert.ok(csp.includes("font-src 'self' data:"));assert.equal(html.includes('must-not-be-returned'),false);
   const second=await fetch(config.origin+'/lab');assert.notEqual(second.headers.get('content-security-policy'),csp);
   const publicConfig=await (await fetch(config.origin+'/api/lab-config')).json();assert.deepEqual(publicConfig.wallets,[]);assert.equal(publicConfig.sandbox,false);assert.equal('testSecretKey' in publicConfig,false);
   assert.throws(()=>lab.testAccount('test.near'),{code:'SANDBOX_ONLY'});

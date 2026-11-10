@@ -1,3 +1,4 @@
+import { walletCsp } from './wallet-csp.mjs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
@@ -21,7 +22,7 @@ export class IntegrationLab {
   const nonce=randomBytes(24).toString('base64');let bytes=await readFile(directory+file[0]);
   if(file[0]==='index.html')bytes=Buffer.from(bytes.toString().replace('</head>',`<meta name="lab-csp-nonce" content="${nonce}"></head>`));
   response.writeHead(200,{'Content-Type':file[1]+'; charset=utf-8',
-   'Content-Security-Policy':`default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https:; frame-src 'self' https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`});response.end(bytes);return true;
+   'Content-Security-Policy':walletCsp(nonce)});response.end(bytes);return true;
  }
  async publicConfig(){return {network:this.config.network,executionEnabled:this.config.enabled,origin:this.config.origin,
   sandbox:this.sandbox,walletMode:this.sandbox?'Valueless Sandbox test wallets; real signatures and NEAR receipts':'External wallets only',

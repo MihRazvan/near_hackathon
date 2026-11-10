@@ -1,3 +1,4 @@
+import { walletCsp } from './wallet-csp.mjs';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -17,7 +18,7 @@ export class Product {
   const nonce=randomBytes(24).toString('base64');
   if(name==='index.html')bytes=Buffer.from(bytes.toString().replace('</head>',`<meta name="everywhere-backend" content="connected"><meta name="lab-csp-nonce" content="${nonce}"></head>`));
   response.writeHead(200,{'Content-Type':name==='index.html'?'text/html; charset=utf-8':MIME[extname(name)]??'application/octet-stream',
-   'Content-Security-Policy':`default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://gateway.pinata.cloud; connect-src 'self' https:; frame-src 'self' https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`});
+   'Content-Security-Policy':walletCsp(nonce)});
   response.end(request.method==='HEAD'?undefined:bytes);return true;
  }
  async catalog(actor){
