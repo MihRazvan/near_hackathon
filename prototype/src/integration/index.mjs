@@ -1,30 +1,28 @@
 import './style.css';
 import { navigate,toast } from '../store.mjs';
-import { routes } from '../routes.mjs';
-import { live,initialize,currentPerson,refresh,rerender,rawAsset,assetView,run } from './runtime.mjs';
+import { live,initialize,currentPerson,rawAsset } from './runtime.mjs';
 import { publicView } from './public.mjs';
 import { ownerView } from './owner.mjs';
 import { buyerView } from './buyer.mjs';
 import { accountView,sharedView,opsView,testingView } from './shared.mjs';
 import { actions,forms,assetFields } from './actions.mjs';
 import { esc,link,act,notice,heading,empty } from './ui.mjs';
-import { publicPage } from '../public.mjs';
 import { captureView } from './capture.mjs';
 
 export { live,currentPerson };
-export async function initializeConnected(){if(live.enabled)try{await initialize();}catch(error){live.error=error.message;}}
+export async function initializeConnected(){await initialize();}
 export function topbar(){
- const pending=live.data?.requests.filter(r=>!['confirmed','failed','rejected'].includes(r.status)).length??0;
+ if(!live.config||live.config.production)return '';
+ const pending=live.data?.requests?.filter(r=>!['confirmed','failed','rejected'].includes(r.status)).length??0;
  return `<div class="prototype-bar connected-topbar"><span class="prototype-label"><i class="prototype-dot"></i><strong>${!live.config?'CONNECTING NETWORK…':live.config.sandbox?'LOCAL NEAR SANDBOX':'NEAR MAINNET · REAL FUNDS'}</strong><span class="reset-label">${live.config?.sandbox?'VALUELESS TEST TOKENS · REAL TRANSACTIONS':'CONNECTED PRODUCT'}</span></span><div class="prototype-tools">${link('/settings/wallets',live.session?'Switch wallet':'Connect wallet','text-link')}${link('/account/recovery',pending?'Recover '+pending+' request'+(pending===1?'':'s'):'Account recovery','text-link')}${live.config?.sandbox?link('/_testing','Test controls','text-link'):''}${act('refresh','Refresh state','','button small')}</div></div>`;
 }
 export function renderConnected(r){
- if(!live.config)return heading('EVERYWHERE','Connecting your workspace.','Loading the local backend and its network configuration.')+(live.error?notice('Connection interrupted',esc(live.error)+' '+act('reload-workspace','Retry connection')):'');
+ if(!live.config)return heading('EVERYWHERE','Connecting your workspace.','Preparing the marketplace and your saved account.')+(live.error?notice('Connection interrupted',esc(live.error)+' '+act('reload-workspace','Retry connection')):'');
  let body;
- if(r.id==='INDEX')body=heading('CONNECTED PRODUCT','The product map.','These destinations use persisted backend records. Pages for records you do not own will show an access or empty state.')+
-  `<div class="screen-grid">${routes.map(route=>`<a class="screen-item" href="${esc(route.sample)}"><span class="eyebrow">${route.id}</span><strong>${esc(route.title)}</strong></a>`).join('')}</div>`;
- else if(r.id==='T01')body=testingView();
+ if(r.scope==='global')body=globalView(r);
+ else if(r.id==='T01'&&!live.config.production)body=testingView();
  else if(['O04','O05'].includes(r.id))body=captureView(r);
- else if(r.scope==='public')body=publicView(r)??publicPage(r);
+ else if(r.scope==='public')body=publicView(r);
  else if(r.scope==='account')body=accountView(r);
  else if(r.scope==='owner')body=ownerView(r);
  else if(r.scope==='buyer')body=buyerView(r);
@@ -34,6 +32,12 @@ export function renderConnected(r){
  const unavailable=live.error?`<div id="connected-notice" class="notice orange" role="status">${esc(live.error)}</div>`:'<div id="connected-notice" class="notice" role="status" hidden></div>';
  return unavailable+body;
 }
+
+function globalView(r){
+ if(r.id==='G02')return empty('This page belongs to another account.','Connect an authorized wallet or return to your workspace.',link('/settings/wallets','Choose a wallet','button primary'));
+ if(r.id==='G03')return empty('We could not load this page.','Your saved listings and payment records are retained. Try again in a moment.',act('reload-workspace','Try again','','button primary')+' '+link('/help','Get help'));
+ return empty('This page could not be found.','The link may have changed. Find a space or return to your existing campaigns.',link('/explore','Explore spaces','button primary')+' '+link('/buy','Your campaigns'));
+}
 export async function handleAction(target,event){
  const action=actions[target.dataset.liveAction];if(!action)throw new Error('This action is unavailable.');return action(target,event);
 }
@@ -42,12 +46,12 @@ export function legacyAction(target,r){
  if(target.dataset.action==='select-spot'){
   if(live.dragJustHappened)return;
   if(['O06','O07','O08'].includes(r.id)){
-   const form=document.querySelector('form[data-live-form="asset-edit"]');if(form){const a=rawAsset(r.params.id),base=live.assetEdit?.id===a.id?live.assetEdit:a;live.assetEdit={...base,...assetFields(new FormData(form),base)};}
+   const form=document.querySelector('form[data-live-form="asset-edit"]');if(form){const a=rawAsset(r.params.id);if(!a)return;const base=live.assetEdit?.id===a.id?live.assetEdit:a;live.assetEdit={...base,...assetFields(new FormData(form),base)};}
    navigate('/host/assets/'+r.params.id+'/spots?spot='+encodeURIComponent(target.dataset.id));
   }else if(r.id==='P03'){const query=new URLSearchParams(location.search);query.set('spot',target.dataset.id);navigate(location.pathname+'?'+query);}
   return;
  }
- toast('This design-review interaction is unavailable in the connected workspace.');
+ toast('This action is unavailable. Refresh the page and try again.');
 }
 export function mountConnected(r){
  const providers=document.querySelector('form[data-live-form="connect-evm"] select');
@@ -75,4 +79,4 @@ export function mountConnected(r){
  });
  svg.addEventListener('pointerup',()=>{if(drag?.moved){live.dragJustHappened=true;setTimeout(()=>live.dragJustHappened=false,200);}drag=null;});
 }
-window.addEventListener('app:walletproviders',()=>{if(live.enabled&&document.querySelector('form[data-live-form="connect-evm"]'))mountConnected({id:'A01'});});
+window.addEventListener('app:walletproviders',()=>{if(live.config?.production&&['/sign-in','/settings/wallets'].includes(location.pathname))window.dispatchEvent(new Event('app:changed'));else if(document.querySelector('form[data-live-form="connect-evm"]'))mountConnected({id:'A01'});});

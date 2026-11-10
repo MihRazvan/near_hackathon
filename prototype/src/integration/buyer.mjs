@@ -1,81 +1,125 @@
-import { live,allSales,sale,snapshot,allBookings,booking,usdc,dateTime,byNs,rawAsset } from './runtime.mjs';
-import { esc,link,badge,card,empty,heading,act,select,form,input,textArea,check,submit,hidden,scene,scheduleSummary,spotState,evidence,bookingTable,unavailable,signedOut,notice,table,transaction,short } from './ui.mjs';
-import { artifactFields } from './owner.mjs';
-
-export function placement(id){const b=booking(id),s=b?snapshot(b.contractId):live.data?.placements.find(s=>s.accountId===id);return {b,s,sale:sale(b?.saleId??s?.campaign.terms.sale_id)};}
+import { live,allSales,sale,snapshot,booking,usdc,dateTime,byNs } from './runtime.mjs';
+import { esc,link,badge,card,empty,heading,act,select,form,input,textArea,check,submit,hidden,scene,scheduleSummary,evidence,unavailable,signedOut,notice,table,transaction,short,artifactLink } from './ui.mjs';
+import {micro,millis,listingAvailability,bookingStatus,latestWalletRequest,paymentState,creditSnapshots,placementProgress} from './buyer-state.mjs';
+const clock=()=>Date.parse(live.catalog?.time)||Date.now();
+const production=()=>live.config?.production===true;
+const availableBalance=()=>live.balances?.intentsUsdc;
+const moneyLink=next=>'/buy/money'+(next?'?next='+encodeURIComponent(next):'');
+export function placement(id){const b=booking(id),s=b?snapshot(b.contractId):live.data?.placements?.find(s=>s.accountId===id);return {b,s,sale:sale(b?.saleId??s?.campaign.terms.sale_id)};}
+function placementsTable(rows){
+ return rows.length?table(['Placement','Status','Paid',''],rows.map(b=>{const offer=sale(b.saleId),state=bookingStatus(b,snapshot(b.contractId));return [link('/buy/placements/'+b.id,esc(offer?.title??'Campaign placement'),'text-link'),badge(state==='outbid'?'Taken over':state),usdc(b.amount),link('/buy/placements/'+b.id,'Open placement','button small')];})):empty('Your next campaign starts with a space.','Book a spot to keep its artwork, delivery and payments together here.',link('/explore','Find a space','button primary'));
+}
+function walletReceipt(hash){return hash?`<details><summary>Payment reference</summary>${transaction(hash)}</details>`:'';}
+function artworkFields(){
+ return input('file','Artwork file (optional)','','file','accept="image/png,image/jpeg,application/pdf"')+
+  textArea('notes','Ad copy or instructions','','placeholder="Enter your ad copy, or add instructions for the owner alongside your file." maxlength="10000"')+
+  '<p class="tiny muted">PNG, JPEG or PDF, up to 1 MB. Your submitted artwork and ad copy are public.</p>'+check('public','I have permission to use this content and understand it will be public.');
+}
 export function buyerView(r){
- if(!live.session)return signedOut();const d=live.data?.dashboard;if(!d)return empty('Loading your workspace.','Your campaigns are being loaded.');
- if(r.id==='B01')return heading('BUYER WORKSPACE','Your brand, out in the world.','Browse spaces, book a campaign and follow its progress.',link('/explore','Explore spaces','button primary'))+
-  `<div class="stats">${[['Campaigns',d.campaigns.length],['Accepted bookings',d.bookings.filter(b=>b.accepted).length],['Placement NFTs',live.data.placements.filter(s=>s.rights.current_owner_id===live.session.wallet).length]].map(([label,n])=>`<div class="stat"><span>${label}</span><strong>${n}</strong></div>`).join('')}</div>`+
-  card('Your placements',bookingTable(d.bookings))+nftCards();
+ if(!live.session)return signedOut();const d=live.data?.dashboard;if(!d)return empty('Opening your workspace.','Your campaigns and payments are being loaded.');
+ if(r.id==='B01'){
+  const active=d.bookings.filter(b=>b.accepted&&snapshot(b.contractId)?.state.holder?.account_id===live.session.wallet&&snapshot(b.contractId)?.state.outcome==='open');
+  const actionable=(live.data.placements??[]).filter(s=>['accept','mint','artwork','artwork-review'].includes(placementProgress(s,live.session.wallet,clock(),{automaticReceipt:production()}).key));
+  return heading('ADVERTISER WORKSPACE','Your brand, out in the world.','Your spaces, creative and campaign progress, all in one place.',link('/explore','Find a space','button primary'))+
+   `<div class="stats">${[['Campaigns',d.campaigns.length],['Current placements',active.length],['Needs your attention',actionable.length]].map(([label,n])=>`<div class="stat"><span>${label}</span><strong>${n}</strong></div>`).join('')}</div>`+
+   (actionable.length?card('Your next steps',actionable.map(s=>{const progress=placementProgress(s,live.session.wallet,clock(),{automaticReceipt:production()});return `<article class="connected-record"><h3>${esc(sale(s.campaign.terms.sale_id)?.title??'Your placement')}</h3><p>${esc(progress.title)}</p>${link('/buy/placements/'+s.accountId,'Continue','button primary')}</article>`;}).join('')):'')+
+   card('Your bookings',placementsTable(d.bookings))+receiptCards();
+ }
  if(['B02','B04'].includes(r.id)){
-  if(r.id==='B04'){const c=d.campaigns.find(c=>c.id===r.params.id);if(!c)return unavailable();return heading('BUYER / CAMPAIGN',c.name,'One campaign can book spaces across different owners.',link('/explore?campaign='+c.id,'Find more spaces','button primary'))+
-   card('Campaign budget',`<p>${usdc(c.budgetMicroUsdc)} principal commitment limit.</p>`)+card('Campaign placements',bookingTable(d.bookings.filter(b=>b.campaignId===c.id)));}
-  return heading('BUYER / CAMPAIGNS','Build a campaign across the city.','One budget can cover multiple vehicles and owners.',link('/buy/campaigns/new','Create campaign','button primary'))+
-   card('Your campaigns',table(['Campaign','Budget','State',''],d.campaigns.map(c=>[esc(c.name),usdc(c.budgetMicroUsdc),badge(c.status),link('/buy/campaigns/'+c.id,'Open ↗','text-link')])));
+  if(r.id==='B04'){const campaign=d.campaigns.find(c=>c.id===r.params.id);if(!campaign)return unavailable('This campaign is not in your workspace.');return heading('YOUR CAMPAIGN',campaign.name,'Keep bookings across different spaces and owners together.',link('/explore?campaign='+campaign.id,'Add another space','button primary'))+
+   card('Campaign spending limit',`<p>${usdc(campaign.budgetMicroUsdc)}</p><p class="tiny muted">This is a booking limit, not a payment or a deposit. You approve each spot’s price separately.</p>`)+card('Your placements',placementsTable(d.bookings.filter(b=>b.campaignId===campaign.id)));}
+  return heading('YOUR CAMPAIGNS','Build a campaign across the city.','Group several spaces under one campaign and follow every placement.',link('/buy/campaigns/new','Create campaign','button primary'))+
+   (d.campaigns.length?card('Campaigns',table(['Campaign','Spending limit','Status',''],d.campaigns.map(c=>[esc(c.name),usdc(c.budgetMicroUsdc),badge(c.status),link('/buy/campaigns/'+c.id,'Open campaign','button small')]))):empty('Start with your first space.','You can create a campaign as you book, or give it a name now.',link('/explore','Find a space','button primary')));
  }
- if(r.id==='B03')return heading('BUYER / NEW CAMPAIGN','Give your campaign a home.','Create its principal budget, then choose one or more spaces.')+
-  card('Campaign details',form('campaign-create',input('name','Campaign name','','text','required maxlength="100"')+input('budget','Principal budget · USDC','1.00','number','min="0.01" step="0.01" required')+submit('Create campaign')));
- if(r.id==='B05'){const ids=new Set(live.data.saved.filter(s=>s.saved).map(s=>s.saleId));return heading('BUYER / SAVED','Your shortlist.','Spaces saved by this wallet.')+table(['Space',''],allSales().filter(s=>ids.has(s.id)).map(s=>[esc(s.title),link('/spaces/'+s.assetId+'?sale='+s.id,'View space','button small')]));}
- if(r.id==='B06'){
-  const s=sale(r.params.intentId),p=s?.spots.find(p=>p.id===new URLSearchParams(location.search).get('spot'))??s?.spots[0];if(!s||!p)return unavailable();const info=spotState(p),a=s.publication.manifest.asset;
-  return heading('CHECKOUT',info.booked?'Take over this placement.':'Make this spot yours.','Book under the published rules. Artwork is reviewed after booking.')+
-   `<div class="split">${card(esc(a.title),`<p>${esc(a.spots.find(x=>x.id===p.id)?.name??p.id)} · ${esc(a.city)}</p><h2>${usdc(info.price)}</h2><p>Printing & installation included.</p>${scheduleSummary(s)}<p>${esc(s.rules)}</p>`)}
-   ${card('Your campaign',info.closed||info.booked&&!p.takeoverEnabled?notice('This spot is unavailable.','Refresh the listing to choose an available period.'):
-    form('prepare-booking',hidden('saleId',s.id)+hidden('spotId',p.id)+select('campaignId','Use a campaign',[['','Create a new campaign'],...d.campaigns.filter(c=>c.status==='active').map(c=>[c.id,c.name])],new URLSearchParams(location.search).get('campaign')??'')+
-    input('name','New campaign name','My city campaign')+input('budget','New campaign budget · USDC','1.00','number','min="0.01" step="0.01"')+
-    `<p>Your Intents balance: <strong>${usdc(live.balances?.intentsUsdc)}</strong></p>${link('/buy/money','Add funds or view your balance','text-link')}`+
-    check('rules','I agree to the published campaign dates, content rules and takeover setting.')+submit('Continue to payment review')))}</div>`;
+ if(r.id==='B03')return heading('NEW CAMPAIGN','Give your campaign a home.','Name your campaign and set the most you want to commit to bookings.')+
+  card('Campaign details',form('campaign-create',input('name','Campaign name','','text','required maxlength="100"')+input('budget','Spending limit · USDC','50.00','number','min="0.01" step="0.01" required')+'<p class="tiny muted">Creating a campaign does not charge your wallet. You approve a payment only when booking a space.</p>'+submit('Create campaign')));
+ if(r.id==='B05'){
+  const ids=new Set((live.data.saved??[]).filter(s=>s.saved).map(s=>s.saleId)),values=allSales().filter(s=>ids.has(s.id));
+  return heading('YOUR SHORTLIST','Keep your favourite spaces close.','Spaces saved by your connected wallet.')+(values.length?table(['Space',''],values.map(s=>[esc(s.publication?.manifest.asset.title??s.title),link('/spaces/'+s.assetId+'?sale='+s.id,'View space','button small')])):empty('Nothing saved yet.','Tap Save space on a listing to compare it here later.',link('/explore','Explore spaces','button primary')));
  }
- if(r.id==='B07'){
-  const b=booking(r.params.id);if(!b)return requestProgress(r.params.id);
-  const request=live.data.requests.find(r=>r.planId===b.planId||r.planId===b.nativePlanId),snap=snapshot(b.contractId),intent=live.data.intents.find(i=>i.id===b.planId);
-  const accepted=b.accepted===true,expired=intent?.expiresAt&&Date.parse(intent.expiresAt)<=Date.parse(live.catalog.time);
-  return heading('PAYMENT',accepted?'Your placement is confirmed.':'Review your booking payment.','This page tracks one original booking and its actual transaction.')+
-   `<div class="split">${card('Booking details',`<p>${esc(sale(b.saleId)?.title??b.contractId)}</p><h2>${usdc(b.amount)}</h2><p>${badge(b.status)}</p><p>Payer: <code>${esc(b.owner)}</code></p><p>${request?.transactionHash?transaction(request.transactionHash):'Your wallet has not supplied a transaction receipt yet.'}</p>`)}
-   ${card('Next step',accepted?link('/buy/placements/'+b.id,'Open placement workspace','button primary'):
-    b.status==='prepared'?(request&&!['rejected','failed'].includes(request.status)?link('/account/recovery','Recover original request','button primary'):
-     expired?notice('This unsigned quote has expired.','Cancel this unsent booking, then prepare a fresh price from the listing.'):act('pay-booking','Review & pay',`data-id="${b.id}"`,'button primary'))+' '+act('cancel-booking','Cancel unsent booking',`data-id="${b.id}"`):
-    ['failed','rejected','cancelled-before-send'].includes(b.status)?link('/checkout/'+b.saleId+'?spot='+b.spotId,'Prepare a fresh booking','button primary'):
-    link('/account/recovery','Check original transaction','button primary'))}</div>`;
- }
- if(['B08','B09'].includes(r.id)){
-  const {b,s,sale:offer}=placement(r.params.id);if(!s)return unavailable('Placement not available to this wallet.');
-  const owner=s.rights.current_owner_id===live.session.wallet,nominee=s.state.nominated_recipient===live.session.wallet,finalPayer=s.state.holder?.account_id===live.session.wallet;
-  const closed=s.rights.bidding_closed;
-  const media=live.data.media.filter(m=>m.status==='verified');
-  return heading('BUYER / PLACEMENT',offer?.title??s.accountId,'Follow the original booking, final placement right and delivery evidence.',b?link('/receipts/'+b.id,'View receipt'):link('/buy','Buyer overview'))+
-   `<div class="split"><div>${evidence(s)}${card('Placement NFT',s.state.nft_minted?`<p>Owner: <code>${esc(s.rights.current_owner_id)}</code></p>${owner?form('nft-transfer',hidden('contractId',s.accountId)+input('receiverId','Transfer artwork control to a NEAR account','','text','required')+submit('Review NFT transfer')):''}`:
-    !closed?'<p>The final placement NFT becomes available after bidding ends.</p>':
-    `<p>The final payer receives the placement right. Money claims remain with their original creditors.</p>${finalPayer&&live.session.wallet.startsWith('0x')?form('nomination',hidden('contractId',s.accountId)+input('recipientId','NEAR account for your placement NFT',s.state.nominated_recipient??live.config.developmentWallets?.find(w=>w.label==='NFT controller')?.address??'','text','required')+submit('Nominate NFT recipient')):''}
-    ${nominee&&!s.state.nomination_accepted?act('accept-nomination','Accept NFT nomination',`data-contract="${s.accountId}"`,'button primary'):''}
-    ${(!s.state.holder?.account_id.startsWith('0x')&&finalPayer||s.state.nomination_accepted&&nominee)?act('mint','Mint final placement NFT',`data-contract="${s.accountId}"`,'button primary'):''}`)}
-   ${b?card('Booking conversation',link('/inbox/'+b.id,'Message the space owner')):''}</div>
-   <div>${card('Your artwork',owner&&!s.state.artwork_locked&&s.rights.active?form('artwork',hidden('contractId',s.accountId)+artifactFields(media,'Describe the advertisement you are submitting.')+submit('Submit artwork for review')):
-    `<p>${s.state.artwork_locked?'The production artwork is locked.':owner?'Artwork submission is closed for this campaign.':'Connect the current NFT owner to submit artwork.'}</p>${s.rights.proposal?`<p>Revision ${s.rights.revision} · ${esc(s.rights.proposal.artifact_uri)}</p>`:''}`)}
-   ${card('Installation & service',s.campaign.delivery_proof?`<p>Installation evidence submitted by the seller.</p><p>${esc(s.campaign.delivery_proof.artifact_uri)}</p>`:'The seller will submit installation proof after locking the artwork.')}
-   ${b?card('Need an issue reviewed?',link('/support/new?booking='+b.id,'Request issue review')):''}</div></div>`;
- }
+ if(r.id==='B06')return checkout(r,d);
+ if(r.id==='B07')return payment(r);
+ if(['B08','B09'].includes(r.id))return placementView(r);
  if(['B11','B12'].includes(r.id))return moneyView(r.params.id);
- if(r.id==='B10'){const c=d.campaigns.find(c=>c.id===r.params.id);return heading('CAMPAIGN / REPORT',c?.name??'Campaign report','Financial and delivery records from the campaign. Exposure is not measured yet.')+card('Placements',bookingTable(d.bookings.filter(b=>b.campaignId===r.params.id)));}
- if(r.id==='B13'){const b=booking(r.params.id);if(!b)return unavailable();return heading('BOOKING / RECEIPT',sale(b.saleId)?.title??'Placement receipt','This record belongs to the original payer.')+card('Receipt',`<dl class="data-list"><div><dt>Reference</dt><dd>${esc(b.id)}</dd></div><div><dt>Payer</dt><dd>${esc(b.owner)}</dd></div><div><dt>Principal</dt><dd>${usdc(b.amount)}</dd></div><div><dt>Status</dt><dd>${badge(b.status)}</dd></div><div><dt>Contract</dt><dd><code>${esc(b.contractId)}</code></dd></div></dl>${link('/buy/placements/'+b.id,'Open placement')}`);}
+ if(r.id==='B10'){
+  const campaign=d.campaigns.find(c=>c.id===r.params.id);if(!campaign)return unavailable('Campaign not found.');return heading('CAMPAIGN REPORT',campaign.name,'Booking and delivery records for this campaign.')+card('Placements',placementsTable(d.bookings.filter(b=>b.campaignId===campaign.id)))+card('About exposure data','<p>Impressions, routes and distance are not independently measured. Review the owner’s installation evidence and your agreed campaign dates.</p>');
+ }
+ if(r.id==='B13'){
+  const b=booking(r.params.id);if(!b)return unavailable('Receipt not found.');return heading('PAYMENT RECEIPT',sale(b.saleId)?.title??'Your placement','A record of the payment made by this wallet.')+
+   card('Receipt',`<dl class="data-list"><div><dt>Amount paid</dt><dd>${usdc(b.amount)}</dd></div><div><dt>Status</dt><dd>${badge(bookingStatus(b,snapshot(b.contractId)))}</dd></div><div><dt>Paid by</dt><dd>${esc(short(b.owner))}</dd></div><div><dt>Booking reference</dt><dd><code>${esc(b.id)}</code></dd></div></dl>${link('/buy/placements/'+b.id,'Open placement','button primary')}`);
+ }
  return null;
 }
-function nftCards(){return live.data.placements.length?card('Placement rights controlled by this wallet',live.data.placements.map(s=>`<p>${badge(s.state.nft_minted?'NFT owned':'Nomination pending')} ${link('/buy/placements/'+s.accountId,esc(sale(s.campaign.terms.sale_id)?.title??s.accountId),'text-link')}</p>`).join('')):'';}
-export function requestProgress(id){const r=live.data.requests.find(r=>r.id===id);return r?heading('WALLET / REQUEST','Your original wallet request.','Recover this action using its saved transaction, rather than starting another payment.')+card('Request',`<p>${badge(r.status)}</p>${transaction(r.transactionHash)}<p>${link('/account/recovery','Open recovery','button primary')}</p>`):unavailable('Payment record not found.');}
-export function moneyView(routeId){
- const balances=live.balances??{},credits=(live.catalog?.snapshots??[]).filter(s=>s.credits[live.session.wallet]&&s.credits[live.session.wallet].available!=='0'||s.credits[live.session.wallet]?.conditional_bonus!=='0'&&s.credits[live.session.wallet]?.conditional_bonus!==undefined);
- const evm=live.session.wallet.startsWith('0x');
- return heading('WALLET / MONEY','Your funds, in your wallet.','Principal refunds, conditional rewards and owner earnings remain separate. Withdraw only the balance available to this account.')+
- `<div class="stats"><div class="stat"><span>Intents USDC</span><strong>${usdc(balances.intentsUsdc)}</strong><small>Available in your signing account</small></div><div class="stat"><span>${evm?'Base USDC':'Native NEAR USDC'}</span><strong>${usdc(evm?balances.baseUsdc:balances.nearUsdc)}</strong><small>${live.config.sandbox&&evm?'No Base funds are used on this test chain':'Outside the campaign escrow'}</small></div></div>`+
- `${live.config.sandbox?card('Local test funds',`<p>Load 0.25 valueless test USDC once for this wallet. The tokens use the actual local Intents ledger.</p>${act('faucet','Load test USDC','','button primary')}`):evm?card('Add USDC from Base',form('fund-quote',input('amount','USDC to receive in Intents','0.15','number','min="0.15" max="0.29" step="0.01" required')+submit('Get Base funding quote'))):''}`+
- `${live.fundQuote?card('Funding quote',`<p>Send ${usdc(live.fundQuote.response.quote.amountIn)} native Base USDC to receive ${usdc(live.fundQuote.response.quote.amountOut)} in Intents. Base gas is additional.</p><p>Both the destination and refund wallet are ${esc(live.fundQuote.wallet)}.</p>${act('fund-route','Review in Base wallet',`data-id="${live.fundQuote.planId}"`,'button primary')}`):''}`+
- card('Original-wallet campaign credits',table(['Campaign','Available','Conditional reward',''],credits.map(s=>{const c=s.credits[live.session.wallet];return [esc(sale(s.campaign.terms.sale_id)?.title??s.accountId),usdc(c.available),usdc(c.conditional_bonus),c.available!=='0'?act('claim','Claim available USDC',`data-contract="${s.accountId}"`,'button small'):'Held until successful settlement'];})))+
- `<div class="grid two">${card('Withdraw to a NEAR wallet',form('withdraw-native',input('amount','USDC amount','0.01','number','min="0.000001" step="0.000001" required')+(evm?input('recipientId','Registered NEAR recipient','','text','required'):`<p>Destination: ${esc(live.session.wallet)}</p>`)+submit('Review native USDC withdrawal'))+
-  (!evm?`<p class="tiny muted">Register token storage once before your first native withdrawal.</p>${balances.tokenStorageRegistered?badge('USDC storage registered'):act('register-storage','Register USDC storage')}`:''))}
- ${!evm?card('Deposit native USDC into Intents',form('deposit-intents',input('amount','USDC amount','0.01','number','min="0.000001" step="0.000001" required')+submit('Review USDC deposit'))):
-  !live.config.sandbox?card('Return USDC to Base',form('exit-quote',input('amount','Intents USDC to return','0.10','number','min="0.01" step="0.01" required')+submit('Get return quote'))):card('Native withdrawals are available.',`<p>You can redeem test USDC into a registered local NEAR account. Base bridging is only offered on mainnet.</p>`)}</div>`+
- `${live.exitQuote?card('Return quote',`<p>Return ${usdc(live.exitQuote.request.amount)} from Intents. Minimum delivered to your Base wallet: ${usdc(live.exitQuote.response.quote.minAmountOut)}.</p>${act('exit-route','Review return to Base',`data-id="${live.exitQuote.planId}"`,'button primary')}`):''}`+
- card('Funding & return records',table(['Route','Direction','Amount',''],live.data.routes.map(row=>[short(row.id),row.plan.direction,usdc(row.plan.request.amount),act('check-route','Check delivery',`data-id="${row.id}" data-direction="${row.plan.direction}"`,'button small')])))+
- (live.routeResult?card('Route verification',`<p>${esc(JSON.stringify(live.routeResult))}</p>`):'');
+function checkout(r,d){
+ const offer=sale(r.params.intentId),q=new URLSearchParams(location.search),spot=offer?.spots.find(p=>p.id===q.get('spot'))??offer?.spots[0];if(!offer||!spot)return unavailable('This spot is unavailable.');
+ const chain=snapshot(spot.contractId),info=listingAvailability(spot,chain,clock()),asset=offer.publication.manifest.asset,next='/checkout/'+offer.id+'?spot='+spot.id;
+ const campaigns=d.campaigns.filter(c=>c.status==='active'),selected=campaigns.find(c=>c.id===q.get('campaign'))??campaigns.at(-1),balance=availableBalance(),needsFunding=balance!==undefined&&micro(balance)<micro(info.price),alreadyHolding=chain?.state.holder?.account_id===live.session.wallet;
+ let bookingForm;
+ if(alreadyHolding){const existing=d.bookings.find(b=>b.contractId===spot.contractId&&b.accepted);bookingForm=notice('You already have this spot.','Manage the artwork and progress from your placement workspace.')+(existing?link('/buy/placements/'+existing.id,'Open your placement','button primary'):link('/buy','Open your workspace','button primary'));}
+ else if(!info.available)bookingForm=notice(info.kind==='checking'?'Checking this spot.':'This spot is no longer available.',info.kind==='checking'?'Refresh to get the latest booking state.':'Choose another surface or campaign period.')+(info.kind==='checking'?act('refresh','Check availability','','button primary'):link('/explore','Find another space','button primary'));
+ else bookingForm=form('prepare-booking',hidden('saleId',offer.id)+hidden('spotId',spot.id)+select('campaignId','Campaign',[['','Create a new campaign'],...campaigns.map(c=>[c.id,c.name])],selected?.id??'')+
+  `<details ${selected?'':'open'}><summary>New campaign details</summary>${input('name','Campaign name',asset.title+' campaign','text','maxlength="100"')}${input('budget','Campaign spending limit · USDC','50.00','number','min="0.01" step="0.01"')}<p class="tiny muted">A limit for bookings in this campaign. This amount is not charged.</p></details>`+
+  (live.balanceError?notice('Your balance is temporarily unavailable.','Refresh your balance before booking.')+act('refresh','Refresh balance'):`<p>Available balance: <strong>${usdc(balance)}</strong></p>`)+
+  (needsFunding?notice('Add funds to book this space.',`This booking costs ${usdc(info.price)}. You need ${usdc(micro(info.price)-micro(balance))} more in your spending balance.`):'')+
+  check('rules','I agree to the published dates, advertising rules and takeover setting.')+
+  (needsFunding?act('fund-and-book','Add funds & book',`data-sale="${offer.id}" data-spot="${spot.id}"`,'button primary'):balance===undefined?act('refresh','Check balance to continue','','button primary'):submit(info.kind==='takeover'?'Continue with takeover':'Continue with booking'))+
+  link(moneyLink(next),'Manage your balance','text-link'));
+ return heading('BOOK YOUR SPACE',info.kind==='takeover'?'Make this spot yours.':'Your next campaign starts here.','One price for the full campaign, printing and installation.')+
+  `<div class="split">${card(esc(asset.title),`<p>${esc(asset.spots.find(p=>p.id===spot.id)?.name??spot.id)} · ${esc(asset.city)}</p>${info.price?`<h2>${usdc(info.price)}</h2>`:''}<p>Printing & installation included.</p>${scheduleSummary(offer)}<details><summary>Advertising rules</summary><p>${esc(offer.rules)}</p></details>${spot.takeoverEnabled?notice('Takeovers are enabled.','Your booking can be replaced until booking closes. Your original payment becomes refundable if another advertiser takes over.'):'<p>This is a fixed booking. Another advertiser cannot take it over.</p>'}`)}${card('Complete your booking',bookingForm)}</div>`;
+}
+function payment(r){
+ const b=booking(r.params.id);if(!b)return requestProgress(r.params.id);
+ const request=latestWalletRequest(live.data.requests,[b.planId,b.nativePlanId]),intent=live.data.intents.find(i=>i.id===b.planId),status=paymentState(b,request,intent?.expiresAt,clock());
+ const offer=sale(b.saleId),state=bookingStatus(b,snapshot(b.contractId));
+ let title='Confirm your booking.',next;
+ if(status==='confirmed'){title=state==='outbid'?'This booking was taken over.':'Your placement is confirmed.';next=link('/buy/placements/'+b.id,'Open your placement','button primary');}
+ else if(status==='pending'){title='Your payment is being checked.';next=notice('Keep this booking open.','We are checking the original payment. You can safely return here without starting another transfer.')+act('refresh','Check payment status','','button primary')+' '+link('/account/recovery','Payment help','text-link');}
+ else if(status==='expired'){title='Your price needs a refresh.';next=notice('This unpaid quote has expired.','Cancel it below, then return to the space for its current price.')+act('cancel-booking','Cancel unpaid booking',`data-id="${b.id}"`,'button primary');}
+ else if(status==='retry'){title='This booking was not completed.';next=link('/checkout/'+b.saleId+'?spot='+b.spotId,'Try with the current price','button primary');}
+ else next=act('pay-booking','Pay '+usdc(b.amount),`data-id="${b.id}"`,'button primary')+' '+act('cancel-booking','Cancel booking',`data-id="${b.id}"`);
+ return heading('YOUR BOOKING',title,status==='confirmed'?'Your workspace keeps the artwork, delivery and payments together.':'Your wallet will show the exact payment before you approve.')+
+  `<div class="split">${card('Booking details',`<h3>${esc(offer?.title??'Advertising placement')}</h3><h2>${usdc(b.amount)}</h2><p>Printing & installation included.</p><p>${badge(state)}</p>${offer?scheduleSummary(offer):''}${walletReceipt(request?.transactionHash)}`)}${card('Next step',next)}</div>`;
+}
+function receiptCards(){
+ const placements=live.data.placements??[];if(!placements.length)return '';
+ return card('Placement rights controlled by this wallet',placements.map(s=>`<article class="connected-record"><h3>${link('/buy/placements/'+s.accountId,esc(sale(s.campaign.terms.sale_id)?.title??'Your placement'),'text-link')}</h3>${badge(s.state.nft_minted?'Placement receipt ready':'Activation pending')}${link('/buy/placements/'+s.accountId,'Open placement','button small')}</article>`).join(''));
+}
+function placementView(r){
+ const {b,s,sale:offer}=placement(r.params.id);if(!s)return unavailable('This placement is unavailable to your wallet.');
+ const wallet=live.session.wallet,owner=(s.rights.artwork_controller_id??s.rights.current_owner_id)===wallet,nominee=s.state.nominated_recipient===wallet,finalPayer=s.state.holder?.account_id===wallet,closed=s.rights.bidding_closed;
+ const progress=placementProgress(s,wallet,clock(),{automaticReceipt:production()}),artDue=millis(s.campaign.terms.artwork_due_ns),canAutoActivate=production()&&finalPayer&&closed&&!s.state.nft_minted&&s.state.outcome==='open'&&artDue!==null&&clock()<artDue;
+ const canArtwork=(owner&&s.rights.active||canAutoActivate)&&!s.state.artwork_locked;
+ const credit=s.credits?.[wallet],creditCard=micro(credit?.available)>0n||micro(credit?.conditional_bonus)>0n?card('Your booking funds',`<p>Available to claim: <strong>${usdc(credit.available)}</strong></p>${micro(credit.conditional_bonus)>0n?`<p>Completion reward: ${usdc(credit.conditional_bonus)} · available after successful settlement.</p>`:''}${micro(credit.available)>0n?act('claim','Claim available USDC',`data-contract="${s.accountId}"`,'button primary'):''}${link(moneyLink(),'View your balance','text-link')}`):'';
+ let next='';
+ if(['outbid','cancelled'].includes(progress.key))next=link(moneyLink(),'View refunds & balance','button primary');
+ else if(!production()&&progress.key==='accept')next=act('accept-nomination','Accept NFT nomination',`data-contract="${s.accountId}"`,'button primary');
+ else if(!production()&&progress.key==='mint')next=act('mint','Mint final placement NFT',`data-contract="${s.accountId}"`,'button primary');
+ else if(!production()&&progress.key==='nominate')next=form('nomination',hidden('contractId',s.accountId)+input('recipientId','NEAR account for your placement NFT',s.state.nominated_recipient??live.config.developmentWallets?.find(w=>w.label==='NFT controller')?.address??'','text','required')+'<p class="tiny muted">Use an account you control. Your original wallet keeps all payment and refund rights.</p>'+submit('Nominate NFT recipient'));
+ else if(progress.key==='completed')next=link(b?.campaignId?'/buy/campaigns/'+b.campaignId:'/buy','Your campaign','button primary');
+ const progressTitle=canAutoActivate?'Send your artwork.':progress.title,progressText=canAutoActivate?'Your placement receipt is handled automatically with your final booking. Upload your design or enter the ad copy for the owner.':progress.text;
+ const artwork=canArtwork?form('artwork',hidden('contractId',s.accountId)+artworkFields()+submit(s.rights.proposal?'Send updated artwork':'Submit artwork for review')):s.rights.proposal?`<p>${s.state.artwork_locked?'The owner approved this artwork for production.':'This artwork revision is recorded for your campaign.'}</p>${artifactLink(s.rights.proposal.artifact_uri)}`:`<p>${!closed?'Artwork submissions open when booking closes.':s.state.outcome==='failure'?'Artwork is no longer needed for this cancelled campaign.':!owner&&!canAutoActivate?'The account controlling this placement can submit artwork.':'Artwork submissions have closed.'}</p>`;
+ return heading('YOUR PLACEMENT',offer?.title??'Your advertising placement','Follow your campaign from booking to installation.',b?link('/receipts/'+b.id,'View receipt','text-link'):link('/buy','Your workspace','text-link'))+
+  `<div class="split"><div>${card('Your next step',`<h2>${esc(progressTitle)}</h2><p>${esc(progressText)}</p>${next}`)}${creditCard}${card('Campaign dates',offer?scheduleSummary(offer):`<p>Booking closes ${esc(byNs(s.state.cutoff_ns))}.</p>`)}${card('Stay in touch',`<p>Coordinate creative, production and delivery with the space owner.</p>${link('/inbox/'+s.accountId,'Message the owner','button primary')}${b?link('/support/new?booking='+b.id,'Request issue review','text-link'):''}`)}</div><div>${card('Your artwork',artwork)}${card('Installation & delivery',s.campaign.delivery_proof?`<p>The owner submitted installation evidence for the approved artwork.</p>${artifactLink(s.campaign.delivery_proof.artifact_uri)}`:'<p>The owner will share installation evidence after approving your artwork.</p>')}${card('Placement receipt',s.state.nft_minted?`<p>${badge('Final placement recorded')}</p><p>Your receipt records this campaign’s final placement right.</p><details><summary>Receipt details</summary><p>Current owner: <code>${esc(s.rights.current_owner_id)}</code></p><p>Refunds and payouts stay with their original wallets.</p>${!production()&&owner?form('nft-transfer',hidden('contractId',s.accountId)+input('receiverId','Transfer artwork control to a NEAR account','','text','required')+submit('Review NFT transfer')):''}</details>`:production()?'<p>Your final placement receipt is handled automatically after booking closes.</p>':'<p>The final placement record becomes available after booking closes. Complete the next step above to activate it.</p>')}<details><summary>Payment and campaign details</summary>${evidence(s)}</details></div></div>`;
+}
+export function requestProgress(id){
+ const request=live.data.requests.find(r=>r.id===id);return request?heading('PAYMENT STATUS','Your payment request.','Check the original request before starting another payment.')+card('Status',`<p>${badge(request.status)}</p>${walletReceipt(request.transactionHash)}${link('/account/recovery','Check payment','button primary')}`):unavailable('Payment record not found.');
+}
+function fundingQuote(){
+ const q=live.fundQuote;if(!q)return '';const quote=q.response.quote,fee=micro(quote.amountIn)-micro(quote.amountOut);
+ return card('Add funds',`<dl class="data-list"><div><dt>Available to spend</dt><dd>${usdc(quote.amountOut)}</dd></div><div><dt>From your Base wallet</dt><dd>${usdc(quote.amountIn)}</dd></div>${fee>0n?`<div><dt>Routing cost included</dt><dd>${usdc(fee)}</dd></div>`:''}</dl><p class="tiny muted">Base network fees are shown separately by your wallet. The quote expires ${esc(dateTime(q.expiresAt))}.</p>${act('fund-route','Add funds from Base',`data-id="${q.planId}"`,'button primary')}`);
+}
+export function moneyView(){
+ const balances=live.balances??{},wallet=live.session.wallet,evm=wallet.startsWith('0x'),credits=creditSnapshots(live.catalog?.snapshots,wallet),next=new URLSearchParams(location.search).get('next'),safeNext=next?.startsWith('/')&&!next.startsWith('//')?next:null;
+ const available=availableBalance(),outside=evm?balances.baseUsdc:balances.nearUsdc;
+ const funds=live.config.sandbox?card('Local test funds',`<p>This development chain uses valueless USDC.</p>${act('faucet','Load test USDC','','button primary')}`):evm?card('Add funds',form('fund-quote',input('amount','USDC to add','1.00','number','min="0.15" step="0.01" required')+'<p class="tiny muted">Use native USDC from your Base wallet. The final amount and route cost appear before you approve.</p>'+submit('Get funding quote'))):card('Add wallet USDC',form('deposit-intents',input('amount','USDC to add','1.00','number','min="0.000001" step="0.000001" required')+'<p class="tiny muted">Move USDC from this NEAR wallet into your spending balance.</p>'+submit('Add USDC')));
+ const withdrawals=!evm?card('Withdraw to your wallet',form('withdraw-native',input('amount','USDC to withdraw',micro(available)>0n?(Number(available)/1e6).toFixed(6):'0.01','number','min="0.000001" step="0.000001" required')+`<p>To your connected NEAR wallet: ${esc(short(wallet))}</p>`+(!balances.tokenStorageRegistered?'<p class="tiny muted">Your first withdrawal may include a one-time USDC account registration. Any required NEAR deposit is shown before approval.</p>':'')+submit('Withdraw USDC'))):live.config.sandbox?card('Withdraw to a NEAR wallet',form('withdraw-native',input('amount','USDC to withdraw','0.01','number','min="0.000001" step="0.000001" required')+input('recipientId','Registered NEAR recipient','','text','required')+submit('Withdraw USDC'))):card('Withdraw to Base',form('exit-quote',input('amount','USDC to return',micro(available)>=150000n?(Number(available)/1e6).toFixed(6):'0.15','number','min="0.01" step="0.000001" required')+'<p class="tiny muted">Send available funds back to this connected Base wallet. We show the route’s minimum delivery before you approve.</p>'+submit('Get withdrawal quote')));
+ return heading('YOUR BALANCE','Your campaign money, in one place.','Add funds, claim refunds and withdraw available money to your wallet.',safeNext?link(safeNext,'Return to your booking','button primary'):'')+
+  (live.balanceError?notice('Your balance is temporarily unavailable.','Refresh to check your latest funds.'):'' )+
+  `<div class="stats"><div class="stat"><span>Available to spend</span><strong>${available!==undefined?usdc(available):'Checking…'}</strong><small>Ready for bookings or withdrawal</small></div><div class="stat"><span>${evm?'USDC in your Base wallet':'USDC in your NEAR wallet'}</span><strong>${outside!==undefined?usdc(outside):'Checking…'}</strong><small>Held by your connected wallet</small></div></div>`+
+  (credits.length?card('Refunds & campaign credits',table(['Campaign','Available now','On successful completion',''],credits.map(s=>{const c=s.credits[wallet];return [esc(sale(s.campaign.terms.sale_id)?.title??'Campaign credit'),usdc(c.available),usdc(c.conditional_bonus),micro(c.available)>0n?act('claim','Claim available USDC',`data-contract="${s.accountId}"`,'button small'):'Awaiting completion'];}))):'')+
+  `<div class="grid two">${funds}${withdrawals}</div>${fundingQuote()}`+
+  (live.exitQuote?card('Withdrawal quote',`<p>Withdraw ${usdc(live.exitQuote.request.amount)}. At least <strong>${usdc(live.exitQuote.response.quote.minAmountOut)}</strong> will arrive in your Base wallet.</p><p class="tiny muted">Your wallet must approve this exact request before funds move.</p>${act('exit-route','Withdraw to Base',`data-id="${live.exitQuote.planId}"`,'button primary')}`):'')+
+  (live.data.routes?.length?card('Funding & withdrawal history',table(['Activity','Amount',''],[...live.data.routes].reverse().map(row=>[row.plan.direction==='fund'?'Add funds':'Withdraw to Base',usdc(row.plan.request.amount),act('check-route','Check status',`data-id="${row.id}" data-direction="${row.plan.direction}"`,'button small')]))):'')+
+  (live.routeResult?card('Transfer status',`<p>${esc(live.routeResult.providerStatus??live.routeResult.status??(live.routeResult.verified?'Delivery verified':'Checking delivery'))}</p><p class="tiny muted">Available balances update after delivery has been verified.</p>`):'')+
+  `<details><summary>Wallet and payment details</summary><p>Wallet: <code>${esc(wallet)}</code></p><p>Your spending balance uses USDC in NEAR Intents. Funds outside this balance remain in your connected wallet.</p>${link('/account/recovery','Payment recovery','text-link')}</details>`;
 }

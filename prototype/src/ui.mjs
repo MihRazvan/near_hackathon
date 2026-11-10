@@ -1,13 +1,3 @@
-import {
-  state,
-  person,
-  asset,
-  sale,
-  currentBooking,
-  priceFor,
-  effectiveTakeover,
-} from "./store.mjs";
-import { OWNERS } from "./seed.mjs";
 export const esc = (v) =>
   String(v ?? "").replace(
     /[&<>"']/g,
@@ -98,10 +88,6 @@ export function tabs(items, selected) {
 }
 export const timeline = (items, current = 0) =>
   `<ol class="timeline">${items.map(([title, detail], i) => `<li class="${i < current ? "done" : i === current ? "current" : ""}"><i>${i < current ? icon("check") : String(i + 1).padStart(2, "0")}</i><div><strong>${title}</strong><p>${detail}</p></div></li>`).join("")}</ol>`;
-export const bars = (
-  values = [36, 55, 42, 74, 58, 90, 66, 82, 63, 98, 77, 89],
-) =>
-  `<div class="bars" role="img" aria-label="Sample activity chart">${values.map((n, i) => `<div style="--height:${n}%" title="Week ${i + 1}: sample activity ${n}"><span>${n}</span></div>`).join("")}</div><div class="chart-axis"><span>1 Nov</span><span>8 Nov</span><span>15 Nov</span><span>22 Nov</span><span>30 Nov</span></div>`;
 export const avatar = (name, cls = "") =>
   `<span class="avatar ${cls}">${esc(
     name
@@ -119,14 +105,9 @@ export function vehicle(
     interactive = false,
     editor = false,
     spots = true,
-    saleId,
   } = {},
 ) {
-  const id = `scene-${++scene}`,
-    s =
-      sale(saleId) ??
-      state.sales.find((x) => x.assetId === a.id && x.phase === "open"),
-    layout = editor ? a.spots : (s?.layout ?? a.spots);
+  const id = `scene-${++scene}`, layout = a.spots ?? [];
   const body =
     a.type === "bike"
       ? `<g stroke="#30372f" stroke-width="12" fill="none"><circle cx="265" cy="340" r="92"/><circle cx="670" cy="340" r="92"/><path d="m265 340 160-175 94 175H265m160-175 245 175-80-235h-60m40-3h65M425 165l-40-55h70"/></g><path d="M150 190h190l25 135H150z" fill="${a.color}" stroke="#596357" stroke-width="4"/><path d="M175 200h140v115H175z" fill="#fbfaf2"/><path d="m395 110 65 0" stroke="#30372f" stroke-width="15"/>`
@@ -137,69 +118,26 @@ export function vehicle(
     spots && large
       ? layout
           .map((p, i) => {
-            const b = s && currentBooking(s, p),
-              active = p.id === selected;
-            return `<g class="spot-shape ${active ? "selected" : ""}" ${interactive ? `data-action="select-spot" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Select ${esc(p.name)}"` : ""} data-spot="${esc(p.id)}"><rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="5" fill="${active ? "#e7ff87" : b ? "#e9b693" : "#fcfbef"}" fill-opacity="${active ? ".9" : ".7"}" stroke="${active ? "#242c24" : "#8c9684"}" stroke-width="${active ? 3 : 1.5}" stroke-dasharray="${active ? "" : "5 4"}"/><text x="${p.x + p.w / 2}" y="${p.y + p.h / 2 + 5}" text-anchor="middle" font-size="${b ? 14 : 17}" font-family="sans-serif" fill="#333c30">${esc(b ? b.brand : String(i + 1).padStart(2, "0"))}</text>${editor && active ? `<rect class="resize-handle" x="${p.x + p.w - 8}" y="${p.y + p.h - 8}" width="16" height="16" fill="#283527" stroke="white" stroke-width="2"/>` : ""}</g>`;
+            const active = p.id === selected;
+            return `<g class="spot-shape ${active ? "selected" : ""}" ${interactive ? `data-action="select-spot" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Select ${esc(p.name)}"` : ""} data-spot="${esc(p.id)}"><rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="5" fill="${active ? "#e7ff87" : "#fcfbef"}" fill-opacity="${active ? ".9" : ".7"}" stroke="${active ? "#242c24" : "#8c9684"}" stroke-width="${active ? 3 : 1.5}" stroke-dasharray="${active ? "" : "5 4"}"/><text x="${p.x + p.w / 2}" y="${p.y + p.h / 2 + 5}" text-anchor="middle" font-size="17" font-family="sans-serif" fill="#333c30">${esc(String(i + 1).padStart(2, "0"))}</text>${editor && active ? `<rect class="resize-handle" x="${p.x + p.w - 8}" y="${p.y + p.h - 8}" width="16" height="16" fill="#283527" stroke="white" stroke-width="2"/>` : ""}</g>`;
           })
           .join("")
       : "";
   return `<div class="vehicle-scene ${large ? "large" : ""}" style="--scene:${a.color}">${a.photos?.[0] ? `<img class="uploaded-scene" src="${esc(a.photos[0])}" alt="Uploaded ${esc(a.title)}"/>` : ""}<svg viewBox="0 0 960 480" class="vehicle-svg" ${editor ? 'data-editor-canvas="true"' : ""} aria-label="Illustrative ${esc(a.model)} and advertising surfaces"><defs><linearGradient id="${id}" x2="0" y2="1"><stop stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="${a.color}" stop-opacity=".4"/></linearGradient></defs><rect width="960" height="480" fill="url(#${id})"/><path d="M0 407Q350 368 960 403" stroke="#9da992" stroke-opacity=".3" fill="none"/><ellipse cx="475" cy="400" rx="350" ry="14" fill="#4b5f40" opacity=".1"/>${a.photos?.[0] ? "" : body}${overlays}</svg><span class="scene-caption">${a.photos?.[0] ? "UPLOADED PHOTO" : "ILLUSTRATIVE VEHICLE"} <i>↗</i> ${esc(a.model)}</span></div>`;
 }
-export function assetCard(
-  a,
-  s = state.sales.find((x) => x.assetId === a.id && x.phase === "open"),
-  mode = "",
-) {
-  const offered = s
-    ? s.layout.filter((p) => {
-        const b = currentBooking(s, p),
-          on = effectiveTakeover(s, p);
-        return (!b || on) && (!mode || (mode === "on" ? on : !on));
-      })
-    : a.spots;
-  const owner = OWNERS.find((x) => x.id === a.ownerId),
-    prices = offered.map((p) => (s ? priceFor(s, p) : p.price)),
-    modes = s
-      ? new Set(offered.map((p) => effectiveTakeover(s, p)))
-      : new Set([true]);
-  return `<article class="asset-card"><a class="card-visual" href="/spaces/${a.id}${s ? "?sale=" + s.id : ""}">${vehicle(a, { spots: false })}<span class="asset-type">${icon(a.type === "bike" ? "map" : "car")}${label(a.type === "moto" ? "Motorcycle" : a.type === "bike" ? "Bicycle" : a.type)}</span></a>${button("save-asset", icon("heart"), `data-id="${a.id}" aria-label="${state.saved.includes(a.id) ? "Unsave" : "Save"} ${esc(a.title)}" aria-pressed="${state.saved.includes(a.id)}"`, "save-button " + (state.saved.includes(a.id) ? "saved" : ""))}<div class="asset-card-body"><div class="row"><span class="tiny muted">${esc(a.area)} · ${owner?.name ?? "Your asset"}</span><span class="tiny">↗</span></div><h3><a href="/spaces/${a.id}">${esc(a.title)}</a></h3><p class="muted">${esc(a.activity)}</p><div class="card-tags">${badge(modes.size > 1 ? "Mixed" : modes.has(true) ? "Takeovers" : "Fixed")}${badge(`${offered.length} available spots`)}</div><div class="card-price"><div><strong>${prices.length ? money(Math.min(...prices)) : "Fully booked"}</strong><small>from · print & installation included</small></div><span>${s ? date(s.start).replace(" 2026", "") : "Draft"}<br/>${s ? "— " + date(s.end).replace(" 2026", "") : ""}</span></div></div></article>`;
-}
-export function bookingRows(items, { owner = false } = {}) {
-  return items.map((b) => {
-    const s = sale(b.saleId),
-      a = asset(s.assetId),
-      p = s.layout.find((p) => p.id === b.spotId);
-    return [
-      link(
-        `${owner ? "/host/bookings/" : "/buy/placements/"}${b.id}`,
-        `<strong>${esc(p?.name ?? "Spot")}</strong><small>${esc(a.title)}</small>`,
-        "table-link",
-      ),
-      esc(b.brand),
-      badge(b.status),
-      badge(b.artwork),
-      money(b.amount),
-      link(
-        `${owner ? "/host/bookings/" : "/buy/placements/"}${b.id}`,
-        icon("arrow"),
-        "icon-button",
-      ),
-    ];
-  });
-}
 export const checkList = (items) =>
   `<ul class="check-list">${items.map((x) => `<li>${icon("check")}<span>${x}</span></li>`).join("")}</ul>`;
 export function modal(title, body) {
   const d = document.querySelector("#modal");
-  d.innerHTML = `<header><div><div class="eyebrow">EVERYWHERE / PROTOTYPE</div><h2>${title}</h2></div>${button("close-modal", icon("close"), 'aria-label="Close dialog"', "icon-button")}</header><div class="modal-body">${body}</div>`;
+  d.innerHTML = `<header><div><div class="eyebrow">EVERYWHERE</div><h2>${title}</h2></div>${button("close-modal", icon("close"), 'aria-label="Close dialog"', "icon-button")}</header><div class="modal-body">${body}</div>`;
   if (!d.open) d.showModal();
   d.querySelector("input,select,button")?.focus();
 }
 export function closeModal() {
-  document.querySelector("#modal").close();
+  document.querySelector("#modal")?.close();
 }
 export function download(name, content, type = "text/plain") {
-  const url = URL.createObjectURL(new Blob([content], { type })),
+  const url = URL.createObjectURL(new globalThis.Blob([content], { type })),
     a = document.createElement("a");
   a.href = url;
   a.download = name;
@@ -213,7 +151,7 @@ export async function readImage(file) {
     file.size > 1_500_000
   )
     throw new Error(
-      "Choose a PNG, JPEG or WebP smaller than 1.5 MB for this prototype.",
+      "Choose a PNG, JPEG or WebP smaller than 1.5 MB.",
     );
   return new Promise((resolve, reject) => {
     const r = new FileReader();
