@@ -17,7 +17,7 @@ export function topbar(){
  return `<div class="prototype-bar connected-topbar"><span class="prototype-label"><i class="prototype-dot"></i><strong>${!live.config?'CONNECTING NETWORK…':live.config.sandbox?'LOCAL NEAR SANDBOX':'NEAR MAINNET · REAL FUNDS'}</strong><span class="reset-label">${live.config?.sandbox?'VALUELESS TEST TOKENS · REAL TRANSACTIONS':'CONNECTED PRODUCT'}</span></span><div class="prototype-tools">${link('/settings/wallets',live.session?'Switch wallet':'Connect wallet','text-link')}${link('/account/recovery',pending?'Recover '+pending+' request'+(pending===1?'':'s'):'Account recovery','text-link')}${live.config?.sandbox?link('/_testing','Test controls','text-link'):''}${act('refresh','Refresh state','','button small')}</div></div>`;
 }
 export function renderConnected(r){
- if(!live.config)return heading('EVERYWHERE','Connecting your workspace.','Preparing the marketplace and your saved account.')+(live.error?notice('Connection interrupted',esc(live.error)+' '+act('reload-workspace','Retry connection')):'');
+ if(!live.config)return '';
  let body;
  if(r.scope==='global')body=globalView(r);
  else if(r.id==='T01'&&!live.config.production)body=testingView();

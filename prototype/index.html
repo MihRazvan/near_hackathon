@@ -9,10 +9,28 @@
     <link rel="preload" href="/fonts/barlow-condensed-700-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/manrope-latin-variable.woff2" as="font" type="font/woff2" crossorigin />
     <title>Everywhere — advertise on everything</title>
+    <style>
+      body { margin: 0; }
+      .startup-screen { box-sizing: border-box; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 32px 24px; background: #123e42; color: #f5f2e9; font-family: Manrope, sans-serif; text-align: center; }
+      .startup-content { width: min(100%, 380px); }
+      .startup-mark { display: block; margin: 0 auto 22px; }
+      .startup-name { margin: 0; color: #f5f2e9; font: 800 clamp(34px, 8vw, 46px)/1.2 Manrope, sans-serif; letter-spacing: -.04em; }
+      .startup-name span { color: #f5e642; }
+      .startup-copy { margin: 16px 0 30px; color: #c8d9d2; font: 400 13px/1.7 Manrope, sans-serif; }
+      .startup-track { width: 160px; height: 2px; margin: auto; overflow: hidden; background: #416563; }
+      .startup-track span { display: block; width: 44px; height: 100%; background: #f5e642; animation: startup-travel 1.35s ease-in-out infinite alternate; }
+      .startup-status { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+      .startup-retry { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 12px 24px; border: 0; border-radius: 4px; background: #f5e642; color: #123e42; font: 750 13px/1.5 Manrope, sans-serif; cursor: pointer; }
+      .startup-retry:hover { background: #fff26c; }
+      .startup-retry:focus-visible { outline: 3px solid #f5e642; outline-offset: 5px; }
+      body:has(.startup-screen) > .skip-link { display: none; }
+      @keyframes startup-travel { from { transform: translateX(0); } to { transform: translateX(116px); } }
+      @media (prefers-reduced-motion: reduce) { .startup-track span { animation: none; transform: translateX(58px); } }
+    </style>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <div id="app"></div>
+    <div id="app"><main id="startup" class="startup-screen" aria-busy="true"><div class="startup-content"><img class="startup-mark" src="/favicon.svg" width="64" height="64" alt=""><h1 class="startup-name">everywhere<span>.</span></h1><p class="startup-copy">Small space. Big potential.</p><div class="startup-track" aria-hidden="true"><span></span></div><p class="startup-status" role="status">Loading Everywhere…</p><noscript><p class="startup-copy">Enable JavaScript to open Everywhere.</p></noscript></div></main></div>
     <dialog id="modal"></dialog>
     <div id="toast" role="status" aria-live="polite"></div>
     <script type="module" src="/src/app.mjs"></script>
