@@ -78,6 +78,7 @@ export function configFromEnv(env = {}) {
     crossSiteSessions:production&&env.APP_CROSS_SITE_SESSIONS==='true',
     customerRouteMax:units(env.APP_CUSTOMER_ROUTE_MAX_USDC||'1000',6),
     customerGasMax:units(env.APP_CUSTOMER_ROUTE_MAX_ETH_GAS||'0.005',18),
+    localPhotoMaxBytes:Number(env.APP_LOCAL_PHOTO_MAX_BYTES||'134217728'),
     mediaMaxFiles:Number(env.APP_MEDIA_MAX_FILES||(production?'1000':'20')),
     mediaMaxBytes:Number(env.APP_MEDIA_MAX_BYTES||(production?'20000000':'1000000')),
     mediaMaxTotalBytes:Number(env.APP_MEDIA_MAX_TOTAL_BYTES||(production?'1000000000':'20000000')),
@@ -139,6 +140,7 @@ export function configFromEnv(env = {}) {
   Object.defineProperty(config, "keys", { value: keys, enumerable: false });
   for(const name of ['mediaMaxFiles','aiDailyLimit','aiGlobalDailyLimit'])assert(Number.isSafeInteger(config[name])&&config[name]>0&&config[name]<=100000,'INVALID_LIMIT','Application quotas must be positive bounded integers');
   assert(Number.isSafeInteger(config.mediaMaxBytes)&&config.mediaMaxBytes>0&&config.mediaMaxBytes<=20000000&&Number.isSafeInteger(config.mediaMaxTotalBytes)&&config.mediaMaxTotalBytes>=config.mediaMaxBytes&&config.mediaMaxTotalBytes<=1000000000,'INVALID_LIMIT','Media upload and total storage quotas must be bounded');
+  assert(Number.isSafeInteger(config.localPhotoMaxBytes)&&config.localPhotoMaxBytes>0&&config.localPhotoMaxBytes<=134217728,'INVALID_LIMIT','Local reference photo storage must be at most 128 MiB');
   assert(BigInt(config.customerRouteMax)>0n&&BigInt(config.customerGasMax)>0n,'INVALID_LIMIT','Customer route limits must be positive');
   if(env.INTEGRATION_FACTORY_ACCOUNT_ID||env.INTEGRATION_FACTORY_CODE_HASH||env.INTEGRATION_CAMPAIGN_SHA256){
    assert(env.INTEGRATION_FACTORY_ACCOUNT_ID&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(env.INTEGRATION_FACTORY_CODE_HASH??'')&&/^[0-9a-f]{64}$/.test(env.INTEGRATION_CAMPAIGN_SHA256??''),'INVALID_FACTORY','Factory account, pinned code hash and campaign SHA256 are required together');

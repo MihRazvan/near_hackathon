@@ -1,3 +1,4 @@
+import { initializeLocalPhotoQuota,assertLocalPhotoQuota,pruneCaptureStorage,OWNER_ASSET_MAX,GLOBAL_ASSET_MAX } from './local-photo-quota.mjs';
 import { hubPriceAtRound } from './hub.mjs';
 import { randomUUID } from 'node:crypto';
 import { assert, walletId, text, uint, hashObject } from './core.mjs';
@@ -14,7 +15,7 @@ function owned(store,kind,id,owner){const row=store.get(kind,id);assert(row&&row
 function native(value){const id=walletId(value);assert(!id.startsWith('0x'),'NEAR_OWNER_REQUIRED','Publishing requires the seller NEAR wallet; EVM buyers sign Intents separately',400);return id;}
 
 export class Marketplace {
- constructor({store,chain,now=Date.now}){Object.assign(this,{store,chain,now});}
+ constructor({store,chain,now=Date.now}){Object.assign(this,{store,chain,now});initializeLocalPhotoQuota(store);}
  assertSaleEditable(sale){
   const factoryPlans=this.store.list('publication-plan',sale.owner).filter(p=>p.plan.saleId===sale.id);
   const ids=new Set(factoryPlans.flatMap(p=>[p.id,p.plan.intentPlanId].filter(Boolean)));
@@ -31,15 +32,26 @@ export class Marketplace {
  }
 
  createAsset(owner,input){
-  const draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
-  const data={...draft,...this.assetMedia(owner,input),city:text(input.city,'city',100),source:input.source==='ai'?'ai':'manual',status:'draft'};
-  return this.store.insert('asset',randomUUID(),walletId(owner),data);
+  return this.store.transaction(()=>{
+   const actor=walletId(owner);pruneCaptureStorage(this.store,this.now());
+   assert(this.store.db.prepare("SELECT COUNT(*) count FROM objects WHERE kind='asset' AND owner=?").get(actor).count<OWNER_ASSET_MAX,'ASSET_LIMIT','This wallet has reached its 20-space limit.',429);
+   assert(this.store.db.prepare("SELECT COUNT(*) count FROM objects WHERE kind='asset'").get().count<GLOBAL_ASSET_MAX,'ASSET_LIMIT','The platform is at its current space capacity.',429);
+   const draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
+   const data={...draft,...this.assetMedia(owner,input),city:text(input.city,'city',100),source:input.source==='ai'?'ai':'manual',status:'draft'};
+   assertLocalPhotoQuota(this.store,{kind:'asset',value:data.photoDataUrl,config:this.chain?.config});
+   return this.store.insert('asset',randomUUID(),actor,data);
+  });
  }
  updateAsset(owner,id,version,input){
-  for(const sale of this.store.list('sale',walletId(owner)).filter(s=>s.assetId===id&&s.status==='draft'))this.assertSaleEditable(sale);
-  const row=owned(this.store,'asset',id,owner),draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
-  assert(row.version===version,'STALE_VERSION','Asset changed; reload before editing');
-  return this.store.update('asset',id,row.owner,version,{...draft,...this.assetMedia(owner,{...row,...input}),city:text(input.city,'city',100),source:row.source,status:'draft'});
+  return this.store.transaction(()=>{
+   pruneCaptureStorage(this.store,this.now());
+   for(const sale of this.store.list('sale',walletId(owner)).filter(s=>s.assetId===id&&s.status==='draft'))this.assertSaleEditable(sale);
+   const row=owned(this.store,'asset',id,owner),draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
+   assert(row.version===version,'STALE_VERSION','Asset changed; reload before editing');
+   const data={...draft,...this.assetMedia(owner,{...row,...input}),city:text(input.city,'city',100),source:row.source,status:'draft'};
+   assertLocalPhotoQuota(this.store,{kind:'asset',id,value:data.photoDataUrl,config:this.chain?.config});
+   return this.store.update('asset',id,row.owner,version,data);
+  });
  }
  saleData(owner,input){
   const asset=owned(this.store,'asset',input.assetId,owner),schedule=dates(input.schedule,this.now());
