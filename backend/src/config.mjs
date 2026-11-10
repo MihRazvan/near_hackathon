@@ -79,12 +79,19 @@ export function configFromEnv(env = {}) {
     customerRouteMax:units(env.APP_CUSTOMER_ROUTE_MAX_USDC||'1000',6),
     customerGasMax:units(env.APP_CUSTOMER_ROUTE_MAX_ETH_GAS||'0.005',18),
     mediaMaxFiles:Number(env.APP_MEDIA_MAX_FILES||(production?'1000':'20')),
+    mediaMaxBytes:Number(env.APP_MEDIA_MAX_BYTES||(production?'20000000':'1000000')),
+    mediaMaxTotalBytes:Number(env.APP_MEDIA_MAX_TOTAL_BYTES||(production?'1000000000':'20000000')),
     aiDailyLimit:Number(env.APP_AI_DAILY_LIMIT||'5'),
     aiGlobalDailyLimit:Number(env.APP_AI_GLOBAL_DAILY_LIMIT||(production?'100':'25')),
+    aiModel:env.OPENAI_MODEL||'gpt-5-mini',
+    aiAvailable:!!env.OPENAI_API_KEY||!production,
+    personalAiWallets:(env.APP_PERSONAL_AI_WALLETS||'').split(',').filter(Boolean).map(value=>walletId(value.trim())),
+    keeperEnabled:production&&env.APP_KEEPER_ENABLED==='true',
+    hubArtifact:resolve(ROOT,env.APP_HUB_ARTIFACT_PATH||'target/proof-artifacts/marketplace-hub.wasm'),
     enabled: env.INTEGRATION_ALLOW_MAINNET === "true",
     allowRecoverablePublication:env.INTEGRATION_ALLOW_RECOVERABLE_PUBLICATION==='true',
     allowFundedWallets:!production&&env.INTEGRATION_ALLOW_FUNDED_BROWSER_WALLETS==='true',
-    defaultArbiter:env.INTEGRATION_DEFAULT_ARBITER_ID||null,
+    defaultArbiter:env.INTEGRATION_DEFAULT_ARBITER_ID?walletId(env.INTEGRATION_DEFAULT_ARBITER_ID):null,
     treasury: env.INTEGRATION_NEAR_ACCOUNT_ID
       ? walletId(env.INTEGRATION_NEAR_ACCOUNT_ID)
       : null,
@@ -122,6 +129,8 @@ export function configFromEnv(env = {}) {
     buyerB: production?null:env.INTEGRATION_BUYER_B_PRIVATE_KEY,
     oneClick: env.INTEGRATION_ONECLICK_API_KEY,
     pinata: env.INTEGRATION_IPFS_PINNING_TOKEN,
+    openai:env.OPENAI_API_KEY,
+    personalAi:env.APP_PERSONAL_AI_TOKEN,
   }))
     Object.defineProperty(keys, name, {
       value: value || null,
@@ -129,10 +138,16 @@ export function configFromEnv(env = {}) {
     });
   Object.defineProperty(config, "keys", { value: keys, enumerable: false });
   for(const name of ['mediaMaxFiles','aiDailyLimit','aiGlobalDailyLimit'])assert(Number.isSafeInteger(config[name])&&config[name]>0&&config[name]<=100000,'INVALID_LIMIT','Application quotas must be positive bounded integers');
+  assert(Number.isSafeInteger(config.mediaMaxBytes)&&config.mediaMaxBytes>0&&config.mediaMaxBytes<=20000000&&Number.isSafeInteger(config.mediaMaxTotalBytes)&&config.mediaMaxTotalBytes>=config.mediaMaxBytes&&config.mediaMaxTotalBytes<=1000000000,'INVALID_LIMIT','Media upload and total storage quotas must be bounded');
   assert(BigInt(config.customerRouteMax)>0n&&BigInt(config.customerGasMax)>0n,'INVALID_LIMIT','Customer route limits must be positive');
   if(env.INTEGRATION_FACTORY_ACCOUNT_ID||env.INTEGRATION_FACTORY_CODE_HASH||env.INTEGRATION_CAMPAIGN_SHA256){
    assert(env.INTEGRATION_FACTORY_ACCOUNT_ID&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(env.INTEGRATION_FACTORY_CODE_HASH??'')&&/^[0-9a-f]{64}$/.test(env.INTEGRATION_CAMPAIGN_SHA256??''),'INVALID_FACTORY','Factory account, pinned code hash and campaign SHA256 are required together');
    config.factory={accountId:walletId(env.INTEGRATION_FACTORY_ACCOUNT_ID),codeHash:env.INTEGRATION_FACTORY_CODE_HASH,campaignSha256:env.INTEGRATION_CAMPAIGN_SHA256};
+  }
+  if(env.INTEGRATION_HUB_ACCOUNT_ID||env.INTEGRATION_HUB_CODE_HASH){
+   assert(env.INTEGRATION_HUB_ACCOUNT_ID&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(env.INTEGRATION_HUB_CODE_HASH??''),'INVALID_HUB','Hub account and pinned code hash are required together');
+   const accountId=walletId(env.INTEGRATION_HUB_ACCOUNT_ID);assert(!accountId.startsWith('0x'),'INVALID_HUB','Hub must be a native NEAR contract account');
+   config.hub={accountId,codeHash:env.INTEGRATION_HUB_CODE_HASH};
   }
   assert(!production||!config.enabled||(config.treasury&&keys.near),'OPERATOR_NOT_CONFIGURED','Mainnet execution requires a dedicated operator account and signing key');
   return config;

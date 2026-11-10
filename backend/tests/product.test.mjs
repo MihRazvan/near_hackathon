@@ -6,6 +6,19 @@ import { Marketplace } from '../src/marketplace.mjs';
 import { Product } from '../src/product.mjs';
 const now=1800000000000,owner='seller.near';
 const input={title:'Vehicle',description:'Synthetic panel',assetType:'van',city:'Bucharest',spots:[{id:'stable-panel',name:'Panel',side:'rear',box:{x:.2,y:.2,width:.4,height:.3},suggestedPriceCents:'10',confidence:'low'}]};
+test('concurrent public reads coalesce, but a confirmed mutation cannot reuse an earlier in-flight price',async()=>{
+ const pending=[],p=new Product({chain:{snapshot:()=>new Promise(resolve=>pending.push(resolve))},now:()=>now});
+ const old=p.publicSnapshot('offer'),same=p.publicSnapshot('offer');assert.equal(pending.length,1);
+ p.invalidate();const current=p.publicSnapshot('offer');assert.equal(pending.length,2);
+ pending[1]({state:{next_price:'20000'},credits:{}});assert.equal((await current).state.next_price,'20000');
+ pending[0]({state:{next_price:'10000'},credits:{}});await Promise.all([old,same]);assert.equal((await p.publicSnapshot('offer')).state.next_price,'20000');
+});
+test('cached public state binds private credits to the same complete finalized block without sharing another wallet’s credit',async()=>{
+ const store=new Store(),s={accountId:'offer',receiverId:'hub.near',offerId:'offer',blockHash:'final-block',blockHeight:17,credits:{}},p=new Product({store,marketplace:{browse:()=>[{owner:'owner.near',spots:[{contractId:'offer'}]}]},chain:{snapshot:async()=>s},reads:{view:async(id,method,args,block)=>{
+  assert.equal(id,'hub.near');assert.equal(method,'get_credit');assert.deepEqual(block,{header:{hash:'final-block',height:17}});return {available:args.account_id==='a.near'?'10000':'20000'};
+ }}});
+ try{const a=await p.catalog('a.near'),b=await p.catalog('b.near');assert.deepEqual(a.snapshots[0].credits,{'a.near':{available:'10000'}});assert.deepEqual(b.snapshots[0].credits,{'b.near':{available:'20000'}});assert.deepEqual(s.credits,{});}finally{store.close();}
+});
 test('private reference photos stay out of published terms and stable panel identifiers survive edits',()=>{
  const store=new Store(),m=new Marketplace({store,chain:{},now:()=>now});try{
   const photo='data:image/png;base64,'+Buffer.from([137,80,78,71,13,10,26,10]).toString('base64');
@@ -24,6 +37,12 @@ test('profiles and saved records persist per wallet and public catalog has no pr
   const catalog=await p.catalog();assert.deepEqual(catalog.sales,[]);assert.equal('assets' in catalog,false);
   const owned=await p.workspace(owner);assert.equal(owned.dashboard.assets.length,1);assert.equal(owned.profile.displayName,'Space owner');
   const other=await p.workspace('other.near');assert.equal(other.dashboard.assets.length,0);assert.equal(other.profile,null);
+ }finally{store.close();}
+});
+test('production workspace returns private photo references without retransmitting photos on every poll',async()=>{
+ const store=new Store(),marketplace=new Marketplace({store,chain:{}}),product=new Product({store,marketplace,chain:{},config:{production:true},walletRequests:{list:()=>[]}});
+ try{const photo='data:image/png;base64,'+Buffer.from([137,80,78,71,13,10,26,10]).toString('base64');const asset=marketplace.createAsset(owner,{...input,photoDataUrl:photo});
+  const workspace=await product.workspace(owner);assert.equal(workspace.dashboard.assets[0].photoDataUrl,undefined);assert.match(workspace.dashboard.assets[0].photoUrl,/^\/api\/assets\//);assert.equal(store.get('asset',asset.id).photoDataUrl,photo);assert.equal(JSON.stringify(workspace).includes(photo),false);
  }finally{store.close();}
 });
 test('placement messages and issue requests follow current NFT control rather than a former controller',async()=>{

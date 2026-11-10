@@ -7,7 +7,20 @@ import { assert, walletId, text, hashObject } from './core.mjs';
 
 const MIME={'.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.woff2':'font/woff2','.ico':'image/x-icon'};
 export class Product {
- constructor({store,chain,marketplace,config,reads,walletRequests,now=Date.now}){Object.assign(this,{store,chain,marketplace,config,reads,walletRequests,now});}
+ constructor({store,chain,marketplace,config,reads,walletRequests,personalAI,supportService,now=Date.now}){Object.assign(this,{store,chain,marketplace,config,reads,walletRequests,personalAI,supportService,now});this.publicSnapshots=new Map();this.snapshotLoads=new Map();this.snapshotGeneration=0;}
+ async publicSnapshot(contractId){
+  const prior=this.publicSnapshots.get(contractId);if(prior&&this.now()-prior.loadedAt<5000)return structuredClone(prior.snapshot);
+  const generation=this.snapshotGeneration;let load=this.snapshotLoads.get(contractId);
+  if(!load||load.generation!==generation){load={generation};load.promise=(async()=>{
+   try{const snapshot=await this.chain.snapshot(contractId,[]);
+    if(this.snapshotGeneration===generation){this.publicSnapshots.delete(contractId);this.publicSnapshots.set(contractId,{snapshot,loadedAt:this.now()});
+     if(this.publicSnapshots.size>500)this.publicSnapshots.delete(this.publicSnapshots.keys().next().value);}
+    return snapshot;
+   }finally{if(this.snapshotLoads.get(contractId)===load)this.snapshotLoads.delete(contractId);}
+  })();this.snapshotLoads.set(contractId,load);}
+  return structuredClone(await load.promise);
+ }
+ invalidate(){this.snapshotGeneration++;this.publicSnapshots.clear();}
  async serve(request,response,url){
   if(!['GET','HEAD'].includes(request.method)||url.pathname.startsWith('/api/')||url.pathname.startsWith('/lab'))return false;
   const root=resolve(ROOT,'prototype/dist');let name='index.html';
@@ -17,14 +30,23 @@ export class Product {
   let bytes;try{bytes=await readFile(resolve(root,name));}catch(error){if(error.code==='ENOENT')return false;throw error;}
   const nonce=randomBytes(24).toString('base64');
   if(name==='index.html')bytes=Buffer.from(bytes.toString().replace('</head>',`<meta name="everywhere-backend" content="connected"><meta name="lab-csp-nonce" content="${nonce}"></head>`));
-  response.writeHead(200,{'Content-Type':name==='index.html'?'text/html; charset=utf-8':MIME[extname(name)]??'application/octet-stream',
+  response.writeHead(200,{'Content-Type':name==='index.html'?'text/html; charset=utf-8':MIME[extname(name)]??'application/octet-stream','Cache-Control':name==='index.html'?'no-store':'public, max-age=31536000, immutable',
    'Content-Security-Policy':walletCsp(nonce)});
   response.end(request.method==='HEAD'?undefined:bytes);return true;
  }
  async catalog(actor){
-  const sales=this.marketplace.browse(),snapshots=[],unavailable=[];
-  for(const s of sales)for(const spot of s.spots){try{snapshots.push(await this.chain.snapshot(spot.contractId,actor?[actor]:[]));}
-   catch(error){if(['UNKNOWN_ACCOUNT','PENDING_WITHDRAWAL'].includes(error.code))unavailable.push({contractId:spot.contractId,code:error.code});else throw error;}}
+  const sales=this.marketplace.browse(),snapshots=[],unavailable=[],ids=[...new Set(sales.flatMap(s=>s.spots.map(p=>p.contractId)))];
+  // Coalesce public reads across visitors. Transaction preparation always uses fresh chain reads.
+  const queue=[...ids];await Promise.all(Array.from({length:Math.min(3,queue.length)},async()=>{while(queue.length){const contractId=queue.shift();try{
+   const s=await this.publicSnapshot(contractId);
+   if(actor){
+    // Read only this visitor's credit at the same finalized block as the public state.
+    if(this.reads?.view&&s.blockHash)s.credits={[actor]:await this.reads.view(s.receiverId??s.accountId,'get_credit',{...(s.offerId?{offer_id:s.offerId}:{}),account_id:actor},{header:{hash:s.blockHash,height:s.blockHeight}})};
+    else s.credits=(await this.chain.snapshot(contractId,[actor])).credits;
+   }
+   snapshots.push(s);
+  }catch(error){if(['UNKNOWN_ACCOUNT','PENDING_WITHDRAWAL','RPC_UNAVAILABLE','STALE_BLOCK'].includes(error.code))unavailable.push({contractId,code:error.code});else throw error;}
+  }}));
   const owners=[...new Set(sales.map(s=>s.owner))].map(wallet=>{const profile=this.store.get('profile',wallet);return {wallet,name:profile?.displayName??wallet,brand:profile?.brand??''};});
   return {sales,snapshots,owners,unavailable,time:new Date(this.now()).toISOString()};
  }
@@ -32,13 +54,14 @@ export class Product {
   const actor=walletId(wallet),catalog=await this.catalog(actor);
   // Listing snapshots are public; private messages, drafts and financial plans remain wallet-scoped.
   const dashboard=this.marketplace.dashboard(actor),arbiterSales=catalog.sales.filter(s=>s.arbiterId===actor);
+  if(this.config.production)dashboard.assets=dashboard.assets.map(({photoDataUrl,...asset})=>({...asset,...(photoDataUrl?{photoUrl:'/api/assets/'+encodeURIComponent(asset.id)+'/photo?version='+asset.version}:{})}));
   const contracts=new Set([...dashboard.sales,...arbiterSales].flatMap(s=>s.spots.map(p=>p.contractId).filter(Boolean)));
   for(const b of dashboard.bookings)contracts.add(b.contractId);
-  for(const s of catalog.snapshots)if(s.rights.current_owner_id===actor||s.state.nominated_recipient===actor)contracts.add(s.accountId);
+  for(const s of catalog.snapshots)if(s.rights.current_owner_id===actor||s.state.nominated_recipient===actor||s.state.holder?.account_id===actor)contracts.add(s.accountId);
   const bookings=[...dashboard.bookings,...dashboard.incomingBookings];
   const relatedBookings=new Set(bookings.map(b=>b.id));
-  return {...catalog,wallet:actor,profile:this.store.get('profile',actor),dashboard,arbiterSales,
-   placements:catalog.snapshots.filter(s=>s.rights.current_owner_id===actor||s.state.nominated_recipient===actor),
+  return {...catalog,wallet:actor,profile:this.store.get('profile',actor),dashboard,arbiterSales,ai:{available:this.personalAI?.availability(actor)??false},
+   placements:catalog.snapshots.filter(s=>s.rights.current_owner_id===actor||s.state.nominated_recipient===actor||s.mode==='hub'&&s.state.holder?.account_id===actor),
    media:this.store.list('media',actor),requests:this.walletRequests.list(actor),
    intents:this.store.list('intent',actor).map(({plan,...r})=>({...r,context:plan.context,expiresAt:plan.expiresAt})),
    nativePlans:this.store.list('native-plan',actor),publicationPlans:this.store.list('publication-plan',actor),
@@ -46,7 +69,7 @@ export class Product {
    issues:this.store.list('issue').filter(i=>i.owner===actor||catalog.snapshots.some(s=>s.accountId===i.contractId&&[s.state.seller_id,s.state.arbiter_id].includes(actor))),
    messages:this.store.list('message').filter(m=>relatedBookings.has(m.bookingId)),
    placementMessages:this.store.list('placement-message').filter(m=>catalog.snapshots.some(s=>s.accountId===m.contractId&&[s.state.seller_id,s.state.holder?.account_id,s.rights.current_owner_id,s.state.nominated_recipient].includes(actor))),
-   support:this.store.list('support',actor),saved:this.store.list('saved',actor),
+   support:this.store.list('support',actor).map(ticket=>this.supportService?this.supportService.read(actor,ticket.id):ticket),supportAdmin:this.supportService?.isAdmin(actor)??false,supportQueue:this.supportService?.isAdmin(actor)?this.supportService.queue(actor):[],saved:this.store.list('saved',actor),
    captures:this.store.list('capture',actor).map(({imageDataUrl,tokenHash,...s})=>s),
    routes:this.store.list('route',actor),routeResults:this.store.list('route-result',actor),
    operations:this.store.db.prepare("SELECT id,kind,phase,transaction_hash FROM operations WHERE scope=? OR (id LIKE 'wallet-claim-%' AND kind='near' AND json_extract(plan,'$.actions[0].method')='release_credit' AND json_extract(plan,'$.actions[0].args.account_id')=?) ORDER BY created_at DESC LIMIT 30").all(actor,actor),

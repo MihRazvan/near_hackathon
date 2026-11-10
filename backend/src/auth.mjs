@@ -74,7 +74,7 @@ export class Auth {
     const id = randomToken(),
       nonce = randomBytes(32).toString("base64"),
       expiry = now + 300000;
-    const message = `Sign in to Everywhere\nOrigin: ${this.origin}\nNetwork: ${this.network}\nWallet: ${wallet}\nNonce: ${nonce}\nIssued: ${new Date(now).toISOString()}\nExpires: ${new Date(expiry).toISOString()}\nThis authenticates your local session only. It does not authorize token transfers, Intents or blockchain transactions.`;
+    const message = `Sign in to Everywhere\nOrigin: ${this.origin}\nNetwork: ${this.network}\nWallet: ${wallet}\nNonce: ${nonce}\nIssued: ${new Date(now).toISOString()}\nExpires: ${new Date(expiry).toISOString()}\nThis signs you in to your account. It does not authorize token transfers, Intents or blockchain transactions.`;
     this.store.db
       .prepare(
         "INSERT INTO challenges(id,wallet,origin,nonce,message,expires_ms) VALUES(?,?,?,?,?,?)",
