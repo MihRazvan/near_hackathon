@@ -1,11 +1,14 @@
 import { live,nativeUnits,allSales,sale,snapshot,allBookings,booking,usdc,byNs,dateTime } from './runtime.mjs';
 import { esc,link,badge,card,empty,heading,act,select,form,input,textArea,check,submit,hidden,evidence,unavailable,signedOut,notice,table,transaction,short } from './ui.mjs';
 import { artifactFields } from './owner.mjs';
+import { bookingConversationAllowed,verifiedMediaFor,supportAdministrator } from './workspace-actions.mjs';
 
 export function accountView(r){
  if(r.id==='A01'||r.id==='S06')return walletView(r.id==='A01');
  if(r.id==='A03')return recoveryView();
- if(r.id==='A02'||r.id==='S04'||r.id==='S05'||r.id==='S07'||r.id==='S08'){
+ if(r.id==='S05'){if(!live.session)return signedOut();return brandLibrary();}
+ if(r.id==='S07'){if(!live.session)return signedOut();return notificationSettings();}
+ if(r.id==='A02'||r.id==='S04'||r.id==='S08'){
   if(!live.session)return signedOut();const p=live.data?.profile??{};
   if(r.id==='S08')return heading('ACCOUNT / DOCUMENTS','Your booking records.','Receipts belong to the wallet that made the booking.')+table(['Reference','Principal',''],(live.data?.dashboard.bookings??[]).map(b=>[short(b.id),usdc(b.amount),link('/receipts/'+b.id,'View receipt','button small')]));
   return heading('ACCOUNT / PROFILE','Make this workspace yours.','Profile preferences are stored with your verified wallet.')+
@@ -14,6 +17,25 @@ export function accountView(r){
  }
  return null;
 }
+
+function mediaUrl(uri){return /^ipfs:\/\/baf[a-z2-7]{30,120}$/.test(uri??'')?uri.replace('ipfs://','https://gateway.pinata.cloud/ipfs/'):null;}
+function brandLibrary(){
+ const media=verifiedMediaFor(live.data?.media,live.session.wallet),max=(live.config?.mediaMaxBytes??1000000)/1000000;
+ return heading('YOUR BRAND','Keep your creative ready for the next campaign.','Verified public uploads from this wallet can be reused when submitting artwork.')+
+  card('Add a brand asset',form('brand-upload',input('file','Image or document','','file','required accept="image/png,image/jpeg,application/pdf"')+`<p class="tiny muted">PNG, JPEG or PDF, up to ${esc(max)} MB. Keep original artwork quality. Uploaded files are public.</p>`+check('public','I have permission to publish this content and understand it will be public.')+submit('Upload brand asset')))+
+  card('Your verified uploads',media.length?`<div class="grid three">${media.map(m=>{const image=['image/png','image/jpeg'].includes(m.mime),url=mediaUrl(m.uri);return `<article class="panel">${image?`<img src="${esc(url)}" alt="Your verified brand image" loading="lazy" style="width:100%;height:160px;object-fit:contain">`:`<p>${m.mime==='application/pdf'?'PDF document':'Public document'}</p>`}<p><strong>${image?'Image':'Document'}</strong> · ${esc(dateTime(m.createdAt))}</p><p class="tiny">${esc(m.mime)} · ${esc(m.bytes)} bytes</p><p><a href="${esc(url)}" class="text-link" target="_blank" rel="noopener noreferrer">Open upload ↗</a></p><details><summary>Public content reference</summary><code>${esc(m.uri)}</code></details></article>`;}).join('')}</div>`:empty('Your brand library starts here.','Upload a logo or creative file to reuse it across your placements.'));
+}
+function notificationSettings(){return heading('ACCOUNT / NOTIFICATIONS','Choose your in-app notifications.','Control whether account activity appears in your notifications feed.')+card('Activity notifications',form('notification-preferences',check('notifications','Show account and booking activity in my notifications',live.data?.profile?.notifications!==false)+submit('Save notification preferences')));}
+const placementAccess=(s,wallet)=>[s.state.seller_id,s.state.holder?.account_id,s.rights.current_owner_id,s.state.nominated_recipient].includes(wallet);
+function messageRows(messages){return messages.map(m=>`<article class="connected-record"><strong>${esc(short(m.owner))}</strong><p>${esc(m.text)}</p><small>${esc(dateTime(m.createdAt))}</small></article>`).join('')||'<p>No messages yet.</p>';}
+function supportCase(ticket){
+ const admin=supportAdministrator(live),messages=Array.isArray(ticket.messages)?ticket.messages:[{owner:ticket.owner,role:'user',message:ticket.message,createdAt:ticket.createdAt}];
+ return heading('SUPPORT / REQUEST',ticket.subject,'Reply here to keep your support conversation together.',admin?link('/ops','Support queue','button'):link('/support/new','Your support requests','button'))+
+  card('Support conversation',`<p>${badge(ticket.status)}</p>${messages.map(m=>`<article class="connected-record"><strong>${m.role==='admin'?'Support team':esc(short(m.owner))}</strong><p>${esc(m.message)}</p><small>${esc(dateTime(m.createdAt))}</small></article>`).join('')}`)+
+  card('Reply or update this case',form('support-reply',hidden('ticketId',ticket.id)+hidden('version',ticket.version)+textArea('message','Reply','','maxlength="2000" placeholder="Add a message for this conversation"')+select('status','Case status',[['open','Open'],['closed','Closed']],ticket.status)+submit('Update support case')));
+}
+function supportQueue(){return card('Support requests',`<p>Support conversations are separate from signed campaign issue decisions.</p>${table(['Subject','From','Status',''],(live.data.supportQueue??[]).map(t=>[esc(t.subject),esc(short(t.owner)),badge(t.status),link('/support/cases/'+encodeURIComponent(t.id),'Open support case','button small')]))}`);}
+
 export function walletView(signIn=false){
  if(live.config.production)return productionWalletView(signIn);
  const connected=live.session;
@@ -48,35 +70,47 @@ export function sharedView(r){
  const account=accountView(r);if(account)return account;
  if(!live.session)return signedOut();
  if(r.id==='S01'){
-  const threads=(live.catalog?.snapshots??[]).filter(s=>[s.state.seller_id,s.state.holder?.account_id,s.rights.current_owner_id,s.state.nominated_recipient].includes(live.session.wallet));
-  return heading('WORKSPACE / INBOX','Keep the campaign moving.','Conversations are available only to the current campaign participants.')+card('Placement conversations',table(['Campaign',''],threads.map(s=>[esc(sale(s.campaign.terms.sale_id)?.title??s.accountId),link('/inbox/'+s.accountId,'Open conversation','button small')])));
+  const wallet=live.session.wallet,bookings=allBookings().filter(b=>bookingConversationAllowed(b,wallet)),threads=(live.catalog?.snapshots??[]).filter(s=>placementAccess(s,wallet));
+  return heading('WORKSPACE / INBOX','Keep the conversation with the right people.','Booking conversations stay with the original buyer and space owner, including after a takeover.')+
+   card('Booking conversations',table(['Booking','With','Status',''],bookings.map(b=>[esc(sale(b.saleId)?.title??'Your booking'),esc(short(wallet===b.owner?b.sellerId:b.owner)),badge(b.status==='outbid'?'Taken over':b.status),link('/inbox/'+encodeURIComponent(b.id),'Open booking conversation','button small')])))+
+   card('Artwork & delivery conversations',`<p>These conversations follow the current placement roles.</p>${table(['Placement',''],threads.map(s=>[esc(sale(s.campaign.terms.sale_id)?.title??s.accountId),link('/inbox/'+encodeURIComponent(s.accountId),'Open artwork conversation','button small')]))}`);
  }
  if(r.id==='S02'){
-  const b=booking(r.params.threadId),contract=b?.contractId??r.params.threadId,s=snapshot(contract);if(!s)return unavailable('Conversation not found.');
-  const messages=(live.data.placementMessages??[]).filter(m=>m.contractId===contract);
-  return heading('WORKSPACE / CONVERSATION',sale(s.campaign.terms.sale_id)?.title??'Placement conversation','Messages are persisted for the campaign participants.')+
-   card('Conversation',messages.map(m=>`<article class="connected-record"><strong>${esc(short(m.owner))}</strong><p>${esc(m.text)}</p><small>${esc(dateTime(m.createdAt))}</small></article>`).join('')||'<p>No messages yet.</p>')+
-   card('Send a message',form('message',hidden('contractId',contract)+textArea('message','Message','','required maxlength="2000"')+submit('Send message')));
+  const wallet=live.session.wallet,b=booking(r.params.threadId);
+  if(b){
+   if(!bookingConversationAllowed(b,wallet))return unavailable('Booking conversation not found.');
+   const messages=(live.data.messages??[]).filter(m=>m.bookingId===b.id&&[b.owner,b.sellerId].includes(m.owner));
+   return heading('BOOKING / CONVERSATION',sale(b.saleId)?.title??'Your booking','Private to the original buyer and the space owner. This conversation remains available after a takeover.')+
+    card('Booking conversation',messageRows(messages))+card('Send a message',form('booking-message',hidden('bookingId',b.id)+textArea('message','Message','','required maxlength="2000"')+submit('Send message')));
+  }
+  const s=snapshot(r.params.threadId);if(!s||!placementAccess(s,wallet))return unavailable('Artwork conversation not found.');
+  const messages=(live.data.placementMessages??[]).filter(m=>m.contractId===s.accountId);
+  return heading('ARTWORK / CONVERSATION',sale(s.campaign.terms.sale_id)?.title??'Placement conversation','Available to the current space owner, advertiser and placement controller.')+
+   card('Artwork & delivery conversation',messageRows(messages))+card('Send a message',form('message',hidden('contractId',s.accountId)+textArea('message','Message','','required maxlength="2000"')+submit('Send message')));
  }
- if(r.id==='S03')return heading('WORKSPACE / ACTIVITY','Your account activity.','Recorded account and booking events.')+card('Recent activity',(live.data.events??[]).map(e=>`<article class="connected-record"><strong>${esc(e.kind.replaceAll('_',' '))}</strong><p>${esc(e.entity_id)}</p><small>${esc(dateTime(e.created_at))}</small></article>`).join('')||'<p>No new account events.</p>');
+ if(r.id==='S03'){
+  if(live.data.profile?.notifications===false)return heading('WORKSPACE / NOTIFICATIONS','Your notifications are paused.','Turn on in-app notifications to see account activity here.',link('/settings/notifications','Notification settings','button primary'));
+  return heading('WORKSPACE / ACTIVITY','Your account activity.','Recorded account and booking events.',link('/settings/notifications','Notification settings','button'))+card('Recent activity',(live.data.events??[]).map(e=>`<article class="connected-record"><strong>${esc(e.kind.replaceAll('_',' '))}</strong><p>${esc(e.entity_id)}</p><small>${esc(dateTime(e.created_at))}</small></article>`).join('')||'<p>No new account events.</p>');
+ }
  if(r.id==='S09'){
   const q=new URLSearchParams(location.search),b=booking(q.get('booking')),contract=q.get('contract')??b?.contractId;
   return heading('WORKSPACE / SUPPORT',contract?'Request a campaign issue review.':'How can we help?',snapshot(contract)?.mode==='hub'?'Describe the issue and add evidence. Confirm the issue in your wallet before the review deadline to hold campaign settlement.':'Issue requests are recorded first. The campaign’s separate arbiter signs any on-chain decision.')+
    card(contract?'Campaign issue':'Support request',contract?form('issue',hidden('contractId',contract)+textArea('reason','What needs review?','','required maxlength="2000"')+artifactFields(live.data.media.filter(m=>m.status==='verified'),'Describe the public issue evidence.')+submit('Submit issue for review')):
-    form('support',input('subject','Subject','','text','required maxlength="150"')+textArea('message','Message','','required maxlength="3000"')+submit('Save support request')));
+    form('support',input('subject','Subject','','text','required maxlength="150"')+textArea('message','Message','','required maxlength="3000"')+submit('Save support request')))+(!contract?card('Your support requests',table(['Subject','Status',''],(live.data.support??[]).filter(t=>t.owner===live.session.wallet).map(t=>[esc(t.subject),badge(t.status),link('/support/cases/'+encodeURIComponent(t.id),'Open conversation','button small')]))):'');
  }
  if(r.id==='S10'){
-  const issue=live.data.issues.find(i=>i.id===r.params.id),ticket=live.data.support.find(i=>i.id===r.params.id);
+  const issue=(live.data.issues??[]).find(i=>i.id===r.params.id),ticket=[...(live.data.support??[]),...(supportAdministrator(live)?live.data.supportQueue??[]:[])].find(i=>i.id===r.params.id);
   if(issue){const s=snapshot(issue.contractId),decision=s?.campaign.issues[issue.id],needsSignature=s?.mode==='hub'&&!decision&&issue.owner===live.session.wallet&&s.state.outcome==='open'&&BigInt(s.state.refund_end_ns)>BigInt(Date.now())*1000000n;
    return heading('SUPPORT / CASE','Your campaign issue.',s?.mode==='hub'?'A confirmed open issue holds settlement until the campaign reviewer resolves it.':'The request and the arbiter’s decision are separate records.')+card('Case',`<p>${esc(issue.reason)}</p>${badge(decision?decision.open?'Issue open':'Resolved':s?.mode==='hub'?'Awaiting wallet confirmation':'Awaiting arbiter')}${needsSignature?`<p>Confirm this issue in your wallet before the review deadline. Saving evidence alone does not hold settlement.</p>${act('open-issue','Confirm issue',`data-contract="${esc(issue.contractId)}" data-id="${esc(issue.id)}"`,'button primary')}`:''}<p>Case reference: ${esc(issue.id)}</p>${link('/buy/placements/'+issue.contractId,'Placement workspace')}`);}
-  return ticket?heading('SUPPORT / REQUEST',ticket.subject,'Saved support request.')+card('Request',`<p>${esc(ticket.message)}</p>${badge(ticket.status)}`):unavailable('Support case not found.');
+  return ticket&&(ticket.owner===live.session.wallet||supportAdministrator(live))?supportCase(ticket):unavailable('Support case not found.');
  }
  return null;
 }
 export function opsView(r){
  if(!live.session)return signedOut();const values=live.data.arbiterSales??[];
- if(!values.length)return heading('CAMPAIGN OPERATIONS','No campaigns name this wallet as arbiter.','Connect a campaign’s named NEAR arbiter to review its issues and finalize its outcome.',link('/settings/wallets','Choose a wallet'));
- if(r.id==='M01'||r.id==='M05')return heading('CAMPAIGN OPERATIONS','Review what happened.','Only this wallet’s assigned campaigns are available for decisions.')+
+ if(!values.length&&!supportAdministrator(live))return heading('CAMPAIGN OPERATIONS','No campaigns name this wallet as arbiter.','Connect a campaign’s named NEAR arbiter to review its issues and finalize its outcome.',link('/settings/wallets','Choose a wallet'));
+ if(r.id==='M01'||r.id==='M05')return heading('CAMPAIGN OPERATIONS','Review what happened.','Review assigned campaigns and support conversations.')+
+  (supportAdministrator(live)?supportQueue():'')+
   card('Assigned campaigns',table(['Campaign','Spots',''],values.map(s=>[esc(s.title),String(s.spots.length),link('/ops/listings/'+s.id,'Review campaign','button small')])))+
   card('Issue queue',table(['Case','Status',''],live.data.issues.filter(i=>values.some(s=>s.spots.some(p=>p.contractId===i.contractId))).map(i=>[esc(i.reason),badge(snapshot(i.contractId)?.campaign.issues[i.id]?.open?'open':'awaiting review'),link('/ops/cases/'+i.id,'Review issue','button small')])));
  if(r.id==='M02'){

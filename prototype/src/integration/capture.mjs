@@ -8,7 +8,7 @@ export function captureView(r){
   if(!token)return heading('PHOTO CAPTURE','Open your camera link.','Use the link from your owner workspace to send a photo to the right listing.')+notice('This link is incomplete.','Return to your owner workspace and create a new camera link.');
   return heading('PHOTO CAPTURE','Show us your space.','Take a clear photo of the advertising side. Keep the whole surface in view.')+
    card('Take or choose a photo',form('capture-photo',hidden('session',r.params.session)+hidden('token',token)+
-    input('photo','Photo · PNG or JPEG, up to 2 MB','','file','accept="image/png,image/jpeg" capture="environment" required')+`<p class="tiny muted">Avoid personal information in the photo. You’ll review and edit the advertising surfaces before publishing.</p>`+submit('Send photo to my workspace')));
+    input('photo','Photo · up to 25 MB, optimized on your device','','file','accept="image/png,image/jpeg,image/webp,image/heic,image/heif" capture="environment" required')+`<p class="tiny muted">Avoid personal information in the photo. You’ll review and edit the advertising surfaces before publishing.</p>`+submit('Send photo to my workspace')));
  }
  if(r.id==='O04'){
   if(!live.session)return signedOut();const capture=live.data?.captures.find(c=>c.id===r.params.session),received=capture?.status==='received',expired=capture&&(typeof capture.expiresAt==='number'?capture.expiresAt:Date.parse(capture.expiresAt))<=Date.now();

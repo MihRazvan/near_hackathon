@@ -1,6 +1,8 @@
 import { navigate,toast } from '../store.mjs';
 import { live,api,refresh,connect,disconnect,review,nativePlan,intentPlan,nativeAction,poll,sale,snapshot,allSales,booking,rawAsset,amount,fileData,upload,rerender,nativeUnits,ensureSigningWallet } from './runtime.mjs';
 import { fundingAmount,campaignSchedule } from './checkout-state.mjs';
+import { photoData } from './photos.mjs';
+import { workspaceForms } from './workspace-actions.mjs';
 
 const cents=value=>{const n=BigInt(amount(String(value)));if(n%10000n)throw new Error('Spot prices must use whole USDC cents.');return (n/10000n).toString();};
 const currentForm=()=>document.querySelector('form[data-live-form="asset-edit"]');
@@ -15,7 +17,7 @@ async function artifact(data){const selected=data.get('mediaId'),uri=String(data
  if(uri&&(selected||data.get('file')?.size))throw new Error('Choose an existing upload, paste an IPFS link, or upload a file—one source at a time.');
  if(selected)return selected;if(uri)return (await api('media/import',{uri,publicContentAcknowledged:data.has('public')})).id;
  const m=await upload(data.get('file'),{text:String(data.get('notes')??''),acknowledged:data.has('public')});return m.id;}
-async function confirmAction(contractId,kind,extra={}){await nativeAction(contractId,kind,extra);await refresh();toast('Wallet action recorded. The page shows its confirmed chain state.');}
+async function confirmAction(contractId,kind,extra={}){const result=await nativeAction(contractId,kind,extra);await refresh({force:true});toast(result?.status==='confirmed'?'Your campaign is updated.':'Your request is recorded. Confirmation is still being checked.');}
 async function recoverOne(r){
  const hash=sessionStorage.getItem('everywhere-wallet-hash:'+r.id);
  return api('wallet-requests/'+r.id+'/reconcile',hash&&r.kind!=='intent'?{transactionHash:hash}:{});
@@ -37,6 +39,7 @@ async function prepareBooking(data,{pay=live.config.production}={}){
   const field=document.querySelector('form[data-live-form="prepare-booking"] [name="campaignId"]');
   if(field){const option=document.createElement('option');option.value=campaignId;option.textContent=String(data.get('name'));field.append(option);field.value=campaignId;}}
  const b=await api('bookings',{campaignId,saleId:String(data.get('saleId')),spotId:String(data.get('spotId'))});
+ if(data.get('expectedAmount')&&String(data.get('expectedAmount'))!==b.amount){await api('bookings/'+b.id+'/cancel',{});await refresh({render:false});navigate('/checkout/'+b.saleId+'?spot='+b.spotId+'&campaign='+encodeURIComponent(campaignId));throw new Error('The price changed while you were booking. Review the updated price before paying.');}
  await refresh({render:false});navigate('/payments/'+b.id);if(pay)await payBooking(b.id);return b;
 }
 async function ensureUsdcStorage(){
@@ -113,6 +116,8 @@ export const actions={
  'cancel-booking':async el=>{await api('bookings/'+el.dataset.id+'/cancel',{});await refresh();toast('Unsent booking cancelled.');},
  faucet:async()=>{const r=await api('lab-wallet/faucet',{});if(r.status!=='confirmed')throw new Error('The original faucet transaction is pending. Reconcile it before trying another wallet.');await refresh();toast('This wallet’s test funding is confirmed.');},
  'lock-artwork':el=>confirmAction(el.dataset.contract,'lock-artwork',{expectedRevision:el.dataset.revision}),
+ 'cancel-empty':el=>confirmAction(el.dataset.contract,'cancel-empty'),
+ 'reclaim-storage':el=>confirmAction(el.dataset.contract,'reclaim-storage'),
  'open-issue':el=>confirmAction(el.dataset.contract,'open-issue',{caseId:el.dataset.id}),
  'accept-nomination':el=>confirmAction(el.dataset.contract,'accept-nomination'),
  mint:el=>confirmAction(el.dataset.contract,'mint'),
@@ -123,7 +128,7 @@ export const actions={
   if(!total)throw new Error('There are no new campaign earnings to withdraw.');
   for(const id of contracts)await claimCredit(id);
   if(live.session?.wallet!==wallet)throw new Error('Reconnect the original wallet to finish withdrawing.');
-  if(wallet.startsWith('0x')){live.exitQuote=await api('routes',{direction:'exit',amount:total.toString(),dry:false});navigate('/buy/money');toast('Your withdrawal quote is ready. Confirm delivery to your Base wallet.');return;}
+  if(wallet.startsWith('0x')){navigate('/buy/money');if(total<150000n){toast('Your earnings are in your balance. You can withdraw to Base when the current routing minimum is met.');return;}live.exitQuote=await api('routes',{direction:'exit',amount:total.toString(),dry:false});rerender();toast('Your withdrawal quote is ready. Confirm delivery to your Base wallet.');return;}
   await ensureUsdcStorage();await nativePlan(await api('token-actions',{kind:'withdraw-native',amount:total.toString()}),'Withdraw your campaign earnings');await refresh();toast('Your earnings withdrawal is recorded.');
  },
  'register-storage':async()=>{await nativePlan(await api('token-actions',{kind:'token-storage'}),'Register this wallet for native USDC');await refresh();toast('Native USDC storage registration recorded.');},
@@ -159,12 +164,13 @@ export const actions={
 function setDates(minutes){const form=document.querySelector('form[data-live-form="sale-edit"]'),base=Date.parse(live.catalog.time);
  ['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'].forEach((key,i)=>form.elements.namedItem(key).value=localDate(base+minutes[i]*60000));if(form.elements.namedItem('customMilestones'))form.elements.namedItem('customMilestones').checked=true;form.dataset.dirty='true';}
 export const forms={
+ ...workspaceForms,
  'connect-funded':data=>connect('funded',String(data.get('wallet'))),
  'connect-test':data=>connect('test',String(data.get('wallet'))),'connect-evm':data=>connect('evm',String(data.get('provider'))),
  search:data=>navigate('/explore?'+new URLSearchParams({city:data.get('city'),type:data.get('type')})),
  profile:async data=>{await api('profile',{displayName:String(data.get('displayName')),brand:String(data.get('brand')),city:String(data.get('city')),notifications:data.has('notifications'),defaultWorkspace:data.get('defaultWorkspace')},{method:'PATCH'});await refresh();toast('Profile saved to this wallet.');},
  'asset-create':async data=>{
-  const photo=data.get('photo'),photoDataUrl=await fileData(photo)??live.capturePhoto;let draft;
+  const photo=data.get('photo'),photoDataUrl=await photoData(photo)??live.capturePhoto;let draft;
   if(data.get('method')==='ai'){const r=await api('ai/draft',{prompt:String(data.get('title'))+'. '+String(data.get('description')),...(photoDataUrl?{imageDataUrl:photoDataUrl}:{})});draft=r.draft;}
   else draft={assetType:data.get('assetType'),description:String(data.get('description')),assumptions:['Owner-created layout; confirm physical measurements.'],spots:[{id:'spot-1',name:'Advertising panel',side:'left',box:{x:.3,y:.4,width:.3,height:.2},suggestedPriceCents:'10',confidence:'low'}]};
   let coverMediaId;if(data.has('publicCover')){if(!photoDataUrl)throw new Error('Choose a photo before publishing a listing cover.');coverMediaId=(await api('media',{base64:photoDataUrl.split(',')[1],mime:photoDataUrl.slice(5,photoDataUrl.indexOf(';')),publicContentAcknowledged:true})).id;}
@@ -199,6 +205,7 @@ export const forms={
  support:async data=>{const ticket=await api('support',{subject:String(data.get('subject')),message:String(data.get('message'))});await refresh({render:false});navigate('/support/cases/'+ticket.id);},
  message:async data=>{await api('placements/'+data.get('contractId')+'/messages',{message:String(data.get('message'))});await refresh();toast('Message saved to this placement conversation.');},
  'withdraw-native':async data=>{
+  if(BigInt(amount(data.get('amount')))>BigInt(live.balances?.intentsUsdc??0))throw new Error('Choose an amount within your available balance.');
   if(live.session.wallet.startsWith('0x')){const plan=await api('withdrawal-intent',{recipientId:String(data.get('recipientId')),amount:amount(data.get('amount'))});await intentPlan(plan,'Withdraw USDC to the selected NEAR account');}
   else {await ensureUsdcStorage();await nativePlan(await api('token-actions',{kind:'withdraw-native',amount:amount(data.get('amount'))}),'Withdraw your USDC into your NEAR wallet');}await refresh();
  },
@@ -213,5 +220,5 @@ export const forms={
   for(let i=0;i<300;i++){await new Promise(r=>setTimeout(r,1200));const result=await api('lab-clock');if(result.status==='complete'){await refresh();toast('Local campaign clock advanced.');return;}if(result.status==='failed')throw new Error('The clock advance needs recovery. Retry from the original test control.');}
   throw new Error('The local clock is still advancing. Refresh its status before continuing.');
  },
- 'capture-photo':async data=>{const imageDataUrl=await fileData(data.get('photo'));if(!imageDataUrl)throw new Error('Choose a vehicle photo first.');await api('captures/'+data.get('session')+'/photo',{token:String(data.get('token')),imageDataUrl});live.captureSaved=String(data.get('session'));rerender();toast('Vehicle photo saved for the owner workspace.');},
+ 'capture-photo':async data=>{const imageDataUrl=await photoData(data.get('photo'));if(!imageDataUrl)throw new Error('Choose a vehicle photo first.');await api('captures/'+data.get('session')+'/photo',{token:String(data.get('token')),imageDataUrl});live.captureSaved=String(data.get('session'));rerender();toast('Vehicle photo saved for the owner workspace.');},
 };

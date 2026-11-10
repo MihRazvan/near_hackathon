@@ -5,6 +5,8 @@ const KEY='everywhere-connected-session-v1';
 export const live={enabled:true,config:null,data:null,session:null,catalog:null,
  balances:null,busy:false,error:null,draft:null,selectedSpot:null,providers:[],review:null,refreshing:null};
 const changed=()=>window.dispatchEvent(new Event('app:changed'));
+export function setProgress(message){live.progress=message;const notice=document.querySelector('#connected-notice');if(notice){notice.hidden=false;notice.textContent=message;notice.classList.remove('orange');}}
+function clearWorkspace(){live.data=null;live.balances=null;live.balanceError=null;live.fundingRecords=[];live.assetEdit=null;live.capturePhoto=null;live.captureSaved=null;live.fundQuote=null;live.exitQuote=null;live.routeResult=null;live.selectedSpot=null;}
 export const amount=value=>{const s=String(value);if(!/^(0|[1-9][0-9]*)(\.\d{1,6})?$/.test(s))throw new Error('Enter a USDC amount with up to six decimal places.');const [whole,fraction='']=s.split('.');return (BigInt(whole)*1000000n+BigInt(fraction.padEnd(6,'0'))).toString();};
 export const nativeUnits=(value,decimals=24)=>{const n=BigInt(value??0),scale=10n**BigInt(decimals),fraction=(n%scale).toString().padStart(decimals,'0').slice(0,6).replace(/0+$/,'');return (n/scale).toString()+(fraction?'.'+fraction:'');};
 export const dollars=value=>Number(value??0)/1e6;
@@ -22,30 +24,33 @@ export async function api(path,body,{method=body===undefined?'GET':'POST',sessio
  let value;try{value=await response.json();}catch{throw new Error('The service is temporarily unavailable. Your saved progress and transaction records are retained.');}
  if(!response.ok){const error=new Error(value.error?.message??'The request could not be completed.');error.code=value.error?.code;error.status=response.status;throw error;}return value;
 }
-export async function refresh({render=true}={}){
- if(live.refreshing)return live.refreshing;
+export async function refresh({render=true,force=false}={}){
+ if(live.refreshing){if(!force)return live.refreshing;await live.refreshing.catch(()=>{});return refresh({render,force:false});}
+ const session=live.session;
  live.refreshing=(async()=>{
   try{
-   if(live.session){live.data=await api('workspace');live.catalog={sales:live.data.sales,snapshots:live.data.snapshots,owners:live.data.owners,time:live.data.time,unavailable:live.data.unavailable};
-    try{live.balances=await api('wallet/balances');}catch(error){live.balanceError=error.message;}
-    if(live.config?.network==='mainnet'&&live.session.wallet.startsWith('0x'))live.fundingRecords=await api('wallet-funding');}
-   else{live.catalog=await api('catalog');live.data=null;live.balances=null;}
-  }catch(error){if(error.status===401){live.session=null;live.data=null;sessionStorage.removeItem(KEY);}live.error=error.message;throw error;}
+   if(session){const data=await api('workspace',undefined,{session});if(live.session!==session)return;
+    live.data=data;live.config.aiAvailable=live.publicAiAvailable||data.ai?.available===true;live.catalog={sales:data.sales,snapshots:data.snapshots,owners:data.owners,time:data.time,unavailable:data.unavailable};
+    try{const balances=await api('wallet/balances',undefined,{session});if(live.session!==session)return;live.balances=balances;live.balanceError=null;}catch(error){if(live.session===session)live.balanceError=error.message;}
+    if(live.config?.network==='mainnet'&&session.wallet.startsWith('0x')){const records=await api('wallet-funding',undefined,{session});if(live.session===session)live.fundingRecords=records;}}
+   else{const catalog=await api('catalog');if(live.session!==session)return;live.catalog=catalog;live.data=null;live.balances=null;if(live.config)live.config.aiAvailable=!!live.publicAiAvailable;}
+  }catch(error){if(live.session!==session)return;if(error.status===401){live.session=null;live.data=null;sessionStorage.removeItem(KEY);}live.error=error.message;throw error;}
   finally{live.refreshing=null;if(render)changed();}
  })();return live.refreshing;
 }
 export async function initialize(){
  live.config=await api('config');
+ live.publicAiAvailable=live.config.aiAvailable===true;
  const { ExternalWallets }=await import(/* @vite-ignore */ '/wallets.js');
  live.wallets=new ExternalWallets(changedAccount=>{
   live.providers=live.wallets?.list()??[];
   window.dispatchEvent(new Event('app:walletproviders'));
-  if(changedAccount&&live.session?.kind==='evm'){live.logoutPending=api('auth/logout',{}).catch(()=>{});live.session=null;live.data=null;live.balances=null;sessionStorage.removeItem(KEY);toast('Wallet account changed. Connect the new account to continue.');changed();}
+  if(changedAccount&&live.session?.kind==='evm'){live.logoutPending=api('auth/logout',{}).catch(()=>{});live.session=null;clearWorkspace();sessionStorage.removeItem(KEY);toast('Wallet account changed. Connect the new account to continue.');changed();}
  });
  live.providers=live.wallets.list();
  let stored;try{stored=JSON.parse(sessionStorage.getItem(KEY));}catch{}
  if(live.config.production){
-  try{const session=await api('auth/session');live.session={...session,kind:stored?.wallet===session.wallet?stored.kind:session.wallet.startsWith('0x')?'evm':'near',providerId:stored?.wallet===session.wallet?stored.providerId:null};}catch(error){if(error.status!==401)throw error;}
+  try{const session=await api('auth/session'),same=stored?.wallet===session.wallet;live.session={...session,kind:session.wallet.startsWith('0x')?'evm':'near',providerId:same?stored.providerId:null,providerName:same?stored.providerName:null,providerRdns:same?stored.providerRdns:null};}catch(error){if(error.status!==401)throw error;}
  }else if(stored?.token&&stored?.wallet)live.session=stored;
  try{await refresh({render:false});}catch{}
  state.connectedPerson=currentPerson();
@@ -63,8 +68,7 @@ export function review(title,details,{wallet=live.session?.wallet??'',rejectLabe
 }
 export async function connect(kind,value){
  await live.logoutPending;
- const previous=live.session;live.session=null;live.data=null;live.balances=null;sessionStorage.removeItem(KEY);
- live.assetEdit=null;live.fundQuote=null;live.exitQuote=null;changed();
+ const previous=live.session;live.session=null;clearWorkspace();sessionStorage.removeItem(KEY);changed();
  let wallet=value;
  if(kind==='evm')wallet=await live.wallets.connectEvm(value);
  if(kind==='near')wallet=await live.wallets.connectNear(live.config.network);
@@ -72,17 +76,18 @@ export async function connect(kind,value){
  if(kind==='test'||kind==='funded'){await review(kind==='test'?'Connect test wallet':'Connect funded development wallet',challenge.message,{wallet,approveLabel:kind==='test'?'Connect test wallet':'Connect funded wallet'});signed=await api(kind==='test'?'lab-wallet/sign-in':'funded-wallet/sign-in',{wallet,challengeId:challenge.id});}
  else if(kind==='evm')signed={challengeId:challenge.id,signature:await live.wallets.signEvm(challenge.message,wallet)};
  else signed={challengeId:challenge.id,...await live.wallets.signNear(challenge,wallet,live.config.network)};
- live.session={...await api('auth/verify',signed),kind,providerId:kind==='evm'?value:null};sessionStorage.setItem(KEY,JSON.stringify(live.session));
+ const provider=kind==='evm'?live.providers.find(p=>p.id===value):null;
+ live.session={...await api('auth/verify',signed),kind,providerId:provider?.id??null,providerName:provider?.name??null,providerRdns:provider?.rdns??null};sessionStorage.setItem(KEY,JSON.stringify(live.session));
  if(previous?.token&&previous.wallet!==wallet){/* Existing original-wallet requests remain in the server journal. */}
- await refresh({render:false});toast('Connected '+short(live.session.wallet));
+ await refresh({render:false,force:true});toast('Connected '+short(live.session.wallet));
  const next=new URLSearchParams(location.search).get('next');navigate(next?.startsWith('/')&&!next.startsWith('//')?next:live.data?.profile?.defaultWorkspace==='owner'?'/host':'/buy');
 }
-export async function disconnect(){if(live.session)await api('auth/logout',{});live.session=null;live.data=null;live.balances=null;sessionStorage.removeItem(KEY);await refresh({render:false});navigate('/');}
+export async function disconnect(){if(live.session)await api('auth/logout',{});live.session=null;clearWorkspace();sessionStorage.removeItem(KEY);await refresh({render:false,force:true});navigate('/');}
 export async function run(callback){
- if(live.busy)return;live.busy=true;document.body.classList.add('connected-busy');
- document.querySelectorAll('[data-live-action],form[data-live-form] button').forEach(e=>e.disabled=true);
+ if(live.busy)return;live.busy=true;live.error=null;document.body.classList.add('connected-busy');document.body.setAttribute('aria-busy','true');setProgress('Saving your progress. Please wait…');
+ const buttons=[...document.querySelectorAll('[data-live-action],form[data-live-form] button')].map(e=>[e,e.disabled]);buttons.forEach(([e])=>e.disabled=true);
  try{await callback();live.error=null;}catch(error){live.error=error.message;toast(error.message);console.warn('Connected request:',error.code??'REQUEST_FAILED');}
- finally{live.busy=false;document.body.classList.remove('connected-busy');document.querySelectorAll('[data-live-action],form[data-live-form] button').forEach(e=>e.disabled=false);
+ finally{live.busy=false;live.progress=null;document.body.classList.remove('connected-busy');document.body.removeAttribute('aria-busy');buttons.forEach(([e,disabled])=>{if(e.isConnected)e.disabled=disabled;});
   if(live.error){const el=document.querySelector('#connected-notice');if(el){el.hidden=false;el.textContent=live.error;el.classList.add('orange');}}else{const el=document.querySelector('#connected-notice');if(el){el.hidden=true;el.classList.remove('orange');}}}
 }
 export async function walletRequest(kind,plan,title,perform){
@@ -92,6 +97,7 @@ export async function walletRequest(kind,plan,title,perform){
  try{await review(title,plan.message??plan.transaction??plan);}catch(error){if(error.code===4001)await api('wallet-requests/'+r.id+'/reject',{code:4001},{session});throw error;}
  if(live.session?.wallet!==session.wallet)throw new Error('The connected wallet changed. Recover the original request before continuing.');
  await api('wallet-requests/'+r.id+'/dispatch',{}, {session});
+ setProgress('Confirm the request in your wallet. We’ll save its status.');
  try{
   const result=await perform(r,session);
   if(kind!=='intent'){
@@ -99,15 +105,28 @@ export async function walletRequest(kind,plan,title,perform){
    sessionStorage.setItem('everywhere-wallet-hash:'+r.id,result.transactionHash);
    if(live.config.sandbox&&live.loseNextResponse){live.loseNextResponse=false;throw new Error('Test response interrupted. The original hash is saved; reload or restart the API and open Account recovery.');}
    const confirmed=await api('wallet-requests/'+r.id+'/reconcile',{transactionHash:result.transactionHash},{session});
-   if(confirmed.status==='failed')throw new Error('The original transaction failed on chain. Its receipt is retained in Account recovery.');return confirmed;
+   return waitForRequest(confirmed,session,result.transactionHash);
   }
-  return result;
+  return waitForRequest(result,session);
  }catch(error){if(error.code===4001)await api('wallet-requests/'+r.id+'/reject',{code:4001},{session});throw error;}
+}
+async function waitForRequest(initial,session,transactionHash){
+ setProgress('Confirming your request on NEAR…');
+ let request=initial;
+ for(let i=0;i<16;i++){
+  if(request?.status==='confirmed')return request;
+  if(['failed','rejected'].includes(request?.status))throw new Error('This request did not complete. Its original receipt is saved in Payment help.');
+  if(!request?.id)return request;
+  await new Promise(resolve=>setTimeout(resolve,600));
+  request=await api('wallet-requests/'+request.id+'/reconcile',transactionHash?{transactionHash}:{},{session});
+ }
+ toast('Your request is recorded. Confirmation is taking longer; check its saved status before trying again.');return request;
 }
 export async function ensureSigningWallet(){
  const session=live.session;if(!session)throw new Error('Connect your wallet to continue.');
  if(session.kind==='evm'&&!live.wallets.provider){
-  const providerId=session.providerId??(live.providers.length===1?live.providers[0].id:null);
+  const matches=live.providers.filter(p=>session.providerRdns?p.rdns===session.providerRdns:p.name===session.providerName);
+  const providerId=live.providers.find(p=>p.id===session.providerId)?.id??(matches.length===1?matches[0].id:live.providers.length===1?live.providers[0].id:null);
   if(!providerId){navigate('/sign-in?next='+encodeURIComponent(location.pathname+location.search));throw new Error('Choose your wallet app to continue with this account.');}
   const address=await live.wallets.connectEvm(providerId);
   if(address!==session.wallet)throw new Error('Your wallet selected a different account. Reconnect the account that started this request.');
@@ -144,12 +163,13 @@ export function allBookings(){const d=live.data?.dashboard;return d?[...d.bookin
 export function booking(id){return allBookings().find(b=>b.id===id);}
 export function rawAsset(id){return live.data?.dashboard.assets.find(a=>a.id===id)??allSales().find(s=>s.assetId===id)?.publication?.manifest.asset;}
 export function assetView(a){return {...a,type:a.assetType==='motorcycle'?'moto':a.assetType,model:a.title,area:a.city,color:'#c8d6cc',
- activity:'Exposure has not been measured',photos:a.photoDataUrl?[a.photoDataUrl]:a.coverUri?.match(/^ipfs:\/\/baf[a-z2-7]+$/)?[a.coverUri.replace('ipfs://','https://gateway.pinata.cloud/ipfs/')]:[],spots:a.spots.map(p=>({...p,x:p.box.x*960,y:p.box.y*480,w:p.box.width*960,h:p.box.height*480,price:Number(p.suggestedPriceCents)/100}))};}
+ activity:'Exposure has not been measured',photos:a.photoDataUrl?[a.photoDataUrl]:a.photoUrl?[a.photoUrl]:a.coverUri?.match(/^ipfs:\/\/baf[a-z2-7]+$/)?[a.coverUri.replace('ipfs://','https://gateway.pinata.cloud/ipfs/')]:[],spots:a.spots.map(p=>({...p,x:p.box.x*960,y:p.box.y*480,w:p.box.width*960,h:p.box.height*480,price:Number(p.suggestedPriceCents)/100}))};}
 export async function fileData(file,{max=2000000}={}){if(!file?.size)return null;if(file.size>max)throw new Error('This file exceeds the upload limit.');
  return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Could not read the selected file.'));reader.readAsDataURL(file);});}
 export async function upload(file,{text,acknowledged=false}={}){
  if(!acknowledged)throw new Error('Confirm that this artifact is intended for public storage.');
- let base64,mime;if(file?.size){const data=await fileData(file,{max:1000000});base64=data.split(',')[1];mime=file.type||'application/octet-stream';}
+ setProgress('Uploading and verifying your public artifact…');
+ let base64,mime;if(file?.size){const data=await fileData(file,{max:live.config?.mediaMaxBytes??1000000});base64=data.split(',')[1];mime=file.type||'application/octet-stream';}
  else{const bytes=new TextEncoder().encode(text??'');let binary='';for(const b of bytes)binary+=String.fromCharCode(b);base64=btoa(binary);mime='text/plain';}
  return api('media',{base64,mime,publicContentAcknowledged:true});
 }

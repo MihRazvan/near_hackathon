@@ -2,17 +2,17 @@ import { NearConnector } from '@hot-labs/near-connect';
 
 export class ExternalWallets {
  constructor(onChange){this.onChange=onChange;this.providers=new Map();
-  window.addEventListener('eip6963:announceProvider',event=>{const d=event.detail;if(d?.info?.uuid&&d.provider?.request){this.providers.set(d.info.uuid,d);this.onChange();}});
+  window.addEventListener('eip6963:announceProvider',event=>{const d=event.detail;if(d?.info?.uuid&&d.provider?.request){if(this.providers.get('injected')?.provider===d.provider)this.providers.delete('injected');this.providers.set(d.info.uuid,d);this.onChange();}});
   window.dispatchEvent(new Event('eip6963:requestProvider'));
   if(window.ethereum?.request)this.providers.set('injected',{info:{uuid:'injected',name:'Browser wallet'},provider:window.ethereum});
  }
- list(){return [...this.providers.values()].map(({info})=>({id:info.uuid,name:info.name}));}
+ list(){return [...this.providers.values()].map(({info})=>({id:info.uuid,name:info.name,rdns:info.rdns??null}));}
  async connectEvm(id){
   this.provider?.removeListener?.('accountsChanged',this.listener);
   this.provider?.removeListener?.('disconnect',this.listener);
   this.provider=this.providers.get(id)?.provider;if(!this.provider)throw new Error('Select an installed EVM wallet');
   const accounts=await this.provider.request({method:'eth_requestAccounts'});if(!accounts[0])throw new Error('Wallet returned no account');
-  this.address=accounts[0].toLowerCase();this.listener=()=>{this.address=null;this.onChange(true);};
+  this.address=accounts[0].toLowerCase();this.listener=next=>{if(Array.isArray(next)&&next[0]?.toLowerCase()===this.address)return;this.address=null;this.onChange(true);};
   this.provider.on?.('accountsChanged',this.listener);this.provider.on?.('disconnect',this.listener);
   return this.address;
  }
@@ -36,14 +36,16 @@ export class ExternalWallets {
  async sendBase(transaction){await this.ensureBase(transaction.from);return this.provider.request({method:'eth_sendTransaction',params:[transaction]});}
  async connectNear(network){
   this.connector??=new NearConnector({network,autoConnect:false,cspNonce:document.querySelector('meta[name="lab-csp-nonce"]')?.content,features:{signInWithoutAddKey:true,signAndSendTransaction:true,signMessage:true}});
-  this.native=await this.connector.connect({walletId:'meteor-wallet'});
-  const accounts=await this.native.getAccounts({network});if(!accounts[0])throw new Error('NEAR wallet returned no account');
+  let selected;const listener=event=>{if(event.success&&event.accounts?.length)selected=event.accounts;};
+  this.connector.on('wallet:signIn',listener);
+  try{this.native=await this.connector.connect({walletId:'meteor-wallet'});}finally{this.connector.off('wallet:signIn',listener);}
+  const accounts=selected??await this.native.getAccounts({network});if(!accounts[0])throw new Error('NEAR wallet returned no account');
   this.nearAddress=accounts[0].accountId;return this.nearAddress;
  }
  async assertNear(address,network){const accounts=await this.native.getAccounts({network});if(!accounts.some(a=>a.accountId===address))throw new Error('NEAR wallet changed; reconnect before continuing');}
  async signNear(challenge,address,network){
   await this.assertNear(address,network);
-  const signed=await this.native.signMessage({message:challenge.message,nonce:Uint8Array.from(atob(challenge.nonce),c=>c.charCodeAt(0)),recipient:location.host,network,signerId:address});
+  const signed=await this.native.signMessage({message:challenge.message,nonce:Uint8Array.from(atob(challenge.nonce),c=>c.charCodeAt(0)),recipient:challenge.recipient,network,signerId:address});
   if(signed.accountId!==address)throw new Error('NEAR signature came from a different account');return signed;
  }
  async sendNear(transaction,network){await this.assertNear(transaction.signerId,network);const result=await this.native.signAndSendTransaction({...transaction,network});

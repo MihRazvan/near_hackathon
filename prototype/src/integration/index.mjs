@@ -29,7 +29,7 @@ export function renderConnected(r){
  else if(r.scope==='shared')body=sharedView(r);
  else if(r.scope==='ops')body=opsView(r);
  if(!body)body=empty('This destination is unavailable.','Choose a published space or open your own workspace.',link('/explore','Explore spaces','button primary'));
- const unavailable=live.error?`<div id="connected-notice" class="notice orange" role="status">${esc(live.error)}</div>`:'<div id="connected-notice" class="notice" role="status" hidden></div>';
+ const unavailable=live.error?`<div id="connected-notice" class="notice orange" role="status">${esc(live.error)}</div>`:live.busy&&live.progress?`<div id="connected-notice" class="notice" role="status">${esc(live.progress)}</div>`:'<div id="connected-notice" class="notice" role="status" hidden></div>';
  return unavailable+body;
 }
 
