@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "contracts/marketplace",
     "contracts/campaign-marketplace",
+    "contracts/marketplace-hub",
     "contracts/completion-nft",
     "contracts/test-token",
     "contracts/test-intents",

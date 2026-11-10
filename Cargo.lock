@@ -1815,6 +1815,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "marketplace-hub"
+version = "0.1.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+ "near-sys",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
