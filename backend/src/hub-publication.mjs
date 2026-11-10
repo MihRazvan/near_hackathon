@@ -58,31 +58,41 @@ export class HubPublication {
    return e.standard==='pitboard'&&e.version==='1.0.0'&&e.event==='offer_created'&&e.data?.some(d=>d.offer_id===record.plan.offerId&&d.seller_id===record.owner);
   }));
  }
+ commitResult(record,status,transactionHash){
+  return this.store.transaction(()=>{
+   const latest=this.store.get('publication-plan',record.id);
+   assert(latest?.owner===record.owner&&hashObject(latest.plan)===hashObject(record.plan),'PUBLICATION_CHANGED','The publication plan changed while its original transaction was verified');
+   assert(!latest.transactionHash||latest.transactionHash===transactionHash,'TRANSACTION_CHANGED','Publication already refers to another transaction');
+   assert(!['confirmed','failed'].includes(latest.status)||latest.status===status,'PUBLICATION_RESULT_CHANGED','The original publication already has a different final result');
+   if(latest.status===status&&latest.transactionHash===transactionHash)return latest;
+   return this.store.update('publication-plan',record.id,record.owner,latest.version,{...latest,status,transactionHash});
+  });
+ }
  async finish(record,outcome,transactionHash){
   const status=this.accepted(record,outcome)?'confirmed':'failed';
   if(status==='confirmed'){
    const terms=record.plan.type==='native'?record.plan.transaction.actions[0].params.args.terms:JSON.parse(record.plan.intent.payload.intents[0].msg).terms;
-   const spot=this.store.get('sale',record.plan.saleId).spots.find(s=>s.id===record.plan.spotId);
-   await this.marketplace.chain.attachHubDeployment({contractId:record.plan.offerId,sellerId:record.owner,arbiterId:this.store.get('sale',record.plan.saleId).arbiterId,terms,initialPriceCents:spot.priceCents});
+   const sale=this.store.get('sale',record.plan.saleId),spot=sale?.spots.find(s=>s.id===record.plan.spotId);
+   assert(sale?.owner===record.owner&&spot,'PUBLICATION_CHANGED','Publication no longer belongs to its original sale');
+   await this.marketplace.chain.attachHubDeployment({contractId:record.plan.offerId,sellerId:record.owner,arbiterId:sale.arbiterId,terms,initialPriceCents:spot.priceCents});
   }
-  const latest=this.store.get('publication-plan',record.id);
-  if(latest.status!==status||latest.transactionHash!==transactionHash)record=this.store.update('publication-plan',record.id,record.owner,latest.version,{...latest,status,transactionHash});else record=latest;
+  record=this.commitResult(record,status,transactionHash);
   const sale=this.store.get('sale',record.plan.saleId),all=this.store.list('publication-plan',record.owner).filter(p=>p.plan.saleId===sale.id&&p.plan.saleVersion===record.plan.saleVersion);
-  if(sale.status==='draft'&&all.length===sale.spots.length&&all.every(p=>p.status==='confirmed'))await this.marketplace.publish(record.owner,sale.id,{version:record.plan.saleVersion,contracts:all.map(p=>({spotId:p.plan.spotId,contractId:p.plan.contractId}))});
+  if(all.length===sale.spots.length&&all.every(p=>p.status==='confirmed'))await this.marketplace.publish(record.owner,sale.id,{version:record.plan.saleVersion,contracts:all.map(p=>({spotId:p.plan.spotId,contractId:p.plan.contractId}))});
   return record;
  }
  async confirmIntent(wallet,id,operation){
   const record=this.store.get('publication-plan',id);assert(record?.owner===walletId(wallet)&&record.plan.mode==='hub'&&record.plan.type==='intent','NOT_FOUND','Publication signature not found',404);
   assert(operation.id==='relay-'+record.plan.intentPlanId,'TRANSACTION_CHANGED','Publication requires its original signed intent');
   if(!['confirmed','failed'].includes(operation.phase))return record;
-  if(operation.phase==='failed'){if(record.status==='failed')return record;return this.store.update('publication-plan',id,record.owner,record.version,{...record,status:'failed',transactionHash:operation.transaction_hash});}
+  if(operation.phase==='failed')return this.commitResult(record,'failed',operation.transaction_hash);
   return this.finish(record,operation.result.outcome,operation.transaction_hash);
  }
  async confirm(wallet,id,transactionHash){
   const actor=walletId(wallet);let record=this.store.get('publication-plan',id);assert(record?.owner===actor&&record.plan.mode==='hub'&&record.plan.type==='native','NOT_FOUND','Publication transaction not found',404);
   assert(typeof transactionHash==='string'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(transactionHash),'INVALID_TRANSACTION','NEAR transaction hash required',400);
   assert(!record.transactionHash||record.transactionHash===transactionHash,'TRANSACTION_CHANGED','Publication already has another transaction');
-  if(!record.transactionHash)record=this.store.update('publication-plan',id,actor,record.version,{...record,transactionHash,status:'submitted'});
+  record=this.store.transaction(()=>{const latest=this.store.get('publication-plan',id);assert(latest?.owner===actor&&hashObject(latest.plan)===hashObject(record.plan),'PUBLICATION_CHANGED','Publication plan changed before its transaction was recorded');assert(!latest.transactionHash||latest.transactionHash===transactionHash,'TRANSACTION_CHANGED','Publication already has another transaction');return latest.transactionHash?latest:this.store.update('publication-plan',id,actor,latest.version,{...latest,transactionHash,status:'submitted'});});
   let outcome;try{outcome=await this.reads.rpc.call('tx',{tx_hash:transactionHash,sender_account_id:actor,wait_until:'NONE'});}catch(e){if(['UNKNOWN_TRANSACTION','RPC_UNAVAILABLE'].includes(e.code))return record;throw e;}
   if(outcome?.final_execution_status!=='FINAL')return record;
   verifyWalletCall(outcome,record.plan.transaction,transactionHash);return this.finish(record,outcome,transactionHash);

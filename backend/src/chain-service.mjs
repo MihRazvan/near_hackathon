@@ -35,31 +35,44 @@ export class ChainService {
     if(operation.phase==='confirmed')this.registerDeployment(identity,label,operation);
     return {identity,operation};
   }
+  assertDeploymentBinding(existing,{sellerId,arbiterId,terms,initialPriceCents,codeHash,mode,hubId,offerId}){
+    assert(existing.owner===walletId(sellerId)&&existing.arbiterId===walletId(arbiterId)&&existing.codeHash===codeHash
+      &&String(existing.initialPriceCents)===String(initialPriceCents)&&hashObject(existing.terms)===hashObject(terms)
+      &&(mode==='hub'?(existing.mode==='hub'&&existing.hubId===hubId&&existing.offerId===offerId):existing.mode!=='hub'),
+      'DEPLOYMENT_CHANGED','Registered deployment differs from the requested owner, code, terms or initial price');
+    return existing;
+  }
+  bindDeployment(contractId,expected,data){
+    return this.store.transaction(()=>{const existing=this.store.get('deployment',contractId);
+      if(existing)return this.assertDeploymentBinding(existing,expected);
+      return this.store.insert('deployment',contractId,walletId(expected.sellerId),data);
+    });
+  }
   registerDeployment(identity,label,operation){
     const action=operation.plan.actions.find(a=>a.type==='call'&&a.method==='new_campaign'),args=action.args;
     const codeHash=baseEncode(Buffer.from(operation.plan.actions.find(a=>a.type==='deploy').sha256,'hex'));
-    const existing=this.store.get('deployment',identity.accountId);
-    if(existing){assert(existing.codeHash===codeHash&&hashObject(existing.terms)===hashObject(args.terms),'DEPLOYMENT_CHANGED','Deployment record changed');return existing;}
-    return this.store.insert('deployment',identity.accountId,args.seller_id,{label,codeHash,terms:args.terms,initialPriceCents:args.initial_price_cents,arbiterId:args.arbiter_id});
+    return this.bindDeployment(identity.accountId,{sellerId:args.seller_id,arbiterId:args.arbiter_id,terms:args.terms,initialPriceCents:args.initial_price_cents,codeHash},
+      {label,codeHash,terms:args.terms,initialPriceCents:args.initial_price_cents,arbiterId:args.arbiter_id});
   }
   async attachDeployment({contractId,sellerId,arbiterId,terms,initialPriceCents}){
     if(isOfferId(contractId))return this.attachHubDeployment({contractId,sellerId,arbiterId,terms,initialPriceCents});
-    const existing=this.store.get('deployment',contractId);if(existing)return existing;
     const manifest=JSON.parse(await readFile(join(dirname(this.config.artifact),'campaign-manifest.json'),'utf8'));
-    const codeHash=baseEncode(Buffer.from(manifest.sha256,'hex'));
+    const codeHash=baseEncode(Buffer.from(manifest.sha256,'hex')),expected={sellerId,arbiterId,terms,initialPriceCents,codeHash};
+    const existing=this.store.get('deployment',contractId);if(existing)return this.assertDeploymentBinding(existing,expected);
     const snapshot=await this.reads.snapshot(contractId,{expectedCodeHash:codeHash,expectedIntentsCodeHash:this.config.assets.intentsCodeHash,expectedAssets:this.config.assets});
     assert(snapshot.state.seller_id===walletId(sellerId)&&snapshot.state.arbiter_id===walletId(arbiterId)&&snapshot.state.round==='0'
       &&snapshot.state.next_price===(uint(initialPriceCents)*10000n).toString()&&snapshot.state.outcome==='open'&&hashObject(snapshot.campaign.terms)===hashObject(terms),'DEPLOYMENT_MISMATCH','External deployment differs from the owner offer');
-    return this.store.insert('deployment',contractId,walletId(sellerId),{label:'external-wallet-deployment',codeHash,terms,initialPriceCents,arbiterId});
+    return this.bindDeployment(contractId,expected,{label:'external-wallet-deployment',codeHash,terms,initialPriceCents,arbiterId:walletId(arbiterId)});
   }
   async attachHubDeployment({contractId,sellerId,arbiterId,terms,initialPriceCents}){
     const hub=this.config.hub;assert(hub,'HUB_UNAVAILABLE','Qualified marketplace is not configured',503);
-    const existing=this.store.get('deployment',contractId);if(existing)return existing;
+    const expected={sellerId,arbiterId,terms,initialPriceCents,mode:'hub',hubId:hub.accountId,offerId:contractId,codeHash:hub.codeHash};
+    const existing=this.store.get('deployment',contractId);if(existing)return this.assertDeploymentBinding(existing,expected);
     const record={id:contractId,mode:'hub',hubId:hub.accountId,offerId:contractId,codeHash:hub.codeHash};
     const snapshot=await hubSnapshot(this.reads,this.config,record);
     assert(snapshot.state.seller_id===walletId(sellerId)&&snapshot.state.arbiter_id===walletId(arbiterId)
       &&snapshot.state.next_price===hubPriceAtRound(initialPriceCents,snapshot.state.round)&&hashObject(snapshot.campaign.terms)===hashObject(terms),'DEPLOYMENT_MISMATCH','Marketplace offer differs from its published rules');
-    return this.store.insert('deployment',contractId,walletId(sellerId),{mode:'hub',hubId:hub.accountId,offerId:contractId,codeHash:hub.codeHash,terms,initialPriceCents,arbiterId});
+    return this.bindDeployment(contractId,expected,{mode:'hub',hubId:hub.accountId,offerId:contractId,codeHash:hub.codeHash,terms,initialPriceCents,arbiterId:walletId(arbiterId)});
   }
   async snapshot(contractId,wallets=[]){
     const deployment=this.store.get('deployment',contractId);assert(deployment,'UNREGISTERED_DEPLOYMENT','Campaign deployment is not registered',404);

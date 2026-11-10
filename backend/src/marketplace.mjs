@@ -77,11 +77,27 @@ export class Marketplace {
    service_start_ns:ns(sale.schedule.serviceStart),service_end_ns:ns(sale.schedule.serviceEnd),review_end_ns:ns(sale.schedule.reviewEnd)}));
   return {saleVersion:sale.version,manifest,terms,publishedTermsHash:hash};
  }
+ publishedResult(sale,version,contracts,{bound,publication}={}){
+  assert(sale.status==='published'&&sale.publication?.saleVersion===version,'PUBLICATION_CHANGED','This sale was published from a different draft version');
+  assert(contracts.length===sale.spots.length&&contracts.every(entry=>sale.spots.some(spot=>spot.id===entry.spotId&&spot.contractId===entry.contractId)),'PUBLICATION_CHANGED','This sale was published with different spot contracts');
+  if(bound)assert(hashObject(sale.spots)===hashObject(bound),'PUBLICATION_CHANGED','Published spot bindings differ from the verified contracts');
+  if(publication)assert(hashObject(sale.publication)===hashObject(publication),'PUBLICATION_CHANGED','Published terms differ from the verified draft');
+  const source=sale.publication.manifest?.spots;assert(Array.isArray(source),'PUBLICATION_CHANGED','Published commercial terms are missing');
+  for(const spot of sale.spots){
+   if(spot.mode==='hub'&&this.chain.config?.hub)assert(spot.hubId===this.chain.config.hub.accountId&&spot.codeHash===this.chain.config.hub.codeHash&&spot.offerId===spot.contractId,'DEPLOYMENT_CHANGED','Published marketplace code or routing differs from qualification');
+   const deployment=this.store.get('deployment',spot.contractId),terms=sale.publication.terms.find(t=>t.spot_id===spot.id);
+   if(deployment)assert(deployment.owner===sale.owner&&deployment.arbiterId===sale.arbiterId&&deployment.codeHash===spot.codeHash&&String(deployment.initialPriceCents)===String(spot.priceCents)&&hashObject(deployment.terms)===hashObject(terms),'DEPLOYMENT_CHANGED','Published spot differs from its registered deployment');
+  }
+  assert(source.length===sale.spots.length&&sale.spots.every(spot=>source.some(original=>original.id===spot.id&&String(original.priceCents)===String(spot.priceCents)&&original.takeoverEnabled===spot.takeoverEnabled)),
+   'PUBLICATION_CHANGED','Published commercial spot details differ from their committed terms');
+  return sale;
+ }
  async publish(owner,id,{version,contracts}){
-  const sale=owned(this.store,'sale',id,owner);assert(sale.version===version,'STALE_VERSION','Sale changed; reload before publishing');
-  const publication=this.publication(owner,id,{allowStarted:true});
-  assert(Array.isArray(contracts)&&contracts.length===sale.spots.length&&new Set(contracts.map(c=>c.contractId)).size===contracts.length,'INVALID_DEPLOYMENTS','One distinct contract per spot is required');
-  const bound=[];
+  const sale=owned(this.store,'sale',id,owner);
+  assert(Array.isArray(contracts)&&contracts.length===sale.spots.length&&new Set(contracts.map(c=>c.contractId)).size===contracts.length&&new Set(contracts.map(c=>c.spotId)).size===contracts.length,'INVALID_DEPLOYMENTS','One distinct contract per spot is required');
+  if(sale.status==='published')return this.store.transaction(()=>this.publishedResult(owned(this.store,'sale',id,owner),version,contracts));
+  assert(sale.version===version,'STALE_VERSION','Sale changed; reload before publishing');
+  const publication=this.publication(owner,id,{allowStarted:true}),bound=[];
   for(const terms of publication.terms){
    const entry=contracts.find(c=>c.spotId===terms.spot_id),spot=sale.spots.find(s=>s.id===terms.spot_id);assert(entry,'MISSING_SPOT','A spot deployment is missing');
    if(this.chain.attachDeployment)await this.chain.attachDeployment({contractId:entry.contractId,sellerId:sale.owner,arbiterId:sale.arbiterId,terms,initialPriceCents:spot.priceCents});
@@ -91,15 +107,19 @@ export class Marketplace {
    bound.push({...spot,contractId:entry.contractId,codeHash:snapshot.codeHash,...(snapshot.offerId?{mode:'hub',offerId:snapshot.offerId,hubId:snapshot.receiverId}:{} )});
   }
   return this.store.transaction(()=>{
-   for(const other of this.store.list('sale',sale.owner).filter(s=>s.status==='published'&&s.assetId===sale.assetId)){
+   const current=owned(this.store,'sale',id,owner);
+   if(current.status==='published')return this.publishedResult(current,version,contracts,{bound,publication});
+   assert(current.status==='draft'&&current.version===version,'STALE_VERSION','Sale changed while its contracts were verified');
+   for(const other of this.store.list('sale',sale.owner).filter(s=>s.status==='published'&&s.assetId===sale.assetId&&s.id!==id)){
     const overlaps=Date.parse(other.schedule.serviceStart)<Date.parse(sale.schedule.serviceEnd)&&Date.parse(sale.schedule.serviceStart)<Date.parse(other.schedule.serviceEnd);
     assert(!overlaps||!other.spots.some(a=>sale.spots.some(b=>a.id===b.id)),'OVERLAPPING_SALE','A published campaign already uses this physical spot during these dates');
    }
    for(const spot of bound){assert(!this.store.get('spot-index',spot.contractId),'CONTRACT_ALREADY_LISTED','Contract is already listed');this.store.insert('spot-index',spot.contractId,sale.owner,{saleId:id,spotId:spot.id});}
-   const result=this.store.update('sale',id,sale.owner,version,{...sale,spots:bound,status:'published',publication});
+   const result=this.store.update('sale',id,current.owner,current.version,{...current,spots:bound,status:'published',publication});
    this.store.event('sale_published',id,sale.owner,{publishedTermsHash:publication.publishedTermsHash});return result;
   });
  }
+
  browse({city,assetType}={}){
   return this.store.list('sale').filter(s=>s.status==='published').filter(s=>(!city||s.publication.manifest.asset.city.toLowerCase().includes(city.toLowerCase()))&&(!assetType||s.publication.manifest.asset.assetType===assetType));
  }
