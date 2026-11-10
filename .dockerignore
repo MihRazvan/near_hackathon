@@ -17,3 +17,10 @@
 !prototype/vite.config.mjs
 !prototype/src
 !prototype/src/**
+!prototype/public
+!prototype/public/ASSETS.md
+!prototype/public/favicon.svg
+!prototype/public/fonts
+!prototype/public/fonts/**
+!prototype/public/images
+!prototype/public/images/*.webp

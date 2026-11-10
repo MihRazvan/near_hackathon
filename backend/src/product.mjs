@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto';
 import { ROOT } from './config.mjs';
 import { assert, walletId, text, hashObject } from './core.mjs';
 
-const MIME={'.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.woff2':'font/woff2','.ico':'image/x-icon'};
+const MIME={'.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.woff2':'font/woff2','.ico':'image/x-icon','.md':'text/plain; charset=utf-8','.txt':'text/plain; charset=utf-8'};
 export class Product {
  constructor({store,chain,marketplace,config,reads,walletRequests,personalAI,supportService,now=Date.now}){Object.assign(this,{store,chain,marketplace,config,reads,walletRequests,personalAI,supportService,now});this.publicSnapshots=new Map();this.snapshotLoads=new Map();this.snapshotGeneration=0;}
  async publicSnapshot(contractId){
@@ -26,11 +26,13 @@ export class Product {
   const root=resolve(ROOT,'prototype/dist');let name='index.html';
   if(url.pathname.startsWith('/assets/')){
    assert(/^\/assets\/[A-Za-z0-9_.-]+$/.test(url.pathname),'NOT_FOUND','Asset not found',404);name=url.pathname.slice(1);
+  }else if(/^\/(?:fonts\/[A-Za-z0-9_-]+\.(?:woff2|txt)|images\/[A-Za-z0-9_-]+\.(?:webp|jpg|png)|favicon\.svg|ASSETS\.md)$/.test(url.pathname)){
+   name=url.pathname.slice(1);
   }else if(extname(url.pathname))return false;
   let bytes;try{bytes=await readFile(resolve(root,name));}catch(error){if(error.code==='ENOENT')return false;throw error;}
   const nonce=randomBytes(24).toString('base64');
   if(name==='index.html')bytes=Buffer.from(bytes.toString().replace('</head>',`<meta name="everywhere-backend" content="connected"><meta name="lab-csp-nonce" content="${nonce}"></head>`));
-  response.writeHead(200,{'Content-Type':name==='index.html'?'text/html; charset=utf-8':MIME[extname(name)]??'application/octet-stream','Cache-Control':name==='index.html'?'no-store':'public, max-age=31536000, immutable',
+  response.writeHead(200,{'Content-Type':name==='index.html'?'text/html; charset=utf-8':MIME[extname(name)]??'application/octet-stream','Cache-Control':name==='index.html'?'no-store':name.startsWith('assets/')?'public, max-age=31536000, immutable':'public, max-age=86400',
    'Content-Security-Policy':walletCsp(nonce)});
   response.end(request.method==='HEAD'?undefined:bytes);return true;
  }
