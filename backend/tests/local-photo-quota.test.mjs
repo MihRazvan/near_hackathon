@@ -70,3 +70,14 @@ test('local photo storage defaults to 128 MiB and configuration can only lower t
  assert.equal(configFromEnv({}).localPhotoMaxBytes,LOCAL_PHOTO_MAX_BYTES);assert.equal(configFromEnv({APP_LOCAL_PHOTO_MAX_BYTES:'1000'}).localPhotoMaxBytes,1000);
  for(const value of ['0','-1','1.5',String(LOCAL_PHOTO_MAX_BYTES+1)])assert.throws(()=>configFromEnv({APP_LOCAL_PHOTO_MAX_BYTES:value}),{code:'INVALID_LIMIT'});
 });
+
+
+test('a lowered quota permits incremental photo removal and unchanged metadata without allowing new photo bytes',()=>{
+ const store=new Store(),initial=market(store,2*Buffer.byteLength(small));
+ try{const first=initial.createAsset(owner,{...asset,photoDataUrl:small}),second=initial.createAsset(owner,{...asset,photoDataUrl:small}),lowered=market(store,Math.floor(Buffer.byteLength(small)/2));
+  const unchanged=lowered.updateAsset(owner,second.id,second.version,{...asset,title:'Updated title',photoDataUrl:small});assert.equal(used(store),2*Buffer.byteLength(small));
+  const removed=lowered.updateAsset(owner,first.id,first.version,{...asset,photoDataUrl:''});assert.equal(used(store),Buffer.byteLength(small));
+  assert.throws(()=>lowered.updateAsset(owner,first.id,removed.version,{...asset,photoDataUrl:small}),{code:'LOCAL_PHOTO_QUOTA'});lowered.createAsset(owner,asset);
+  lowered.updateAsset(owner,second.id,unchanged.version,{...asset,photoDataUrl:''});assert.equal(used(store),0);assert.equal(used(store),actual(store));
+ }finally{store.close();}
+});

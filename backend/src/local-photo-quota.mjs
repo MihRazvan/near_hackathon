@@ -28,7 +28,7 @@ export function assertLocalPhotoQuota(store,{kind,id,value,config={}}){
  const used=store.db.prepare('SELECT bytes FROM local_photo_storage WHERE id=1').get().bytes;
  const prior=id?store.db.prepare(`SELECT ${bytesFor('objects')} bytes FROM objects WHERE kind=? AND id=?`).get(kind,id)?.bytes??0:0;
  const next=typeof value==='string'?Buffer.byteLength(value,'utf8'):0;
- assert(used-prior+next<=limit,'LOCAL_PHOTO_QUOTA','Reference photo storage is full. Remove an older photo or use a public image instead.',429);
+ assert(next<=prior||used-prior+next<=limit,'LOCAL_PHOTO_QUOTA','Reference photo storage is full. Remove an older photo or use a public image instead.',429);
 }
 // Capture IDs are transient handoff history, never financial journals. Assets
 // retain their own photo copy; expiry removes both the photo and upload capability.
