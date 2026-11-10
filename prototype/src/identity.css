@@ -1292,7 +1292,7 @@ body[data-route="P09"] .panel p {
     font-size: 24px;
   }
   .street-hero h1 {
-    font-size: clamp(65px, 7.2vw, 90px);
+    font-size: clamp(56px, 7vw, 90px);
   }
   .street-hero {
     grid-template-columns: 44% 56%;
