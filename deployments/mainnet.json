@@ -1,0 +1,18 @@
+{
+  "network": "mainnet",
+  "application": "https://everywhere-near.vercel.app",
+  "marketplaceHub": {
+    "accountId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+    "codeHash": "5i3hw9oXjH6Ri3fGGZ177U7ckk87oeqtUUVxtYMgPsiS",
+    "wasmSha256": "45f29ecac83ae3c31c7e8f300d314484d82184f40f35c4bb92c319f298b5240b",
+    "deploymentTransaction": "C1DjahbpDmGwrBGKgoFcdgmQM4KFPwkHMhEu3nLJ1xRm"
+  },
+  "intents": "intents.near",
+  "nativeUsdc": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+  "syntheticQualification": {
+    "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+    "listingPath": "/spaces/77c828ca-7f03-43fa-a420-3484577f5905?sale=e22dd301-786f-476c-af74-0df7cd2e6168",
+    "outcome": "success",
+    "note": "Synthetic integration evidence; no physical advertisement was installed."
+  }
+}
