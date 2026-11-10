@@ -4,6 +4,7 @@ import { defineRailway, preserve, project, service, volume } from "railway/iac";
 // infrastructure updates without putting secrets in this authoring file.
 const runtimeVariables = [
   "APP_ENV", "NODE_ENV", "APP_BIND_HOST", "APP_ORIGIN", "PORT", "APP_STATE_DIR",
+  "APP_STATE_IMPORT_PATH", "APP_STATE_IMPORT_SHA256",
   "INTEGRATION_ALLOW_MAINNET", "INTEGRATION_NEAR_ACCOUNT_ID", "INTEGRATION_NEAR_PRIVATE_KEY",
   "INTEGRATION_MIN_TREASURY_NEAR", "INTEGRATION_MAX_NEAR_FEES", "INTEGRATION_MAX_NEAR_OUTFLOW",
   "INTEGRATION_MAX_CONCURRENT_NEAR_ALLOCATION", "INTEGRATION_MAX_BASE_USDC_OUTFLOW",
