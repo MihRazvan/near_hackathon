@@ -35,7 +35,7 @@ test('shared status snapshots cannot cross contract, code, terms, party or accep
  const f=fixture();try{f.booking('a');f.booking('other',{contract:'other.near'});await assert.rejects(f.app.syncBookingGroup('spot.near',['a','other']),{code:'BOOKING_CHANGED'});assert.equal(f.reads.length,0);}finally{f.store.close();}
 });
 test('a later purchase by the same wallet never revives an earlier displaced booking',async()=>{
- const f=fixture();try{f.booking('first');f.booking('latest',{round:'2'});f.snapshots.set('spot.near',f.snapshot('spot.near','3',a,12,'success'));await f.app.syncBookingGroup('spot.near',['first','latest']);assert.equal(f.store.get('booking','first').status,'outbid');assert.equal(f.store.get('booking','first').statusOutcome,'success');assert.equal(f.store.get('booking','latest').status,'completed');}finally{f.store.close();}
+ const f=fixture();try{f.booking('first');f.booking('latest',{round:'2'});f.snapshots.set('spot.near',f.snapshot('spot.near','3',a,12,'success'));await f.app.syncBookingGroup('spot.near',['first','latest']);assert.equal(f.store.get('booking','first').status,'outbid');assert.equal(f.store.get('booking','first').purchaseRound,'1');assert.equal(f.store.get('booking','latest').purchaseRound,'3');assert.equal(f.store.get('booking','first').statusOutcome,'success');assert.equal(f.store.get('booking','latest').status,'completed');}finally{f.store.close();}
 });
 test('newer booking fields and newer finalized observations survive an older concurrent read',async()=>{
  const f=fixture();try{f.booking('a');let resolveOld;const old=new Promise(resolve=>resolveOld=resolve);f.chain.snapshot=async()=>old;const pending=f.app.syncBookingGroup('spot.near',['a']);

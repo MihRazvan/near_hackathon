@@ -212,7 +212,7 @@ export class Marketplace {
     assert(current.statusBlockHeight!==snapshot.blockHeight||!current.statusBlockHash||current.statusBlockHash===snapshot.blockHash,'SNAPSHOT_CHANGED','Finalized status snapshots cannot disagree at the same block height');
     const round=(uint(e.plan.context.expectedRound)+1n).toString(),holding=snapshot.state.holder?.account_id===current.owner&&snapshot.state.round===round;
     if(snapshot.state.outcome==='failure')status='cancelled';else if(!holding)status='outbid';else if(snapshot.state.outcome==='success')status='completed';
-    observation={statusBlockHeight:snapshot.blockHeight,statusBlockHash:snapshot.blockHash,statusOutcome:snapshot.state.outcome};
+    observation={purchaseRound:round,statusBlockHeight:snapshot.blockHeight,statusBlockHash:snapshot.blockHash,statusOutcome:snapshot.state.outcome};
    }
    const changed=current.status!==status||current.accepted!==e.accepted;
    if(!changed&&Object.entries(observation).every(([key,value])=>current[key]===value))return current;
