@@ -1,5 +1,5 @@
 // Reconciliation only. This worker has no path to prepare, sign, broadcast, retry or finalize a transaction.
-export function reconciliationWorker({store,near,source,marketplace,nativeActions,intentOutcomes,intervalMs=10000}){
+export function reconciliationWorker({store,near,source,marketplace,nativeActions,walletRequests,intentOutcomes,intervalMs=10000}){
  let running=false,stopped=false;
  async function tick(){
   if(running||stopped)return;running=true;let checked=0,unavailable=0;
@@ -9,6 +9,9 @@ export function reconciliationWorker({store,near,source,marketplace,nativeAction
    if(intentOutcomes)for(const record of store.list('intent')){const op=store.operation(record.operationId??'relay-'+record.plan.planId);if(op&&['confirmed','failed'].includes(op.phase)){try{intentOutcomes(record.id,op);}catch{unavailable++;}}}
    for(const booking of store.list('booking').filter(b=>['submitted','accepted','outbid'].includes(b.status))){try{await marketplace.syncBooking(booking.id);}catch{unavailable++;}}
    for(const plan of store.list('native-plan').filter(p=>p.transactionHash&&p.status==='submitted')){try{await nativeActions.confirm(plan.owner,plan.id,plan.transactionHash);}catch{unavailable++;}}
+   if(walletRequests)for(const request of store.list('wallet-request').filter(r=>r.status==='submitted').slice(0,20)){
+    try{await walletRequests.reconcile(request.owner,request.id);}catch{unavailable++;}
+   }
    return {checked,unavailable};
   }finally{running=false;}
  }

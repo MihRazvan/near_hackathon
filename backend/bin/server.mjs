@@ -32,7 +32,7 @@ const capture=new Capture(r);
 const provisioning=new Provisioning({...r,chain,marketplace});
 const fundedWallets=await new FundedWallets({...r,chain,walletRequests,funding}).load();
 const server=httpApp({...r,auth,chain,marketplace,nativeActions,publication,walletRequests,assetAI,media,returnVerifier,lab,product,funding,capture,provisioning,fundedWallets});
-const worker=reconciliationWorker({...r,marketplace,nativeActions,intentOutcomes:chain.updateIntentOutcome.bind(chain)});
+const worker=reconciliationWorker({...r,marketplace,nativeActions,walletRequests,intentOutcomes:chain.updateIntentOutcome.bind(chain)});
 server.listen(r.config.port,r.config.host,()=>console.log('Local integration API: '+r.config.origin+'/api/health'));
 function stop(){worker.stop();server.close(()=>{if(!worker.isRunning())r.store.close();process.exit(0);});}
 process.once('SIGINT',stop);process.once('SIGTERM',stop);

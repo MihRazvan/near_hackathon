@@ -16,3 +16,8 @@ test('restart reconciliation only reads existing hashes, never dispatches, and o
   assert.equal(queries,2);assert.equal(syncs,1);assert.equal(confirms,1);await worker.tick();assert.equal(queries,2);worker.stop();assert.equal(await worker.tick(),undefined);
  }finally{worker.stop();store.close();}
 });
+test('submitted wallet journals reconcile after a final transaction without sending another request',async()=>{
+ const store=new Store();let reads=0;store.insert('wallet-request','submitted','owner.near',{status:'submitted'});store.insert('wallet-request','unopened','owner.near',{status:'requested'});
+ const worker=reconciliationWorker({store,marketplace:{},nativeActions:{},near:{execute:()=>assert.fail('no sends')},walletRequests:{reconcile:async(owner,id)=>{assert.equal(id,'submitted');reads++;const r=store.get('wallet-request',id);store.update('wallet-request',id,owner,r.version,{...r,status:'confirmed'});}},intervalMs:1000000});
+ try{await worker.tick();await worker.tick();assert.equal(reads,1);assert.equal(store.get('wallet-request','submitted').status,'confirmed');assert.equal(store.get('wallet-request','unopened').status,'requested');}finally{worker.stop();store.close();}
+});

@@ -75,7 +75,8 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
      if(quota)store.update('ai-quota',quotaId,wallet,quota.version,{count:quota.count+1});else store.insert('ai-quota',quotaId,wallet,{count:1});});
     assert(assetAI,'AI_UNAVAILABLE','AI drafting is not configured',503);result=await assetAI.draft(body);
    }
-   else if(method==='POST'&&path[1]==='media'){
+   else if(method==='POST'&&path[1]==='media'&&path[2]==='import')result=await media.reuseVerified({owner:wallet,uri:body.uri,publicContentAcknowledged:body.publicContentAcknowledged});
+   else if(method==='POST'&&path[1]==='media'&&path.length===2){
     assert(typeof body.base64==='string'&&Buffer.byteLength(body.base64)<=1400000,'MEDIA_LIMIT','Artifact exceeds the local size limit',400);
     const bytes=Buffer.from(body.base64,'base64');assert(bytes.toString('base64')===body.base64,'INVALID_MEDIA','Canonical base64 required',400);
     result=await media.upload({owner:wallet,bytes,mime:body.mime,publicContentAcknowledged:body.publicContentAcknowledged});status=201;

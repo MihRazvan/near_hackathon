@@ -33,6 +33,17 @@ export class Media {
   record=this.store.update('media',id,wallet,record.version,{...record,status:'uploaded',fileId:result.id,cid:result.cid,uri:'ipfs://'+result.cid});
   return this.verify(record);
  }
+ async reuseVerified({owner,uri,publicContentAcknowledged=false}){
+  assert(publicContentAcknowledged===true,'PUBLIC_CONTENT_REQUIRED','Confirm that this artifact is intended for public use');
+  assert(typeof uri==='string'&&/^ipfs:\/\/baf[a-z2-7]{30,120}$/.test(uri),'INVALID_MEDIA','Paste an IPFS link to an artifact already verified by this platform');
+  const wallet=walletId(owner),source=this.store.list('media').find(m=>m.uri===uri&&m.public===true&&m.status==='verified');
+  assert(source,'VERIFIED_ARTIFACT_REQUIRED','This IPFS link has not been verified here. Upload its file or create a text artifact instead');
+  const id=sha256(wallet+'\0'+source.sha256),prior=this.store.get('media',id);
+  if(prior){assert(prior.sha256===source.sha256&&prior.uri===uri&&prior.mime===source.mime,'MEDIA_CHANGED','Existing artifact metadata differs');return prior.status==='verified'?prior:this.verify(prior);}
+  assert(this.store.list('media').length<this.maxFiles,'MEDIA_QUOTA','Local integration artifact limit reached',429);
+  const record=this.store.insert('media',id,wallet,{sha256:source.sha256,bytes:source.bytes,mime:source.mime,public:true,status:'uploaded',fileId:source.fileId,cid:source.cid,uri});
+  return this.verify(record);
+ }
  async verify(record){
   assert(record?.status==='uploaded'&&record.public===true,'INVALID_MEDIA','An uploaded public artifact is required');
   let response;try{response=await this.fetch('https://api.pinata.cloud/v3/files/public/'+encodeURIComponent(record.fileId),{headers:{Authorization:'Bearer '+this.token},signal:AbortSignal.timeout(15000)});}

@@ -59,7 +59,7 @@ const product=new Product({...r,chain,marketplace,walletRequests});
 const capture=new Capture({...r,now:Date.now});
 const provisioning=new Provisioning({...r,chain,marketplace});
 const server=httpApp({...r,auth,chain,marketplace,nativeActions,publication,walletRequests,media,assetAI,lab,product,capture,provisioning});
-const worker=reconciliationWorker({...r,marketplace,nativeActions,intentOutcomes:chain.updateIntentOutcome.bind(chain)});
+const worker=reconciliationWorker({...r,marketplace,nativeActions,walletRequests,intentOutcomes:chain.updateIntentOutcome.bind(chain)});
 server.listen(port,config.host,()=>console.log('Integration lab: '+config.origin+'/lab (valueless local NEAR Sandbox)'));
 function stop(){worker.stop();server.close(()=>{if(!worker.isRunning())store.close();process.exit(0);});}
 process.once('SIGINT',stop);process.once('SIGTERM',stop);

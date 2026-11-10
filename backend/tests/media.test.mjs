@@ -28,3 +28,13 @@ test('unknown uploads remain reserved; failed content verification never silentl
  await assert.rejects(media.upload(args),/hash differs/);await assert.rejects(media.upload(args),/hash differs/);assert.equal(writes,1);
  }finally{other.close();}
 });
+test('a public verified IPFS link can be reused by another wallet after fresh byte verification',async()=>{
+ const store=new Store();let uploads=0,corrupt=false;
+ const media=new Media({store,token:'test',fetchImpl:async url=>{if(url.includes('uploads.')){uploads++;return Response.json({data:{id:'file',cid,size:bytes.length}});}if(url.includes('api.'))return Response.json({data:{id:'file',cid,size:bytes.length}});return new Response(corrupt?Buffer.alloc(bytes.length):bytes);}});
+ try{const original=await media.upload({owner,bytes,mime:'text/plain',publicContentAcknowledged:true});
+  await assert.rejects(media.reuseVerified({owner:'seller.near',uri:original.uri}),{code:'PUBLIC_CONTENT_REQUIRED'});
+  await assert.rejects(media.reuseVerified({owner:'seller.near',uri:'https://example.com/file',publicContentAcknowledged:true}),{code:'INVALID_MEDIA'});
+  corrupt=true;await assert.rejects(media.reuseVerified({owner:'seller.near',uri:original.uri,publicContentAcknowledged:true}),{code:'MEDIA_CHANGED'});corrupt=false;
+  const reused=await media.reuseVerified({owner:'seller.near',uri:original.uri,publicContentAcknowledged:true});assert.equal(reused.owner,'seller.near');assert.equal(reused.status,'verified');assert.equal(reused.sha256,original.sha256);assert.equal(reused.uri,original.uri);assert.equal(uploads,1);
+ }finally{store.close();}
+});

@@ -10,7 +10,9 @@ export function assetFields(data,base){
    suggestedPriceCents:cents(data.get('price:'+p.id)??(Number(p.suggestedPriceCents)/100).toFixed(2)),
    box:Object.fromEntries(['x','y','width','height'].map(k=>[k,Number(data.get(k+':'+p.id)??p.box[k]*100)/100]))}))};
 }
-async function artifact(data){const selected=data.get('mediaId');if(selected)return selected;
+async function artifact(data){const selected=data.get('mediaId'),uri=String(data.get('artifactUri')??'').trim();
+ if(uri&&(selected||data.get('file')?.size))throw new Error('Choose an existing upload, paste an IPFS link, or upload a file—one source at a time.');
+ if(selected)return selected;if(uri)return (await api('media/import',{uri,publicContentAcknowledged:data.has('public')})).id;
  const m=await upload(data.get('file'),{text:String(data.get('notes')??''),acknowledged:data.has('public')});return m.id;}
 async function confirmAction(contractId,kind,extra={}){await nativeAction(contractId,kind,extra);await refresh();toast('Wallet action recorded. The page shows its confirmed chain state.');}
 async function recoverOne(r){

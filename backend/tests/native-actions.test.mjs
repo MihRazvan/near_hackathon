@@ -18,3 +18,15 @@ test('native action preparation checks current NFT authority and exact artwork r
   assert.equal((await actions.confirm('owner.near',plan.planId,hash)).status,'confirmed');await assert.rejects(actions.confirm('other.near',plan.planId,hash),/not found/);
  }finally{store.close();}
 });
+test('settlement preparation distinguishes already settled state from missing prerequisites',async()=>{
+ const store=new Store(),s={codeHash:'pinned',state:{seller_id:'seller.near',arbiter_id:'arbiter.near',outcome:'success',refund_end_ns:'0',cutoff_ns:'0',artwork_locked:true},rights:{},campaign:{delivery_proof:{},open_issues:0,issues:{}}};
+ const actions=new NativeActions({store,chain:{snapshot:async()=>s},reads:{},now:()=>1800000000000});try{
+  for(const kind of ['finalize-success','finalize-failure'])await assert.rejects(actions.prepare('arbiter.near',{contractId:'campaign.near',kind}),{code:'CAMPAIGN_SETTLED'});
+  s.state.outcome='open';s.state.refund_end_ns='9999999999999999999';await assert.rejects(actions.prepare('arbiter.near',{contractId:'campaign.near',kind:'finalize-success'}),{code:'REVIEW_WINDOW_OPEN'});
+  s.state.refund_end_ns='0';s.state.artwork_locked=false;await assert.rejects(actions.prepare('arbiter.near',{contractId:'campaign.near',kind:'finalize-success'}),{code:'ARTWORK_NOT_LOCKED'});
+  s.state.artwork_locked=true;s.campaign.delivery_proof=null;await assert.rejects(actions.prepare('arbiter.near',{contractId:'campaign.near',kind:'finalize-success'}),{code:'DELIVERY_PROOF_REQUIRED'});
+ }finally{store.close();}
+});
+test('a verified final native receipt does not regress if upstream history is unavailable',async()=>{
+ const store=new Store();try{const plan={planId:'final'};store.insert('native-plan','final','owner.near',{plan,status:'confirmed',transactionHash:'1'.repeat(44)});const actions=new NativeActions({store,reads:{rpc:{call:async()=>assert.fail('final receipts must remain final')}}});assert.equal((await actions.confirm('owner.near','final','1'.repeat(44))).status,'confirmed');await assert.rejects(actions.confirm('owner.near','final','2'.repeat(44)),{code:'TRANSACTION_CHANGED'});}finally{store.close();}
+});

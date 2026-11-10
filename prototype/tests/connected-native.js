@@ -22,7 +22,7 @@ async page => {
  await connect('NFT recipient');await go('/buy/money');await act('faucet');await go('/checkout/'+saleId+'?spot=spot-1');await page.locator('[name=rules]').check();await submit('prepare-booking');await idle();const nativeBooking=new URL(page.url()).pathname.split('/')[2];await approved(()=>page.locator('[data-live-action=pay-booking]').click());await assertText('Your placement is confirmed.');
  await connect('Owner');await go('/_testing');await page.locator('[name=saleId]').selectOption(saleId);await page.locator('[name=stage]').selectOption('biddingClose');await submit('advance-clock');await idle();
  await connect('NFT recipient');await go('/buy/placements/'+nativeBooking);await approved(()=>page.locator('[data-live-action=mint]').click());await assertText('recipient.sandbox');
- await connect('Arbiter');await go('/ops/listings/'+saleId);await approved(()=>page.locator('[data-live-action=finalize-failure]').click());
+ await connect('Arbiter');await go('/ops/listings/'+saleId);await approved(()=>page.locator('[data-live-action=finalize-failure]').click());if(await page.locator('[data-live-action=finalize-success],[data-live-action=finalize-failure]').count())throw Error('Failed campaign still offers finalization');
  await connect('NFT recipient');await go('/buy/money');await act('claim');await page.getByRole('button',{name:'Refresh state',exact:true}).click();await idle();await assertText('0.25 USDC');
  return {saleId,contract,nativeBooking,checks,nativeRefundConfirmed:true};
 }

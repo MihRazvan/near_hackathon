@@ -61,7 +61,7 @@ export function ownerView(r){
   const media=live.data.media.filter(m=>m.status==='verified');
   return heading('OWNER / FULFILLMENT',s.title,'Review the exact artwork revision, approve it, then arrange printing and installation.')+
    `<div class="split"><div>${evidence(snap)}${card('Production artwork',snap.rights.proposal?`<p>Revision ${snap.rights.revision} · submitted by ${esc(snap.rights.proposal.submitted_by)}</p><p>${esc(snap.rights.proposal.artifact_uri)}</p>${!snap.state.artwork_locked?act('lock-artwork','Approve & lock this artwork',`data-contract="${contractId}" data-revision="${snap.rights.revision}"`,'button primary'):badge('Artwork locked')}`:'The current placement NFT owner has not submitted artwork.')}</div>`+
-   `<div>${card('Installation proof',form('delivery-proof',hidden('contractId',contractId)+artifactFields(media,'Describe the installation and its evidence.')+submit('Submit installation proof')))}
+   `<div>${card('Installation proof',snap.campaign.delivery_proof?`<p>${badge('Installation proof recorded')}</p><p>Your installation evidence is already linked to this campaign.</p>`:form('delivery-proof',hidden('contractId',contractId)+artifactFields(media,'Describe the installation and its evidence.')+submit('Submit installation proof')))}
    ${b?card('Talk to the buyer',link('/inbox/'+b.id,'Open booking conversation')):''}${card('Issues',`<p>${snap.campaign.open_issues} open on-chain issues.</p>${link('/support/new?contract='+contractId,'Request issue review')}`)}</div></div>`;
  }
  if(r.id==='O17')return heading('OWNER / CALENDAR','Know what is available.','Published campaign periods for your inventory.')+card('Campaign schedule',salesTable(d.sales));
@@ -70,9 +70,10 @@ export function ownerView(r){
  return null;
 }
 export function artifactFields(media,placeholder='Describe this public artifact.'){
- return select('mediaId','Use an existing verified artifact',[['','Upload a new artifact'],...media.map(m=>[m.id,m.uri])])+
+ return `<p class="tiny muted">Reuse a verified upload, paste its IPFS link, upload a file, or enter text below.</p>`+select('mediaId','Use an existing verified artifact',[['','Upload a new artifact'],...media.map(m=>[m.id,m.uri])])+
+ input('artifactUri','Paste an existing verified IPFS link (optional)','','text','placeholder="ipfs://baf…"')+
  input('file','Public artifact · PNG, JPEG, PDF, JSON or text, up to 1 MB','','file','accept="image/png,image/jpeg,application/pdf,application/json,text/plain"')+
- textArea('notes','Artifact description','',`placeholder="${esc(placeholder)}"`)+check('public','I intend to publish this artifact to public IPFS storage.');
+ textArea('notes','Artifact description · creates a text artifact when no file or link is selected','',`placeholder="${esc(placeholder)}"`)+check('public','I intend to publish this artifact to public IPFS storage.');
 }
 function salesTable(values){return table(['Sale','State','Bidding ends','Service period',''],values.map(s=>[esc(s.title),badge(s.status),esc(dateTime(s.schedule.biddingClose)),esc(dateTime(s.schedule.serviceStart))+' — '+esc(dateTime(s.schedule.serviceEnd)),link('/host/sales/'+s.id,'Open ↗','text-link')]));}
 export function earnings(id){

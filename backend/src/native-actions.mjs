@@ -54,6 +54,7 @@ export class NativeActions {
   let method,args={},deposit='0';const gas='25000000000000';
   const seller=()=>assert(actor===state.seller_id,'SELLER_REQUIRED','Only the published seller can prepare this action',403);
   const arbiter=()=>assert(actor===state.arbiter_id,'ARBITER_REQUIRED','Only the published arbiter can prepare this action',403);
+  const unsettled=()=>assert(state.outcome==='open','CAMPAIGN_SETTLED',state.outcome==='success'?'This campaign has already settled successfully. Earnings and refunds can now be claimed.':'This campaign has already settled as failed. Available refunds can now be claimed.');
   const nftOwner=()=>assert(actor===rights.current_owner_id,'NFT_OWNER_REQUIRED','Only the current placement NFT owner can prepare this action',403);
   const artifact=()=>{const m=this.store.get('media',mediaId);assert(m?.owner===actor&&m.status==='verified','VERIFIED_ARTIFACT_REQUIRED','Choose a verified public artifact owned by this wallet');
    return {artifact_uri:m.uri,artifact_sha256:Buffer.from(m.sha256,'hex').toString('base64')};};
@@ -71,11 +72,15 @@ export class NativeActions {
    const media=artifact();method='record_issue_decision';args={case_id:caseId,open,evidence_sha256:media.artifact_sha256};deposit='1000000000000000000000';
   }
   else if(kind==='finalize-success'){
-   arbiter();assert(state.outcome==='open'&&BigInt(state.refund_end_ns)<=BigInt(this.now())*1000000n&&state.artwork_locked&&s.campaign.delivery_proof&&s.campaign.open_issues===0,'SETTLEMENT_UNAVAILABLE','Service, review and issue decisions must be complete');
+   arbiter();unsettled();
+   assert(BigInt(state.refund_end_ns)<=BigInt(this.now())*1000000n,'REVIEW_WINDOW_OPEN','Wait until the displayed issue review end time before settling this campaign');
+   assert(state.artwork_locked,'ARTWORK_NOT_LOCKED','The space owner must approve and lock the artwork before settlement');
+   assert(s.campaign.delivery_proof,'DELIVERY_PROOF_REQUIRED','The space owner must submit installation proof before settlement');
+   assert(s.campaign.open_issues===0,'OPEN_ISSUES','Resolve the open campaign issues before successful settlement');
    for(const issue of this.store.list('issue').filter(i=>i.contractId===contractId))assert(s.campaign.issues[issue.id]?.open===false,'CASE_REVIEW_REQUIRED','Pending issue requests require an on-chain arbiter decision');
    method='finalize_success';
   }
-  else if(kind==='finalize-failure'){arbiter();assert(state.outcome==='open'&&BigInt(state.cutoff_ns)<=BigInt(this.now())*1000000n,'SETTLEMENT_UNAVAILABLE','Cancellation is available after bidding closes');method='finalize_failure';}
+  else if(kind==='finalize-failure'){arbiter();unsettled();assert(BigInt(state.cutoff_ns)<=BigInt(this.now())*1000000n,'SETTLEMENT_UNAVAILABLE','Cancellation is available after bidding closes');method='finalize_failure';}
   else assert(false,'INVALID_ACTION','Unsupported placement action',400);
   const body={schema:'everywhere-native-action/v1',wallet:actor,contractId,codeHash:s.codeHash,kind,createdAt:new Date(this.now()).toISOString(),
    expiresAt:new Date(this.now()+120000).toISOString(),transaction:{signerId:actor,receiverId:contractId,actions:[{type:'FunctionCall',params:{methodName:method,args,gas,deposit}}]}};
@@ -85,6 +90,7 @@ export class NativeActions {
   const actor=walletId(wallet);let record=this.store.get('native-plan',id);assert(record?.owner===actor,'NOT_FOUND','Wallet action not found',404);
   assert(typeof transactionHash==='string'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(transactionHash),'INVALID_TRANSACTION','NEAR transaction hash required',400);
   assert(!record.transactionHash||record.transactionHash===transactionHash,'TRANSACTION_CHANGED','Wallet action already refers to another transaction');
+  if(['confirmed','failed'].includes(record.status))return record;
   if(!record.transactionHash)record=this.store.update('native-plan',id,actor,record.version,{...record,transactionHash,status:'submitted'});
   let outcome;try{outcome=await this.reads.rpc.call('tx',{tx_hash:transactionHash,sender_account_id:actor,wait_until:'NONE'});}
   catch(error){if(['UNKNOWN_TRANSACTION','RPC_UNAVAILABLE'].includes(error.code))return {status:'pending',transactionHash};throw error;}
