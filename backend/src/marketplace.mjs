@@ -1,3 +1,4 @@
+import { hubPriceAtRound } from './hub.mjs';
 import { randomUUID } from 'node:crypto';
 import { assert, walletId, text, uint, hashObject } from './core.mjs';
 import { validateDraft, imageInput } from './asset-ai.mjs';
@@ -16,8 +17,8 @@ export class Marketplace {
  constructor({store,chain,now=Date.now}){Object.assign(this,{store,chain,now});}
  assertSaleEditable(sale){
   const factoryPlans=this.store.list('publication-plan',sale.owner).filter(p=>p.plan.saleId===sale.id);
-  const ids=new Set(factoryPlans.map(p=>p.id));
-  const started=factoryPlans.some(p=>p.transactionHash)||this.store.list('wallet-request',sale.owner).some(r=>ids.has(r.planId)&&r.dispatched&&r.status!=='rejected')||
+  const ids=new Set(factoryPlans.flatMap(p=>[p.id,p.plan.intentPlanId].filter(Boolean)));
+  const started=factoryPlans.some(p=>p.transactionHash||(p.plan.intentPlanId&&(this.store.get('intent',p.plan.intentPlanId)?.operationId||this.store.operation('relay-'+p.plan.intentPlanId))))||this.store.list('wallet-request',sale.owner).some(r=>ids.has(r.planId)&&r.dispatched&&r.status!=='rejected')||
    this.store.list('provision-plan',sale.owner).some(p=>p.plan.saleId===sale.id&&(p.approvedAt||p.plan.spots.some(s=>this.store.operation('identity-fund-'+s.label))));
   assert(!started,'PUBLICATION_IN_PROGRESS','Publication has started. Reconcile its original contracts before changing these terms');
  }
@@ -42,6 +43,7 @@ export class Marketplace {
  }
  saleData(owner,input){
   const asset=owned(this.store,'asset',input.assetId,owner),schedule=dates(input.schedule,this.now());
+  if(this.chain?.config?.hub)assert(Date.parse(schedule.biddingClose)<=this.now()+30*86400000&&Date.parse(schedule.reviewEnd)<=this.now()+366*86400000,'CAMPAIGN_TOO_LONG','Bidding must close within 30 days and campaign review within 366 days',400);
   assert(typeof input.takeoverDefault==='boolean'&&Array.isArray(input.spots)&&input.spots.length>0,'INVALID_SALE','Select spots and a takeover default',400);
   const available=new Map(asset.spots.map(spot=>[spot.id,spot])),seen=new Set();
   const spots=input.spots.map(spot=>{
@@ -50,7 +52,7 @@ export class Marketplace {
    assert(spot.takeoverEnabled===undefined||typeof spot.takeoverEnabled==='boolean','INVALID_TAKEOVER','Takeover choice must be boolean',400);
    return {id:spot.id,priceCents:spot.priceCents,takeoverEnabled:spot.takeoverEnabled??input.takeoverDefault};
   });
-  const seller=native(owner),arbiter=native(input.arbiterId);assert(seller!==arbiter,'INVALID_ARBITER','Seller and arbiter must be separate wallets',400);
+  const seller=this.chain?.config?.hub?walletId(owner):native(owner),arbiter=this.chain?.config?.hub?walletId(input.arbiterId):native(input.arbiterId);assert(seller!==arbiter,'INVALID_ARBITER','Seller and arbiter must be separate wallets',400);
   return {assetId:asset.id,title:text(input.title,'sale title',100),schedule,spots,arbiterId:arbiter,
    takeoverDefault:input.takeoverDefault,rules:text(input.rules,'published advertising rules',3000),printingAndInstallationIncluded:true,status:'draft'};
  }
@@ -58,13 +60,13 @@ export class Marketplace {
  updateSale(owner,id,version,input){const sale=owned(this.store,'sale',id,owner);assert(sale.status==='draft','IMMUTABLE_SALE','Published sale rules cannot be changed');
   this.assertSaleEditable(sale);
   return this.store.update('sale',id,sale.owner,version,this.saleData(owner,{...sale,...input}));}
- publication(owner,id){
+ publication(owner,id,{allowStarted=false}={}){
   const sale=owned(this.store,'sale',id,owner);assert(sale.status==='draft','IMMUTABLE_SALE','Published sales cannot change their commercial terms');
   for(const other of this.store.list('sale',sale.owner).filter(s=>s.status==='published'&&s.assetId===sale.assetId&&s.id!==sale.id)){
    const overlaps=Date.parse(other.schedule.serviceStart)<Date.parse(sale.schedule.serviceEnd)&&Date.parse(sale.schedule.serviceStart)<Date.parse(other.schedule.serviceEnd);
    assert(!overlaps||!other.spots.some(a=>sale.spots.some(b=>a.id===b.id)),'OVERLAPPING_SALE','A published campaign already uses this physical spot during these dates');
   }
-  dates(sale.schedule,this.now());const asset=owned(this.store,'asset',sale.assetId,owner);
+  if(!allowStarted)dates(sale.schedule,this.now());const asset=owned(this.store,'asset',sale.assetId,owner);
   const manifest={version:1,saleId:sale.id,title:sale.title,sellerId:sale.owner,arbiterId:sale.arbiterId,
    asset:{id:asset.id,title:asset.title,description:asset.description,assetType:asset.assetType,city:asset.city,spots:asset.spots,...(asset.coverUri?{coverUri:asset.coverUri,coverSha256:asset.coverSha256}:{})},
    schedule:sale.schedule,spots:sale.spots,rules:sale.rules,printingAndInstallationIncluded:true,
@@ -77,7 +79,7 @@ export class Marketplace {
  }
  async publish(owner,id,{version,contracts}){
   const sale=owned(this.store,'sale',id,owner);assert(sale.version===version,'STALE_VERSION','Sale changed; reload before publishing');
-  const publication=this.publication(owner,id);
+  const publication=this.publication(owner,id,{allowStarted:true});
   assert(Array.isArray(contracts)&&contracts.length===sale.spots.length&&new Set(contracts.map(c=>c.contractId)).size===contracts.length,'INVALID_DEPLOYMENTS','One distinct contract per spot is required');
   const bound=[];
   for(const terms of publication.terms){
@@ -85,8 +87,8 @@ export class Marketplace {
    if(this.chain.attachDeployment)await this.chain.attachDeployment({contractId:entry.contractId,sellerId:sale.owner,arbiterId:sale.arbiterId,terms,initialPriceCents:spot.priceCents});
    const snapshot=await this.chain.snapshot(entry.contractId);
    assert(hashObject(snapshot.campaign.terms)===hashObject(terms)&&snapshot.state.seller_id===sale.owner&&snapshot.state.arbiter_id===sale.arbiterId
-    &&snapshot.state.round==='0'&&snapshot.state.next_price===(uint(spot.priceCents)*10000n).toString()&&snapshot.state.outcome==='open','DEPLOYMENT_MISMATCH','On-chain spot does not match the published offer');
-   bound.push({...spot,contractId:entry.contractId,codeHash:snapshot.codeHash});
+    &&(snapshot.mode==='hub'?snapshot.state.next_price===hubPriceAtRound(spot.priceCents,snapshot.state.round):(snapshot.state.round==='0'&&snapshot.state.next_price===(uint(spot.priceCents)*10000n).toString()&&snapshot.state.outcome==='open')),'DEPLOYMENT_MISMATCH','On-chain spot does not match the published offer');
+   bound.push({...spot,contractId:entry.contractId,codeHash:snapshot.codeHash,...(snapshot.offerId?{mode:'hub',offerId:snapshot.offerId,hubId:snapshot.receiverId}:{} )});
   }
   return this.store.transaction(()=>{
    for(const other of this.store.list('sale',sale.owner).filter(s=>s.status==='published'&&s.assetId===sale.assetId)){
@@ -164,7 +166,9 @@ export class Marketplace {
  }
  async placementIssue(actor,contractId,{reason,mediaId}){
   const wallet=walletId(actor),s=await this.chain.snapshot(contractId);
-  assert([s.state.seller_id,s.state.holder?.account_id,s.rights.current_owner_id].includes(wallet),'NOT_FOUND','Placement not found for issue review',404);
+  const participant=s.mode==='hub'?await this.chain.reads.view(s.receiverId,'is_participant',{offer_id:s.offerId,account_id:wallet}):[s.state.seller_id,s.state.holder?.account_id,s.rights.current_owner_id].includes(wallet);
+  assert(participant,'NOT_FOUND','Placement not found for issue review',404);
+  assert(s.mode!=='hub'||(s.state.outcome==='open'&&BigInt(s.state.refund_end_ns)>BigInt(this.now())*1000000n),'REVIEW_CLOSED','The campaign issue review period has ended');
   const media=owned(this.store,'media',mediaId,wallet);assert(media.status==='verified','UNVERIFIED_EVIDENCE','Public issue evidence must be verified');
   return this.store.insert('issue',randomUUID(),wallet,{contractId,reason:text(reason,'issue reason',2000),mediaId,evidenceSha256:media.sha256,status:'awaiting-arbiter'});
  }

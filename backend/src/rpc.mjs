@@ -21,7 +21,7 @@ export class Rpc {
 }
 
 const VIEWS=new Set(['get_config','get_creation','get_state','get_campaign','get_credit','get_withdrawal','get_placement_rights','get_artwork','nft_token',
-  'is_invoice_used','mt_balance_of','storage_balance_of','storage_balance_bounds','ft_balance_of','fee','pa_all_paused']);
+  'get_totals','get_sponsor_usage','get_offer_exists','is_participant','is_invoice_used','mt_balance_of','storage_balance_of','storage_balance_bounds','ft_balance_of','fee','pa_all_paused']);
 export class NearReads {
   constructor(rpc,{network='mainnet',now=Date.now}={}){this.rpc=rpc;this.network=network;this.now=now;}
   async block(){return this.rpc.call('block',{finality:'final'});}

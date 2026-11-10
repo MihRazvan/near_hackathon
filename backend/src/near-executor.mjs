@@ -2,7 +2,7 @@ import { actions, createTransaction, baseEncode, baseDecode, SignedTransaction }
 import { assert, uint, sha256, hashObject } from './core.mjs';
 import { successfulNearOutcome, nearBurn, effectiveCodeHash } from './rpc.mjs';
 
-const CALLS=new Set(['new_campaign','execute_intents','storage_deposit','release_credit','finalize_failure','finalize_success',
+const CALLS=new Set(['new','create_offer','open_issue','fund_sponsor_pool','withdraw_sponsor_pool','cancel_empty_offer','reclaim_storage_reserve','new_campaign','execute_intents','storage_deposit','release_credit','finalize_failure','finalize_success',
   'accept_nft_nomination','mint_final_placement','submit_artwork','lock_artwork','submit_delivery_proof','record_issue_decision','nft_transfer','ft_transfer_call','mt_transfer','mt_transfer_call','ft_withdraw','create_campaign']);
 const ZERO='11111111111111111111111111111111';
 export function gasReservation(plan,protocol,gasInfo){

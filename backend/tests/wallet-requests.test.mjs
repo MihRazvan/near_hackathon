@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { Store } from '../src/store.mjs';
 import { WalletRequests } from '../src/wallet-requests.mjs';
 
+test('an explicit rejected payment releases its unused campaign commitment while unknown sends retain it',()=>{
+ const store=new Store(),actor='owner.near',service=new WalletRequests({store});
+ try{
+  store.insert('intent','quote',actor,{plan:{},status:'prepared'});store.insert('booking','booking',actor,{planId:'quote',status:'prepared',amount:'10000'});
+  const request=service.begin(actor,{kind:'intent',planId:'quote'});service.dispatch(actor,request.id);
+  assert.throws(()=>service.reject(actor,request.id,{code:'TIMEOUT'}),{code:'UNKNOWN_WALLET_RESULT'});assert.equal(store.get('booking','booking').status,'prepared');
+  service.reject(actor,request.id,{code:4001});assert.equal(store.get('booking','booking').status,'cancelled-before-send');
+ }finally{store.close();}
+});
+
 test('wallet requests survive switching and unknown outcomes; only an explicit pre-send rejection permits a fresh request',async()=>{
  const store=new Store(),a='seller.near',b='other.near';let calls=0;
  const service=new WalletRequests({store,nativeActions:{confirm:async()=>{calls++;return {status:'confirmed'};}}});

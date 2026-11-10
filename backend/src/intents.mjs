@@ -1,3 +1,4 @@
+import { receiver, offerArgs } from './hub.mjs';
 import { randomBytes } from 'node:crypto';
 import { recoverMessageAddress } from 'viem';
 import { baseEncode } from 'near-api-js';
@@ -45,11 +46,11 @@ export function purchasePlan({snapshot,buyerId,invoiceId,asset,now=Date.now()}) 
   assert(typeof invoiceId==='string'&&invoiceId.length>0&&Buffer.byteLength(invoiceId)<=64,'INVALID_INVOICE','Invoice id required',400);
   const amount=uint(state.next_price).toString();
   assert(amount!=='0'&&BigInt(amount)%10000n===0n,'INVALID_PRICE','Placement price must be whole cents');
-  const message=JSON.stringify({invoice_id:invoiceId,expected_round:state.round,published_terms_sha256:terms.published_terms_sha256});
+  const message=JSON.stringify(offerArgs(snapshot,{invoice_id:invoiceId,expected_round:state.round,published_terms_sha256:terms.published_terms_sha256}));
   const expiresMs=Math.min(now+120000,Number(BigInt(terms.bidding_close_ns)/1000000n)-5000);
   return intentPlan({signerId:buyer,verifier:state.intents_contract_id,now,expiresMs,
-    intents:[{intent:'transfer',receiver_id:snapshot.accountId,tokens:{[asset]:amount},msg:message,min_gas:'25000000000000'}],
-    context:{kind:'purchase',contractId:snapshot.accountId,codeHash:snapshot.codeHash,invoiceId,expectedRound:state.round,
+    intents:[{intent:'transfer',receiver_id:receiver(snapshot),tokens:{[asset]:amount},msg:message,min_gas:'25000000000000'}],
+    context:{kind:'purchase',contractId:snapshot.accountId,...(snapshot.offerId?{offerId:snapshot.offerId,receiverId:receiver(snapshot)}:{}),codeHash:snapshot.codeHash,invoiceId,expectedRound:state.round,
       amount,publishedTermsHash:terms.published_terms_sha256}});
 }
 

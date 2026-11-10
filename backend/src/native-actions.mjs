@@ -1,3 +1,5 @@
+import { hubNativePlan } from './hub-actions.mjs';
+import { receiver } from './hub.mjs';
 import { assert, walletId, uint, hashObject } from './core.mjs';
 import { successfulNearOutcome } from './rpc.mjs';
 import { effectiveCodeHash } from './rpc.mjs';
@@ -15,7 +17,7 @@ export class NativeActions {
   assert(s.state.round===original.context.expectedRound&&s.state.next_price===original.context.amount,'PRICE_CHANGED','Refresh and prepare a booking at the current price');
   const body={schema:'everywhere-native-action/v1',wallet:actor,contractId:booking.contractId,codeHash:this.config.assets.intentsCodeHash,kind:'purchase',bookingId,purchasePlanId:booking.planId,
    createdAt:new Date(this.now()).toISOString(),expiresAt:original.expiresAt,transaction:{signerId:actor,receiverId:this.config.assets.intentsId,actions:[{type:'FunctionCall',params:{
-    methodName:'mt_transfer_call',args:{receiver_id:booking.contractId,token_id:this.config.assets.nearAsset,amount:original.context.amount,approval:null,memo:null,msg:transfer.msg},gas:'80000000000000',deposit:'1'}}]}};
+    methodName:'mt_transfer_call',args:{receiver_id:receiver(s),token_id:this.config.assets.nearAsset,amount:original.context.amount,approval:null,memo:null,msg:transfer.msg},gas:'80000000000000',deposit:'1'}}]}};
   const plan={...body,planId:hashObject(body)};this.store.insert('native-plan',plan.planId,actor,{plan,status:'prepared'});
   this.store.update('booking',bookingId,actor,booking.version,{...booking,nativePlanId:plan.planId});return plan;
  }
@@ -49,7 +51,9 @@ export class NativeActions {
   const plan={...body,planId:hashObject(body)};this.store.insert('native-plan',plan.planId,actor,{plan,status:'prepared'});return plan;
  }
  async prepare(wallet,{contractId,kind,mediaId,expectedRevision,receiverId,caseId,open}){
-  const actor=walletId(wallet);assert(!actor.startsWith('0x'),'NEAR_WALLET_REQUIRED','Connect the NEAR wallet that owns this placement or role',400);
+  const actor=walletId(wallet);
+  if(this.store.get('deployment',contractId)?.mode==='hub'){const plan=await hubNativePlan({store:this.store,reads:this.reads,snapshot:await this.chain.snapshot(contractId),wallet:actor,input:{contractId,kind,mediaId,expectedRevision,receiverId,caseId,open},now:this.now()});this.store.insert('native-plan',plan.planId,actor,{plan,status:'prepared'});return plan;}
+  assert(!actor.startsWith('0x'),'NEAR_WALLET_REQUIRED','Connect the NEAR wallet that owns this placement or role',400);
   const s=await this.chain.snapshot(contractId),state=s.state,rights=s.rights;
   let method,args={},deposit='0';const gas='25000000000000';
   const seller=()=>assert(actor===state.seller_id,'SELLER_REQUIRED','Only the published seller can prepare this action',403);

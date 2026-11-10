@@ -16,6 +16,8 @@ export class WalletRequests {
   assert(table,'INVALID_REQUEST','Choose a known wallet action',400);
   const plan=this.store.get(table,planId);assert(plan?.owner===actor,'NOT_FOUND','Wallet plan not found',404);
   assert(plan.status==='prepared','PLAN_SUBMITTED','Reconcile the original wallet action before starting another');
+  const publication=kind==='publication'?plan.plan:kind==='intent'&&plan.plan.context?.kind==='publish'?this.store.get('publication-plan',plan.plan.context.publicationPlanId)?.plan:null;
+  if(publication){const sale=this.store.get('sale',publication.saleId);assert(sale?.owner===actor&&sale.status==='draft'&&sale.version===publication.saleVersion,'SALE_CHANGED','This publication review was replaced by newer sale details. Review the current listing before publishing');}
   return this.store.transaction(()=>{
    const pending=this.store.list('wallet-request',actor).filter(r=>!['rejected','confirmed','failed'].includes(r.status));
    const same=pending.find(r=>r.kind===kind&&r.planId===planId);if(same)return {...same,dispatchAllowed:false};
@@ -27,7 +29,14 @@ export class WalletRequests {
   const r=this.owned(wallet,id);
   assert(code===4001,'UNKNOWN_WALLET_RESULT','Only an explicit wallet rejection releases the request');
   assert(r.status==='requested'&&!r.transactionHash&&!r.signedTransaction,'ALREADY_SENT','Signed or submitted actions require reconciliation');
-  return this.store.update('wallet-request',id,r.owner,r.version,{...r,status:'rejected'});
+  return this.store.transaction(()=>{
+   const result=this.store.update('wallet-request',id,r.owner,r.version,{...r,status:'rejected'});
+   for(const b of this.store.list('booking',r.owner).filter(b=>b.status==='prepared'&&(b.planId===r.planId||b.nativePlanId===r.planId))){
+    const intent=this.store.get('intent',b.planId);
+    if(!b.operationId&&!intent?.operationId&&!this.store.operation('relay-'+b.planId))this.store.update('booking',b.id,b.owner,b.version,{...b,status:'cancelled-before-send'});
+   }
+   return result;
+  });
  }
  cancelUnsent(wallet,id){
   const r=this.owned(wallet,id);assert(r.status==='requested'&&!r.dispatched&&!r.transactionHash,'RECONCILIATION_REQUIRED','The original wallet was already opened; reconcile it before starting again');
@@ -94,7 +103,7 @@ export class WalletRequests {
   let result;
   if(r.kind==='intent'){
    const plan=this.store.get('intent',r.planId),operationId=plan.operationId??this.chain.store.operation('relay-'+r.planId)?.id,op=operationId&&await this.chain.near.reconcile(operationId);
-   if(op){this.chain.updateIntentOutcome(r.planId,op);result={status:['confirmed','failed'].includes(op.phase)?op.phase:'submitted',transactionHash:op.transaction_hash};
+   if(op){this.chain.updateIntentOutcome(r.planId,op);if(plan.plan.context.kind==='publish')await this.publication.confirmIntent(r.owner,plan.plan.context.publicationPlanId,op);result={status:['confirmed','failed'].includes(op.phase)?op.phase:'submitted',transactionHash:op.transaction_hash};
     if(['confirmed','failed'].includes(op.phase))for(const b of this.store.list('booking',r.owner).filter(b=>b.planId===r.planId&&['prepared','submitted'].includes(b.status))){
      const accepted=op.phase==='confirmed'&&this.chain.purchaseAccepted(plan.plan,op),status=op.phase==='failed'?'failed':accepted?'accepted':'rejected';
      this.store.update('booking',b.id,r.owner,b.version,{...b,status,accepted,operationId:op.id});

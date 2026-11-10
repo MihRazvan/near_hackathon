@@ -1,3 +1,4 @@
+import { HubPublication } from './hub-publication.mjs';
 import { assert, hashObject, walletId, uint } from './core.mjs';
 import { effectiveCodeHash, successfulNearOutcome } from './rpc.mjs';
 
@@ -11,6 +12,7 @@ export function verifyWalletCall(outcome,transaction,hash){
 export class Publication {
  constructor({store,reads,config,marketplace,now=Date.now}){Object.assign(this,{store,reads,config,marketplace,now});}
  async prepare(wallet,saleId){
+  if(this.config.hub)return new HubPublication(this).prepare(wallet,saleId);
   const actor=walletId(wallet),sale=this.store.get('sale',saleId),factory=this.config.factory;
   assert(sale?.owner===actor,'NOT_FOUND','Owner sale not found',404);
   assert(factory,'FACTORY_UNAVAILABLE','A qualified campaign factory has not been configured',503);
@@ -33,7 +35,9 @@ export class Publication {
   }
   return {saleId,publication,plans};
  }
+ async confirmIntent(wallet,id,operation){return new HubPublication(this).confirmIntent(wallet,id,operation);}
  async confirm(wallet,id,transactionHash){
+  if(this.store.get('publication-plan',id)?.plan.mode==='hub')return new HubPublication(this).confirm(wallet,id,transactionHash);
   const actor=walletId(wallet);let record=this.store.get('publication-plan',id);
   assert(record?.owner===actor,'NOT_FOUND','Publication action not found',404);
   assert(typeof transactionHash==='string'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(transactionHash),'INVALID_TRANSACTION','NEAR transaction hash required',400);
