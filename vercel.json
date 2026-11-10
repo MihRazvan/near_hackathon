@@ -6,5 +6,11 @@
   "buildCommand": "npm run build --prefix prototype",
   "outputDirectory": "prototype/dist",
   "devCommand": "npm run dev --prefix prototype",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "redirects": [
+    {
+      "source": "/:path*",
+      "destination": "https://web-production-3ff8f.up.railway.app/:path*",
+      "permanent": false
+    }
+  ]
 }
