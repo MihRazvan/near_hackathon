@@ -20,7 +20,7 @@ function fixture({ path, batchSize = 5, patch = {} } = {}) {
     store.insert('sale', saleId, owner, { status, spots: [spot], publication: { manifest: { saleId, sellerId: owner }, terms: [terms] } });
     store.insert('spot-index', id, owner, { saleId, spotId });
     store.insert('deployment', id, owner, { mode, offerId: id, hubId: config.hub.accountId, codeHash: config.hub.codeHash, terms, arbiterId: 'arbiter.near' });
-    const snapshot = { qualified: true, mode, accountId: id, offerId: id, receiverId: config.hub.accountId, codeHash: config.hub.codeHash, blockTimestampNs: '300', state: { offer_id: id, receiver_id: config.hub.accountId, seller_id: owner, arbiter_id: 'arbiter.near', outcome: 'open', holder: { account_id: 'buyer.near' }, nft_minted: false, artwork_locked: true, cutoff_ns: '100', refund_end_ns: '200' }, campaign: { terms, delivery_proof: { artifact_uri: 'ipfs://proof' }, open_issues: 0 } };
+    const snapshot = { qualified: true, mode, accountId: id, offerId: id, receiverId: config.hub.accountId, codeHash: config.hub.codeHash, blockTimestampNs: '300', blockHash:'1'.repeat(32),blockHeight:42, state: { offer_id: id, receiver_id: config.hub.accountId, seller_id: owner, arbiter_id: 'arbiter.near', outcome: 'open', holder: { account_id: 'buyer.near' }, nft_minted: false, artwork_locked: true, cutoff_ns: '100', refund_end_ns: '200' }, campaign: { terms, delivery_proof: { artifact_uri: 'ipfs://proof' }, open_issues: 0 } };
     snapshots ??= new Map(); snapshots.set(id, snapshot); return snapshot;
   }
   const snapshot = addOffer();
@@ -219,4 +219,36 @@ test('a storage-recovery timeout retains its original operation across restart e
     f.snapshot.state.storage_reclaimed=true;const next=f.restart();f.advance();await next.tick();assert.equal(f.reconciliations,1);assert.equal(f.calls.length,1);assert.equal(f.store.operation(id).phase,'broadcast-unknown');
     f.store.transition(id,['broadcast-unknown'],'confirmed');f.advance();await next.tick();assert.equal(f.calls.length,1);assert.equal(f.store.operation(id).transaction_hash,'original-1');
   } finally { f.close(); }
+});
+
+
+test('qualified fully paid reclaimed offers stop chain reads across keeper and database restarts',async()=>{
+ const folder=mkdtempSync(join(tmpdir(),'keeper-complete-')),path=join(folder,'state.sqlite'),f=fixture({path});let reopened,worker;
+ try{closedOffer(f);f.snapshot.state.storage_reclaimed=true;await f.keeper.tick();assert.equal(f.reads,1);assert.equal(f.calls.length,0);const job=f.store.list('keeper-offer')[0];assert.equal(job.phase,'complete');assert.equal(job.completion.blockHash,f.snapshot.blockHash);assert.equal(job.completion.total_received,'30000');
+  f.advance();await f.keeper.tick();assert.equal(f.reads,1);const next=f.restart();f.advance(60000);await next.tick();assert.equal(f.reads,1);assert.equal(f.calls.length,0);next.stop();
+  reopened=new Store(path);worker=productionKeeper({store:reopened,chain:f.chain,config:f.config,now:()=>2000000,intervalMs:10000});await worker.tick();assert.equal(f.reads,1);assert.equal(reopened.list('keeper-offer')[0].phase,'complete');
+ }finally{worker?.stop();reopened?.close();f.close();rmSync(folder,{recursive:true,force:true});}
+});
+
+test('pending funds, partial payment, missing reclamation and nonterminal outcomes never become complete',async()=>{
+ for(const patch of [{total_pending:'1'},{total_withdrawn:'29999'},{storage_reclaimed:false},{outcome:'open'}]){const f=fixture();
+  try{closedOffer(f);Object.assign(f.snapshot.state,{storage_reclaimed:true},patch);if(patch.outcome==='open')f.snapshot.blockTimestampNs='199';await f.keeper.tick();assert.notEqual(f.store.list('keeper-offer')[0]?.phase,'complete');f.advance();await f.keeper.tick();assert.equal(f.reads,2);
+  }finally{f.close();}
+ }
+});
+
+test('a naked complete flag or altered published source cannot suppress finalized qualification',async()=>{
+ const f=fixture();
+ try{closedOffer(f);f.snapshot.state.storage_reclaimed=true;await f.keeper.tick();let job=f.store.list('keeper-offer')[0];f.store.update('keeper-offer',job.id,job.owner,job.version,{...job,completion:null});f.advance();await f.keeper.tick();assert.equal(f.reads,2);assert.equal(f.store.list('keeper-offer')[0].phase,'complete');
+  job=f.store.list('keeper-offer')[0];f.store.update('keeper-offer',job.id,job.owner,job.version,{...job,completion:{...job.completion,scope:'another-signer-scope'}});f.advance();await f.keeper.tick();assert.equal(f.reads,3);
+  const deployment=f.store.get('deployment',OFFER),sale=f.store.list('sale')[0],terms={...deployment.terms,service_end_ns:'151'};f.store.update('deployment',deployment.id,deployment.owner,deployment.version,{...deployment,terms});f.store.update('sale',sale.id,sale.owner,sale.version,{...sale,publication:{...sale.publication,terms:[terms]}});f.snapshot.campaign.terms=terms;f.advance();await f.keeper.tick();assert.equal(f.reads,4);assert.equal(f.store.list('keeper-offer')[0].phase,'complete');
+ }finally{f.close();}
+});
+
+test('original unknown operations reconcile before even valid completion evidence can skip reads',async()=>{
+ const f=fixture();
+ try{f.dispatch('broadcast-unknown');await f.keeper.tick();const original=f.calls[0].id;f.store.transition(original,['broadcast-unknown'],'confirmed');closedOffer(f);f.snapshot.state.storage_reclaimed=true;f.advance();await f.keeper.tick();assert.equal(f.store.list('keeper-offer')[0].phase,'complete');
+  // Recreate the durable unresolved original state to exercise recovery ordering.
+  f.store.db.prepare("UPDATE operations SET phase='broadcast-unknown' WHERE id=?").run(original);const reads=f.reads;const next=f.restart();f.advance();await next.tick();assert.equal(f.reconciliations,1);assert.equal(f.reads,reads);assert.equal(f.calls.length,1);assert.equal(f.store.list('keeper-offer')[0].phase,'broadcast-unknown');
+ }finally{f.close();}
 });

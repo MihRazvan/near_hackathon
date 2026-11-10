@@ -70,6 +70,32 @@ export function productionKeeper({ store, chain, config, now = Date.now, interva
   function qualifies(snapshot, published, id) {
     return snapshot.qualified === true && snapshot.mode === 'hub' && snapshot.accountId === id && snapshot.offerId === id && snapshot.receiverId === config.hub.accountId && snapshot.codeHash === config.hub.codeHash && snapshot.state.offer_id === id && snapshot.state.receiver_id === config.hub.accountId && snapshot.state.seller_id === published.sale.owner && snapshot.state.arbiter_id === published.deployment.arbiterId && hashObject(snapshot.campaign.terms) === hashObject(published.deployment.terms);
   }
+  function completionBinding(published,id) {
+    return hashObject({scope,offerId:id,saleId:published.sale.id,seller:published.sale.owner,arbiter:published.deployment.arbiterId,
+      sourceVersion:published.sale.publication.saleVersion??null,terms:published.deployment.terms,spot:published.spot});
+  }
+  function fullyComplete(state) {
+    return ['success','failure'].includes(state.outcome)&&state.storage_reclaimed===true
+      &&uint(state.total_received)===uint(state.total_withdrawn)&&uint(state.total_pending)===0n;
+  }
+  function completionEvidence(snapshot,published,id) {
+    assert(typeof snapshot.blockHash==='string'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(snapshot.blockHash)
+      &&Number.isSafeInteger(snapshot.blockHeight)&&snapshot.blockHeight>=0&&uint(snapshot.blockTimestampNs)>0n,
+      'KEEPER_FINALITY_REQUIRED','Completion requires qualified finalized block evidence');
+    return {schema:'everywhere-keeper-completion/v1',scope,offerId:id,binding:completionBinding(published,id),qualified:true,
+      blockHash:snapshot.blockHash,blockHeight:snapshot.blockHeight,blockTimestampNs:snapshot.blockTimestampNs,
+      outcome:snapshot.state.outcome,total_received:snapshot.state.total_received,total_withdrawn:snapshot.state.total_withdrawn,
+      total_pending:snapshot.state.total_pending,storage_reclaimed:true};
+  }
+  function completedJob(job,published,id) {
+    const proof=job?.completion;
+    if(job?.phase!=='complete'||job.owner!==config.treasury||job.offerId!==id||proof?.schema!=='everywhere-keeper-completion/v1'
+      ||proof.scope!==scope||proof.offerId!==id||proof.binding!==completionBinding(published,id)||proof.qualified!==true)return false;
+    try {
+      return typeof proof.blockHash==='string'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(proof.blockHash)
+        &&Number.isSafeInteger(proof.blockHeight)&&proof.blockHeight>=0&&uint(proof.blockTimestampNs)>0n&&fullyComplete(proof);
+    }catch{return false;}
+  }
   function actionFor(snapshot) {
     const t = uint(snapshot.blockTimestampNs, 'finalized chain timestamp'), state = snapshot.state, campaign = snapshot.campaign;
     if (state.holder && state.outcome !== 'failure' && !state.nft_minted && t >= uint(state.cutoff_ns)) return { action: 'mint', method: 'mint_final_placement', gas: '50000000000000' };
@@ -83,19 +109,21 @@ export function productionKeeper({ store, chain, config, now = Date.now, interva
     const published = publishedOffer(id);
     if (!published) return 'skipped';
     let job = store.get('keeper-offer', jobId(id));
-    if ((job?.nextCheckAt ?? 0) > now()) return 'deferred';
     const original = job?.operationId && store.operation(job.operationId);
     if (original && !TERMINAL.has(original.phase)) {
       // Always reconcile the original, even if a different on-chain stage is now
       // visible. An unknown receipt must never produce a replacement operation.
-      assert(original.kind === 'near' && original.plan.signerId === config.treasury && original.plan.receiverId === config.hub.accountId && original.plan.expectedReceiverCodeHash === config.hub.codeHash, 'KEEPER_OPERATION_CHANGED', 'Keeper operation differs from its pinned relayer');
+      assert(original.kind === 'near' && original.plan.signerId === config.treasury && original.plan.receiverId === config.hub.accountId && original.plan.expectedReceiverCodeHash === config.hub.codeHash&&original.plan.actions?.length===1&&original.plan.actions[0].args?.offer_id===id&&original.plan.actions[0].deposit==='0', 'KEEPER_OPERATION_CHANGED', 'Keeper operation differs from its pinned relayer');
       const operation = await chain.near.reconcile(original.id);
       if (ownsLease()) saveJob(id, { phase: operation.phase, nextCheckAt: now() + intervalMs });
       return 'reconciled';
     }
+    if(completedJob(job,published,id))return 'complete';
+    if ((job?.nextCheckAt ?? 0) > now()) return 'deferred';
     const snapshot = await chain.snapshot(id);
     assert(ownsLease(), 'KEEPER_LEASE_LOST', 'Keeper lease expired while reading the offer');
     assert(qualifies(snapshot, published, id), 'KEEPER_SCOPE_CHANGED', 'Keeper can only maintain the published qualified offer');
+    if(fullyComplete(snapshot.state)){saveJob(id,{offerId:id,phase:'complete',completion:completionEvidence(snapshot,published,id),failures:0,nextCheckAt:0});return 'complete';}
     // The qualified finalized block, rather than wall time, authorizes each stage.
     const next = actionFor(snapshot);
     if (!next) {
