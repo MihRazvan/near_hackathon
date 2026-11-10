@@ -20,6 +20,7 @@
     "viem": "2.57.17"
   },
   "devDependencies": {
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "playwright": "1.65.0"
   }
 }

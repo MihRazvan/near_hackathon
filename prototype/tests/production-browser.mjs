@@ -1,0 +1,91 @@
+import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+export async function productionBrowser({page,wallets,getHarness,restart}){
+ const base=getHarness().config.origin,checks=[],errors=[],signed=[];
+ checks.push=(...items)=>{for(const item of items)console.log('[production-browser]',item);return Array.prototype.push.apply(checks,items);};
+ const addresses=Object.fromEntries(Object.entries(wallets).map(([k,w])=>[k,w.address.toLowerCase()]));
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.context().route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort('blockedbyclient'));
+ await page.exposeBinding('__fixtureWalletRequest',async(_,{method,params,active,reject})=>{
+  const account=wallets[active];assert(account,'Unknown isolated test wallet');
+  if(['eth_accounts','eth_requestAccounts'].includes(method))return [account.address.toLowerCase()];
+  if(method==='eth_chainId')return '0x2105';
+  if(method==='personal_sign'){
+   if(reject)return {fixtureError:{code:4001,message:'User rejected the wallet request.'}};
+   assert.equal(params[1].toLowerCase(),account.address.toLowerCase());signed.push({wallet:active,bytes:params[0].length});return account.signMessage({message:{raw:params[0]}});
+  }
+  throw new Error('Unexpected external wallet operation: '+method);
+ });
+ await page.addInitScript(({addresses})=>{
+  const listeners=new Map();let active=sessionStorage.getItem('qualification-wallet')||'owner';
+  window.__selectQualificationWallet=label=>{active=label;sessionStorage.setItem('qualification-wallet',label);for(const cb of listeners.get('accountsChanged')??[])cb([addresses[label]]);};
+  window.__rejectNextQualificationSignature=false;
+  window.ethereum={request:async({method,params})=>{const reject=method==='personal_sign'&&window.__rejectNextQualificationSignature;if(reject)window.__rejectNextQualificationSignature=false;
+   const result=await window.__fixtureWalletRequest({method,params,active,reject});if(result?.fixtureError)throw Object.assign(new Error(result.fixtureError.message),{code:result.fixtureError.code});return result;},
+   on:(name,cb)=>{if(!listeners.has(name))listeners.set(name,new Set());listeners.get(name).add(cb);},removeListener:(name,cb)=>listeners.get(name)?.delete(cb)};
+ },{addresses});
+ const idle=()=>page.waitForFunction(()=>!document.body.classList.contains('connected-busy'),null,{timeout:180000});
+ async function go(path){await page.goto(base+path);await page.waitForFunction(()=>document.querySelector('#main')&&!document.body.textContent.includes('Connecting your workspace.'),null,{timeout:60000});await idle();}
+ async function clean(){const notice=page.locator('#connected-notice.orange:visible');if(await notice.count())throw new Error(await notice.innerText());}
+ async function submit(name,{expectedError=false}={}){await page.locator(`form[data-live-form="${name}"] button[type=submit]`).click();await idle();if(!expectedError)await clean();}
+ async function act(name,{expectedError=false}={}){await page.locator(`[data-live-action="${name}"]`).first().click();await idle();if(!expectedError)await clean();}
+ async function connect(label){await go('/settings/wallets');await page.evaluate(label=>window.__selectQualificationWallet(label),label);await sleep(400);await page.locator('[data-live-action="connect-evm"][data-id="injected"]').click();await idle();await clean();assert.equal(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('everywhere-connected-session-v1')).wallet),addresses[label]);checks.push('External EVM sign-in: '+label);}
+ async function waitFor(fn,label){for(let i=0;i<180;i++){if(await fn())return;await sleep(200);}throw new Error('Timed out: '+label);}
+ async function snapshot(contract){const h=getHarness();for(let i=0;i<30;i++){await h.clock.refresh();try{return await h.chain.snapshot(contract);}catch(error){if(error.code!=='STALE_BLOCK')throw error;await sleep(200);}}throw new Error('Sandbox finalized clock did not stabilize');}
+ await go('/');const config=await page.evaluate(async()=>fetch('/api/config').then(r=>r.json()));assert.equal(config.production,true);assert.equal(config.publicationMode,'hub');assert.equal(config.sandbox,false);assert.deepEqual(config.wallets,[]);assert.deepEqual(config.developmentWallets,[]);
+ for(const path of ['/api/lab-config','/api/funded-wallet/sign-in','/lab']){const status=await page.evaluate(async path=>(await fetch(path,{method:path.includes('sign-in')?'POST':'GET',headers:{'Content-Type':'application/json'},...(path.includes('sign-in')?{body:'{}'}:{})})).status,path);assert.equal(status,404,path);}
+ assert.equal(await page.locator('a[href="/_screens"]').count(),0);checks.push('Production configuration, external wallets only, no lab/funded routes or product-map links');
+ await connect('owner');await go('/host/assets/new');
+ if(await page.locator('[name=method]').count())await page.locator('[name=method]').selectOption('manual');
+ await page.locator('[name=title]').fill('Synthetic shared-hub qualification van');await page.locator('[name=city]').fill('Bucharest');await page.locator('[name=description]').fill('Synthetic browser regression vehicle. No physical advertisement is installed.');await submit('asset-create');
+ const assetId=new URL(page.url()).pathname.split('/')[3];await page.locator('[name=reviewed]').check();await page.locator('[name="price:spot-1"]').fill('0.01');await submit('asset-edit');assert.match(page.url(),/\/host\/sales\/new/);checks.push('Owner created a real persisted asset and reviewed editable geometry');
+ await page.locator('[name=title]').fill('One-cent production browser campaign');const details=page.locator('details').filter({has:page.locator('[name=biddingClose]')});await details.locator('summary').click();
+ const start=Math.ceil(getHarness().clock.now()/60000)*60000+5*60000,steps={biddingClose:start,artworkDue:start+5*60000,installationDue:start+10*60000,serviceStart:start+10*60000,serviceEnd:start+15*60000,reviewEnd:start+20*60000};
+ for(const [name,ms]of Object.entries(steps)){const value=await page.evaluate(ms=>{const d=new Date(ms);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);},ms);await page.locator(`[name="${name}"]`).fill(value);}
+ await page.locator('[name=customMilestones]').check();await page.locator('[name="price:spot-1"]').fill('0.01');await submit('sale-edit');const saleId=new URL(page.url()).pathname.split('/')[3];
+ await act('publish');await waitFor(()=>getHarness().store.get('sale',saleId)?.status==='published','published sale');
+ const sale=getHarness().store.get('sale',saleId),contract=sale.spots[0].contractId,ownerBalanceBefore=await getHarness().reads.view('verifier.sandbox','mt_balance_of',{account_id:addresses.owner,token_id:'nep141:usdc.sandbox'});
+ assert.equal(ownerBalanceBefore,'0','a fresh zero-USDC owner must not need an Intents deposit to publish');assert.match(contract,/^offer-/);assert.equal((await snapshot(contract)).state.seller_id,addresses.owner);assert.equal(getHarness().store.list('publication-plan')[0].plan.storageDeposit,'0');checks.push('EVM owner published sponsored shared-hub offer with actual verified ERC191 Intents and zero owner NEAR or USDC');
+ async function book(label,{reject=false,interrupt=false}={}){
+  await connect(label);await go('/checkout/'+saleId+'?spot=spot-1');
+  const form=page.locator('form[data-live-form=prepare-booking]');if(await form.locator('details:not([open])').count())await form.locator('details:not([open]) summary').click();
+  await form.locator('[name=name]').fill(label+' synthetic campaign');await form.locator('[name=budget]').fill('0.10');await form.locator('[name=rules]').check();
+  if(reject)await page.evaluate(()=>window.__rejectNextQualificationSignature=true);
+  if(interrupt)await page.route('**/api/wallet-requests/*/submit',async route=>{await route.fetch();await route.abort('failed');},{times:1});
+  await submit('prepare-booking',{expectedError:reject||interrupt});const bookingId=new URL(page.url()).pathname.split('/')[2];
+  if(reject){assert.equal((await snapshot(contract)).state.round,'0');checks.push('Rejected wallet payment sent no purchase; subsequent UI retry remained possible');await go('/checkout/'+saleId+'?spot=spot-1');await page.locator('[name=rules]').check();await submit('prepare-booking');return new URL(page.url()).pathname.split('/')[2];}
+  if(interrupt){await restart();await go('/account/recovery');if(await page.locator('[data-live-action=recover-all]').count())await act('recover-all');checks.push('API restarted with SQLite session/journal after lost payment response; recovered original operation');}
+  await waitFor(()=>getHarness().store.get('booking',bookingId)?.accepted===true,label+' accepted booking');return bookingId;
+ }
+ const aBooking=await book('a',{reject:true});await waitFor(()=>getHarness().store.get('booking',aBooking)?.accepted===true,'Buyer A accepted');assert.equal((await snapshot(contract)).state.round,'1');
+ const bBooking=await book('b',{interrupt:true});assert.equal((await snapshot(contract)).state.round,'2');checks.push('Buyer A booked 0.01 USDC; distinct Buyer B took over for 0.02 USDC');
+ await getHarness().advance(steps.biddingClose+3000);await getHarness().keeper.tick();await waitFor(async()=>(await snapshot(contract)).state.nft_minted,'automatic final NFT mint');assert.equal((await snapshot(contract)).rights.current_owner_id,addresses.b);checks.push('Actual qualified background keeper minted final NFT directly to the EVM final buyer');
+ await go('/buy/placements/'+bBooking);await page.locator('form[data-live-form=artwork] [name=notes]').fill('Synthetic ad artwork: ACME browser qualification only.');await page.locator('form[data-live-form=artwork] [name=public]').check();await submit('artwork');await waitFor(async()=>!!(await snapshot(contract)).rights.proposal,'artwork receipt');checks.push('Buyer B uploaded digest-verified text artwork through production UI and real signed hub action');
+ await connect('owner');await go('/host/sales/'+saleId+'/fulfillment?contract='+contract);await act('lock-artwork');await waitFor(async()=>(await snapshot(contract)).state.artwork_locked,'owner artwork lock');
+ await page.locator('form[data-live-form=delivery-proof] [name=notes]').fill('Synthetic installation evidence. No vehicle, sticker or physical campaign exists.');await page.locator('form[data-live-form=delivery-proof] [name=public]').check();await submit('delivery-proof');await waitFor(async()=>!!(await snapshot(contract)).campaign.delivery_proof,'owner delivery proof');checks.push('Owner approved exact artwork and submitted digest-verified installation evidence through production UI');
+ await connect('b');await go('/support/new?booking='+bBooking);await page.locator('[name=reason]').fill('Synthetic issue to prove settlement is blocked until arbiter review.');await page.locator('form[data-live-form=issue] [name=notes]').fill('Synthetic public issue evidence.');await page.locator('form[data-live-form=issue] [name=public]').check();await submit('issue');const caseId=new URL(page.url()).pathname.split('/').at(-1);await waitFor(async()=>(await snapshot(contract)).campaign.open_issues===1,'on-chain participant issue');
+ await getHarness().advance(steps.reviewEnd+3000);await getHarness().keeper.tick();assert.equal((await snapshot(contract)).state.outcome,'open');checks.push('Participant-signed on-chain issue blocked automatic success after service and review');
+ // Native arbiter exercises the real authenticated API and real NEP-413 and NEAR
+ // signatures. The Meteor UI itself is outside this injected EVM-provider run.
+ const h=getHarness(),cookie=await h.nativeSession('arbiter.sandbox');
+ const {value:media}=await h.api('media',{base64:Buffer.from('Synthetic arbiter resolution evidence.').toString('base64'),mime:'text/plain',publicContentAcknowledged:true},cookie);
+ const {value:plan}=await h.api('native-actions',{contractId:contract,kind:'issue-decision',caseId,open:false,mediaId:media.id},cookie);
+ const p=plan.transaction.actions[0].params,sent=await h.direct('arbiter.sandbox',plan.transaction.receiverId,p.methodName,p.args,p.deposit,p.gas);await h.api('native-actions/'+plan.planId+'/confirm',{transactionHash:sent.transactionHash},cookie);
+ await waitFor(async()=>(await snapshot(contract)).campaign.open_issues===0,'arbiter resolution');await h.keeper.tick();await waitFor(async()=>(await snapshot(contract)).state.outcome==='success','automatic success');checks.push('Separate native arbiter authenticated with NEP413 and resolved issue via actual API + signed chain transaction; keeper finalized success');
+ await connect('owner');await go('/buy/money');const ownerCredit=(await h.chain.snapshot(contract,[addresses.owner])).credits[addresses.owner].available;await act('claim');await waitFor(async()=>BigInt(await h.reads.view('verifier.sandbox','mt_balance_of',{account_id:addresses.owner,token_id:'nep141:usdc.sandbox'}))===BigInt(ownerBalanceBefore)+BigInt(ownerCredit),'owner exact original-wallet payout');checks.push('Owner claimed settled earnings through production balance UI into original Intents wallet');
+ await connect('a');await go('/buy/money');const aBefore=await h.reads.view('verifier.sandbox','mt_balance_of',{account_id:addresses.a,token_id:'nep141:usdc.sandbox'}),aCredit=(await h.chain.snapshot(contract,[addresses.a])).credits[addresses.a].available;await act('claim');await waitFor(async()=>BigInt(await h.reads.view('verifier.sandbox','mt_balance_of',{account_id:addresses.a,token_id:'nep141:usdc.sandbox'}))===BigInt(aBefore)+BigInt(aCredit),'Buyer A exact original refund + reward');checks.push('Displaced Buyer A claimed refund and completion reward through production UI');
+ // Exercise the direct NEAR withdrawal UI without inventing a Base route provider.
+ await connect('owner');
+ const bounds=await h.reads.view('usdc.sandbox','storage_balance_bounds',{});
+ await h.direct('recipient.sandbox','usdc.sandbox','storage_deposit',{account_id:'recipient.sandbox',registration_only:true},bounds.min);
+ const nativeBefore=await h.reads.view('usdc.sandbox','ft_balance_of',{account_id:'recipient.sandbox'});
+ await go('/buy/money');await page.getByText('Withdraw directly to a NEAR wallet',{exact:true}).click();
+ await page.locator('form[data-live-form="withdraw-native"] [name="recipientId"]').fill('recipient.sandbox');await page.locator('form[data-live-form="withdraw-native"] [name="amount"]').fill('0.01');await submit('withdraw-native');
+ await waitFor(async()=>BigInt(await h.reads.view('usdc.sandbox','ft_balance_of',{account_id:'recipient.sandbox'}))===BigInt(nativeBefore)+10000n,'native USDC withdrawal arrival');
+ checks.push('Owner withdrew 0.01 native USDC through the actual balance UI and external EVM wallet; registered recipient received it');
+ await page.evaluate(()=>window.__selectQualificationWallet('a'));await page.waitForFunction(()=>sessionStorage.getItem('everywhere-connected-session-v1')===null);await waitFor(()=>page.evaluate(async()=>(await fetch('/api/auth/session')).status===401),'provider account-change logout');checks.push('EIP1193 accountsChanged invalidated the prior account session and revoked its cookie without a reload');
+ await waitFor(async()=>(await snapshot(contract)).state.total_pending==='0','all escrow withdrawals fully settled');
+ const final=await snapshot(contract);assert.equal(final.liabilities,'0');assert.equal(final.state.total_received,final.state.total_withdrawn);assert.equal(errors.length,0,errors.join('\n'));
+ return {network:'isolated NEAR Sandbox',hubCodeHash:h.fixture.hubCodeHash,productionMode:true,assetId,saleId,contract,aBooking,bBooking,checks,signatures:signed.length,finalOutcome:final.state.outcome,offerLiabilities:final.liabilities,pendingWithdrawals:final.state.total_pending,totalReceived:final.state.total_received,totalWithdrawn:final.state.total_withdrawn,ownerEarnings:ownerCredit,buyerARefundAndReward:aCredit,coverageLimits:['EIP1193 provider is synthetic; EVM signatures and on-chain Intents verifier are real.','Pinata HTTP transport is isolated synthetic storage; upload metadata, CID and retrieved SHA256 are verified by actual Media implementation.','Native arbiter uses actual API/NEP413/NEAR signatures; Meteor popup UI is not exercised.','Base routing and its external provider are not exercised in this isolated test.']};
+}
