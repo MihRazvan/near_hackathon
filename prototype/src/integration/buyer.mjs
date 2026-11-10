@@ -1,6 +1,7 @@
 import { live,allSales,sale,snapshot,booking,usdc,dateTime,byNs } from './runtime.mjs';
 import { esc,link,badge,card,empty,heading,act,select,form,input,textArea,check,submit,hidden,scene,scheduleSummary,evidence,unavailable,signedOut,notice,table,transaction,short,artifactLink } from './ui.mjs';
 import { verifiedMediaFor } from './workspace-actions.mjs';
+import {originalRetryAvailable} from './recovery-state.mjs';
 import {micro,millis,listingAvailability,bookingStatus,latestWalletRequest,paymentState,creditSnapshots,placementProgress} from './buyer-state.mjs';
 const clock=()=>Date.parse(live.catalog?.time)||Date.now();
 const production=()=>live.config?.production===true||live.config?.publicationMode==='hub';
@@ -77,6 +78,7 @@ function payment(r){
  if(status==='confirmed'){title=state==='outbid'?'This booking was taken over.':'Your placement is confirmed.';next=link('/buy/placements/'+b.id,'Open your placement','button primary');}
  else if(status==='pending'){title='Your payment is being checked.';next=notice('Keep this booking open.','We are checking the original payment. You can safely return here without starting another transfer.')+act('refresh','Check payment status','','button primary')+' '+link('/account/recovery','Payment help','text-link');}
  else if(status==='expired'){title='Your price needs a refresh.';next=notice('This unpaid quote has expired.','Cancel it below, then return to the space for its current price.')+act('cancel-booking','Cancel unpaid booking',`data-id="${b.id}"`,'button primary');}
+ else if(status==='retry'&&originalRetryAvailable(request)){title='Retry your original payment.';next=notice('The connection failed before a transaction was created.','Approve the same payment again with its original amount and nonce. No replacement booking is needed.')+act('resume-intent','Retry original signature',`data-id="${request.id}"`,'button primary');}
  else if(status==='retry'){title='This booking was not completed.';next=link('/checkout/'+b.saleId+'?spot='+b.spotId,'Try with the current price','button primary');}
  else next=act('pay-booking','Pay '+usdc(b.amount),`data-id="${b.id}"`,'button primary')+' '+act('cancel-booking','Cancel booking',`data-id="${b.id}"`);
  return heading('YOUR BOOKING',title,status==='confirmed'?'Your workspace keeps the artwork, delivery and payments together.':'Your wallet will show the exact payment before you approve.')+

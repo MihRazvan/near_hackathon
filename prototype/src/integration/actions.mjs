@@ -2,6 +2,7 @@ import { navigate,toast } from '../store.mjs';
 import { live,api,refresh,connect,disconnect,review,nativePlan,intentPlan,nativeAction,poll,sale,snapshot,allSales,booking,rawAsset,amount,fileData,upload,rerender,nativeUnits,ensureSigningWallet } from './runtime.mjs';
 import { fundingAmount,campaignSchedule } from './checkout-state.mjs';
 import { photoData } from './photos.mjs';
+import {verifyOriginalIntent} from './recovery-state.mjs';
 import { workspaceForms } from './workspace-actions.mjs';
 
 const cents=value=>{const n=BigInt(amount(String(value)));if(n%10000n)throw new Error('Spot prices must use whole USDC cents.');return (n/10000n).toString();};
@@ -110,7 +111,7 @@ export const actions={
  },
  'cancel-unsent-request':async el=>{await api('wallet-requests/'+el.dataset.id+'/cancel-unsent',{});await refresh();toast('The unopened request was cancelled.');},
  'cancel-unsent-funding':async el=>{await api('wallet-funding/'+el.dataset.id+'/cancel-unsent',{});await refresh();toast('The unopened Base request was cancelled.');},
- 'resume-intent':async el=>{const r=await api('wallet-requests/'+el.dataset.id+'/resume-intent',{});if(r.status==='rejected'){const plan=await api('intents/'+r.planId);await intentPlan(plan,'Resume the original Intents message with its original nonce');}await refresh();toast('Original Intents request checked.');},
+ 'resume-intent':async el=>{await ensureSigningWallet();const r=await api('wallet-requests/'+el.dataset.id+'/resume-intent',{});if(r.status==='rejected'){const plan=await verifyOriginalIntent(await api('intents/'+r.planId),r);await intentPlan(plan,'Retry your original payment with the same amount and nonce');}await refresh({force:true});toast('Your original request has been checked.');},
  'resume-publication':async el=>{await api('provision-plans/'+el.dataset.id+'/start',{reviewed:true});await refresh();toast('The original publication plan is being reconciled. No replacement account was created.');},
  'pay-booking':el=>payBooking(el.dataset.id),
  'cancel-booking':async el=>{await api('bookings/'+el.dataset.id+'/cancel',{});await refresh();toast('Unsent booking cancelled.');},

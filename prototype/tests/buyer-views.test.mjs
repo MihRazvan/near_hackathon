@@ -38,3 +38,12 @@ test('pending payments never invite another transfer after quote expiry',()=>{
  setup();live.data.dashboard.bookings=[{id:'booking',contractId:'offer',saleId:'sale',spotId:'door',owner:wallet,amount:'10000',planId:'plan',accepted:false,status:'prepared'}];live.data.requests=[{planId:'plan',status:'submitted',createdAt:new Date(now).toISOString()}];live.data.intents=[{id:'plan',expiresAt:new Date(now-1).toISOString()}];
  const html=buyerView({id:'B07',params:{id:'booking'}});assert.match(html,/payment is being checked/);assert.doesNotMatch(html,/data-live-action="pay-booking"/);assert.doesNotMatch(html,/data-live-action="cancel-booking"/);
 });
+test('a proven prebroadcast failure offers original-signature recovery on payment and account pages only',async()=>{
+ setup();const {accountView}=await import('../src/integration/shared.mjs');
+ live.data.dashboard.bookings=[{id:'booking',owner:wallet,contractId:'offer',saleId:'sale',spotId:'door',amount:'10000',planId:'original-plan',status:'failed',accepted:false}];
+ const request={id:'original-request',owner:wallet,planId:'original-plan',kind:'intent',status:'failed',errorCode:'RPC_UNAVAILABLE',canRetryOriginal:true,createdAt:new Date(now).toISOString()};live.data.requests=[request];
+ let payment=buyerView({id:'B07',params:{id:'booking'}});assert.match(payment,/data-live-action="resume-intent" data-id="original-request"/);assert.match(payment,/Retry original signature/);assert.doesNotMatch(payment,/Try with the current price/);
+ assert.match(accountView({id:'A03'}),/Retry original signature/);
+ request.canRetryOriginal=false;payment=buyerView({id:'B07',params:{id:'booking'}});assert.doesNotMatch(payment,/Retry original signature/);assert.doesNotMatch(accountView({id:'A03'}),/Retry original signature/);
+ request.canRetryOriginal=true;request.transactionHash='original-hash';assert.doesNotMatch(buyerView({id:'B07',params:{id:'booking'}}),/Retry original signature/);assert.doesNotMatch(accountView({id:'A03'}),/Retry original signature/);
+});

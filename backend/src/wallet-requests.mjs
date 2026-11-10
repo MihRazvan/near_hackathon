@@ -1,11 +1,22 @@
 import { randomUUID } from 'node:crypto';
-import { assert, walletId } from './core.mjs';
+import { assert, walletId,sha256 } from './core.mjs';
+import {validateIntentPlan} from './intents.mjs';
 
 // A request with an unknown result stays attached to its original wallet and plan.
 // Time passing or a different connected account never authorizes another send.
 export class WalletRequests {
  constructor({store,nativeActions,publication,chain,now=Date.now}){Object.assign(this,{store,nativeActions,publication,chain,now});}
- list(wallet){return this.store.list('wallet-request',walletId(wallet)).map(({signedTransaction,...r})=>r);}
+ canRetryOriginal(r){
+  if(r.kind!=='intent'||r.status!=='failed'||r.errorCode!=='RPC_UNAVAILABLE'||r.transactionHash||r.signedTransaction)return false;
+  const intent=this.store.get('intent',r.planId);
+  if(intent?.owner!==r.owner||intent.status!=='prepared'||intent.operationId||this.store.operation('relay-'+r.planId)||this.store.get('intent-dispatch',r.planId))return false;
+  try{validateIntentPlan(intent.plan,{now:this.now()});}catch{return false;}
+  if(intent.plan.planId!==r.planId||intent.plan.signerId!==r.owner)return false;
+  if(this.store.list('wallet-request',r.owner).some(other=>other.id!==r.id&&other.planId===r.planId&&!['rejected','failed'].includes(other.status)))return false;
+  if(this.store.list('booking',r.owner).some(b=>b.planId===r.planId&&(b.accepted||b.operationId||b.transactionHash||!['failed','prepared'].includes(b.status))))return false;
+  return true;
+ }
+ list(wallet){return this.store.list('wallet-request',walletId(wallet)).map(record=>{const {signedTransaction,...r}=record;return {...r,canRetryOriginal:this.canRetryOriginal(record)};});}
  async prepare(wallet,input){
   const actor=walletId(wallet);
   for(const request of this.list(actor).filter(r=>!['rejected','confirmed','failed'].includes(r.status)))await this.reconcile(actor,request.id);
@@ -75,7 +86,17 @@ export class WalletRequests {
  }
  async resumeIntent(wallet,id){
   let r=await this.reconcile(wallet,id);assert(r.kind==='intent','INVALID_REQUEST','Only the original Intents message can be resumed');
-  if(['confirmed','failed'].includes(r.status)||r.transactionHash||this.chain.store.operation('relay-'+r.planId))return r;
+  if(r.status==='failed'){
+   assert(this.canRetryOriginal(r),'ORIGINAL_INTENT_NOT_RETRYABLE','The original request cannot safely be retried. Its plan may have expired or needs reconciliation.');
+   return this.store.transaction(()=>{
+    const current=this.owned(wallet,id);assert(this.canRetryOriginal(current),'ORIGINAL_INTENT_NOT_RETRYABLE','The original request changed during recovery.');
+    const plan=this.store.get('intent',current.planId).plan;
+    const restored=this.store.update('wallet-request',id,current.owner,current.version,{...current,status:'rejected',errorCode:'ORIGINAL_INTENT_RESUMABLE'});
+    for(const b of this.store.list('booking',current.owner).filter(b=>b.planId===current.planId&&b.status==='failed'))this.store.update('booking',b.id,b.owner,b.version,{...b,status:'prepared',accepted:false});
+    return {...restored,originalMessageHash:sha256(plan.message),originalNonce:plan.payload.nonce};
+   });
+  }
+  if(r.status==='confirmed'||r.transactionHash||this.chain.store.operation('relay-'+r.planId))return r;
   const lease=this.chain.store.get('intent-dispatch',r.planId);
   if(lease){
    assert(Number.isSafeInteger(lease.pid)&&lease.pid>0,'RECONCILIATION_REQUIRED','The original dispatch needs operator reconciliation');
