@@ -168,15 +168,62 @@ export class Marketplace {
   assert(!request,'WALLET_REQUEST_PENDING','Resolve the earlier wallet request before cancelling');
   return this.store.update('booking',id,booking.owner,booking.version,{...booking,status:'cancelled-before-send'});
  }
+ bookingEvidence(booking){
+  const intent=this.store.get('intent',booking.planId),plan=intent?.plan;
+  if(!plan)return null;
+  assert(intent.owner===booking.owner&&plan.signerId===booking.owner&&plan.planId===booking.planId&&plan.context?.kind==='purchase'&&plan.context.contractId===booking.contractId&&plan.context.invoiceId===booking.invoiceId&&plan.context.amount===booking.amount,'BOOKING_CHANGED','The booking differs from its original purchase plan');
+  if(booking.operationId){
+   const operation=this.store.operation(booking.operationId);if(!operation||!['confirmed','failed'].includes(operation.phase))return null;
+   return {plan,accepted:this.chain.purchaseAccepted(plan,operation),failed:operation.phase==='failed'};
+  }
+  if(booking.nativePlanId){
+   const native=this.store.get('native-plan',booking.nativePlanId);
+   if(!native||!['confirmed','failed'].includes(native.status))return null;
+   assert(native.owner===booking.owner&&native.plan.kind==='purchase'&&native.plan.bookingId===booking.id&&native.plan.purchasePlanId===booking.planId&&native.transactionHash===booking.transactionHash,'BOOKING_CHANGED','Native receipt binding differs from this booking');
+   return {plan,accepted:native.status==='confirmed'&&booking.accepted===true,failed:native.status==='failed'};
+  }
+  return null;
+ }
+ async syncBookingGroup(contractId,bookingIds){
+  assert(typeof contractId==='string'&&Array.isArray(bookingIds),'INVALID_BOOKING_GROUP','A contract-bound booking group is required');
+  const originals=[...new Set(bookingIds)].map(id=>this.store.get('booking',id)).filter(Boolean);
+  assert(originals.every(b=>b.contractId===contractId),'BOOKING_CHANGED','Every booking must belong to the same original contract');
+  const evidence=originals.map(b=>({booking:b,evidence:this.bookingEvidence(b)}));
+  const accepted=evidence.filter(item=>item.evidence?.accepted);let snapshot;
+  if(accepted.length){
+   // Never accept a caller-supplied snapshot or reuse this read for financial
+   // preparation. This one qualified public read serves status updates only.
+   snapshot=await this.chain.snapshot(contractId);
+   assert(snapshot?.qualified===true&&snapshot.accountId===contractId&&Number.isSafeInteger(snapshot.blockHeight)&&typeof snapshot.blockHash==='string'&&snapshot.blockHash,'UNQUALIFIED_CAMPAIGN','Status reconciliation requires a bound finalized snapshot');
+   for(const {booking:b,evidence:e} of accepted){
+    assert(snapshot.codeHash===e.plan.context.codeHash&&snapshot.campaign.terms.published_terms_sha256===e.plan.context.publishedTermsHash&&snapshot.campaign.terms.sale_id===b.saleId&&snapshot.campaign.terms.spot_id===b.spotId&&snapshot.state.seller_id===b.sellerId,'BOOKING_CHANGED','The shared status snapshot differs from the original booking');
+    assert(uint(snapshot.state.round)>=uint(e.plan.context.expectedRound)+1n,'STALE_SNAPSHOT','Wait for a finalized snapshot that includes the original accepted purchase');
+   }
+  }
+  const bookings=this.store.transaction(()=>originals.map(original=>{
+   // Other wallet/recovery processes may have advanced this row while RPC was
+   // pending. Re-read within the update transaction and preserve newer state.
+   const current=this.store.get('booking',original.id);if(!current)return null;
+   if(['contractId','owner','planId','operationId','nativePlanId','transactionHash'].some(key=>current[key]!==original[key]))return current;
+   const e=this.bookingEvidence(current);if(!e)return current;
+   let status=e.failed?'failed':e.accepted?'accepted':'rejected',observation={};
+   if(e.accepted){
+    if(!snapshot||current.statusBlockHeight>snapshot.blockHeight)return current;
+    assert(current.statusBlockHeight!==snapshot.blockHeight||!current.statusBlockHash||current.statusBlockHash===snapshot.blockHash,'SNAPSHOT_CHANGED','Finalized status snapshots cannot disagree at the same block height');
+    const round=(uint(e.plan.context.expectedRound)+1n).toString(),holding=snapshot.state.holder?.account_id===current.owner&&snapshot.state.round===round;
+    if(snapshot.state.outcome==='failure')status='cancelled';else if(!holding)status='outbid';else if(snapshot.state.outcome==='success')status='completed';
+    observation={statusBlockHeight:snapshot.blockHeight,statusBlockHash:snapshot.blockHash,statusOutcome:snapshot.state.outcome};
+   }
+   const changed=current.status!==status||current.accepted!==e.accepted;
+   if(!changed&&Object.entries(observation).every(([key,value])=>current[key]===value))return current;
+   const result=this.store.update('booking',current.id,current.owner,current.version,{...current,...observation,status,accepted:e.accepted});
+   if(changed)this.store.event('booking_status',current.id,current.owner,{status});return result;
+  }));
+  return {bookings,snapshotUsed:!!snapshot};
+ }
  async syncBooking(id){
-  const b=this.store.get('booking',id);if(!b?.operationId)return b;
-  const operation=this.store.operation(b.operationId);if(!operation||!['confirmed','failed'].includes(operation.phase))return b;
-  const intent=this.store.get('intent',b.planId),accepted=this.chain.purchaseAccepted(intent.plan,operation);let status=operation.phase==='failed'?'failed':accepted?'accepted':'rejected';
-  if(accepted){const s=await this.chain.snapshot(b.contractId,[b.owner]);
-   if(s.state.outcome==='failure')status='cancelled';else if(s.state.holder?.account_id!==b.owner)status='outbid';else if(s.state.outcome==='success')status='completed';}
-  if(b.status===status&&b.accepted===accepted)return b;
-  const result=this.store.update('booking',id,b.owner,b.version,{...b,status,accepted});
-  this.store.event('booking_status',id,b.owner,{status});return result;
+  const booking=this.store.get('booking',id);if(!booking)return booking;
+  return (await this.syncBookingGroup(booking.contractId,[id])).bookings[0];
  }
  async booking(owner,id){
   const booking=this.store.get('booking',id),wallet=walletId(owner);assert(booking&&(wallet===booking.owner||wallet===booking.sellerId),'NOT_FOUND','Booked placement not found',404);
