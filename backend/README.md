@@ -97,4 +97,6 @@ The [Dockerfile](../Dockerfile) builds the frontend and wallet adapter, then run
 
 Use the [configuration template](../.env.example). Configure `APP_ENV=production`, exact HTTPS `APP_ORIGIN`/`APP_API_ORIGIN`, the pinned hub account/code hash, provider credentials and the relayer's server secret. Production does not discover a developer's local environment file. Live execution and the keeper each require explicit enablement. Cross-origin static hosting needs matching allowed origins and API/wallet-asset routing.
 
+Private reference photos share an atomic 128 MiB local quota, which `APP_LOCAL_PHOTO_MAX_BYTES` can lower. Assets and camera handoffs also have per-wallet and global limits; expired handoff photos and capabilities are removed. Public IPFS uploads have a separate byte quota. These limits preserve room on the persistent volume for payment journals.
+
 Keep the hub administrator/upgrade key local and use a separate hosted relayer account. The hub retains an upgrade key; code-hash qualification detects changes but does not remove that trust assumption. Customer wallet keys and personal AI subscription credentials never belong in the frontend, public repository or hosted application secrets.
