@@ -1,11 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {bookingStatus} from '../src/integration/buyer-state.mjs';
 globalThis.document={querySelector:()=>null};
 globalThis.location={pathname:'/explore',search:''};
 const {live}=await import('../src/integration/runtime.mjs');
 const {publicView}=await import('../src/integration/public.mjs');
 const {buyerView}=await import('../src/integration/buyer.mjs');
 const now=1800000000000,ns=ms=>(BigInt(ms)*1000000n).toString(),wallet='0x1111111111111111111111111111111111111111';
+test('buying the same spot again does not reactivate an older outbid booking',()=>{
+ const snapshot={state:{outcome:'success',holder:{account_id:wallet},round:'3'}};
+ assert.equal(bookingStatus({accepted:true,owner:wallet,status:'outbid'},snapshot),'outbid');
+ assert.equal(bookingStatus({accepted:true,owner:wallet,status:'accepted',purchaseRound:'1'},snapshot),'outbid');
+ assert.equal(bookingStatus({accepted:true,owner:wallet,status:'accepted',purchaseRound:'3'},snapshot),'completed');
+ snapshot.state.outcome='failure';assert.equal(bookingStatus({accepted:true,owner:wallet,status:'outbid',purchaseRound:'1'},snapshot),'cancelled');
+});
 function setup(){
  location.search='';const asset={id:'asset',title:'City van',description:'Delivery van',city:'Bucharest',assetType:'van',spots:[{id:'door',name:'Side door',suggestedPriceCents:1,box:{x:.2,y:.2,width:.2,height:.2}}]};
  const sale={id:'sale',assetId:'asset',owner:'owner.near',title:'December campaign',createdAt:new Date(now).toISOString(),status:'published',rules:'No restricted content',publication:{manifest:{asset}},schedule:{biddingClose:new Date(now+60000).toISOString(),serviceStart:new Date(now+120000).toISOString(),serviceEnd:new Date(now+180000).toISOString()},spots:[{id:'door',contractId:'offer',takeoverEnabled:true}]};

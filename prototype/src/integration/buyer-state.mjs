@@ -15,6 +15,7 @@ export function listingAvailability(spot,snapshot,now=Date.now()){
 export function bookingStatus(booking,snapshot){
  if(!booking.accepted)return booking.status;
  if(snapshot?.state.outcome==='failure')return 'cancelled';
+ if(booking.status==='outbid'||booking.purchaseRound&&snapshot?.state.round&&booking.purchaseRound!==snapshot.state.round)return 'outbid';
  if(snapshot?.state.holder?.account_id&&snapshot.state.holder.account_id!==booking.owner)return 'outbid';
  if(snapshot?.state.outcome==='success')return 'completed';
  return 'accepted';

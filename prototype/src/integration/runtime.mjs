@@ -54,8 +54,12 @@ export async function initialize(){
  }else if(stored?.token&&stored?.wallet)live.session=stored;
  try{await refresh({render:false});}catch{}
  state.connectedPerson=currentPerson();
- setInterval(()=>{if(!live.busy&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,select')
-  &&!document.querySelector('form[data-dirty="true"]'))void refresh().catch(()=>{});},12000);
+ const idle=()=>document.visibilityState!=='hidden'&&!live.busy&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,select')
+  &&!document.querySelector('form[data-dirty="true"]');
+ // Payment actions reconcile immediately; idle dashboards need fewer reads and
+ // hidden tabs must not keep consuming the shared chain-provider allowance.
+ setInterval(()=>{if(idle())void refresh().catch(()=>{});},live.config.production?30000:12000);
+ document.addEventListener('visibilitychange',()=>{if(idle())void refresh().catch(()=>{});});
 }
 export function signInRequired(){if(live.session)return true;navigate('/sign-in?next='+encodeURIComponent(location.pathname+location.search));return false;}
 export function review(title,details,{wallet=live.session?.wallet??'',rejectLabel='Reject request',approveLabel='Continue'}={}){
