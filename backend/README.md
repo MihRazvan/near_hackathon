@@ -1,138 +1,100 @@
-# Everywhere local integration backend
+# Everywhere backend
 
-The backend connects dated advertising inventory to NEAR escrow, original-wallet claims, placement NFTs, artwork and fulfillment. It runs separately from the hosted design prototype, which still uses mock data.
+The API connects physical advertising inventory to the shared NEAR marketplace hub and USDC held in NEAR Intents. It also serves the connected frontend and the external-wallet adapter.
 
-## Run and test
+## Run
 
-Requires **Node.js 24.12+**. Tests and a read-only server startup need no wallet, credential or funds.
+Requires **Node.js 24.12 or newer**. Run from the repository root:
 
 ```sh
 npm ci --prefix backend --ignore-scripts
-npm test --prefix backend
+npm ci --prefix prototype --ignore-scripts
+npm run build:lab --prefix backend
+npm run build --prefix prototype
 npm start --prefix backend
 ```
 
-The API listens on **http://127.0.0.1:4318**; health is `/api/health`. Without a credential file, transaction execution is disabled. SQLite state lives under ignored `.local/backend/`. The server validates its local Host and Origin and uses hashed bearer sessions.
+Open **http://127.0.0.1:4318**; health is `/api/health`. `build:lab` builds the shared wallet adapter used by the application. Execution is disabled unless explicitly configured. SQLite defaults to the ignored `.local/backend/` directory in development. Optional development settings are read from an owner-only `.local/integration.env`; production uses explicitly supplied configuration.
 
-Build the current artifact before deployment or attachment:
+A configured hub account and code hash identify the marketplace deployment. The operator needs a separate relayer account for authorized relays and background transactions. Public artifact uploads require a server-side pinning-provider token. Base funding/withdrawal routes require their provider configuration. No customer private key is accepted by the HTTP API.
 
-```sh
-bash scripts/build-campaign.sh
-```
+## Application services
 
-The [Sandbox instructions](../proofs/sandbox/README.md) reproduce actual contract execution without public funds, including the pinned verifier and signing fixtures.
-
-## Services
-
-| Service | Behavior |
+| Service | Responsibility |
 | --- | --- |
-| `Auth` | EIP-191 and NEP-413 sign-in; one-use origin-bound challenges and persistent hashed sessions. Native signatures require a current full-access key. |
-| `Marketplace` | Owner drafts, editable spots/prices, fixed dates, immutable publication manifests, buyer campaigns across owners, bookings, messages, issue requests and dashboards. |
-| `ChainService` | Exact purchase signatures, verified acceptance events, original-creditor releases, nomination, native USDC redemption and pinned deployment attachment. |
-| `NativeActions` | Unsigned customer NEAR transactions for NFT/fulfillment/arbiter actions; exact final wallet transaction confirmation. |
-| `NearReads` | A recent finalized block binds terms, code hashes, settlement assets, credits and escrow solvency. Pending withdrawals block new plans. |
-| `NearExecutor` / `BaseExecutor` | Explicit operator execution, durable signed bytes, signer locks, aggregate budgets and receipt reconciliation. |
-| `OneClick` / `ReturnVerifier` | Bounded routes, original-wallet refund/return destinations and finalized Base USDC payout evidence. |
-| `AssetAI` / `ChatGPT` | Editable text/image-derived proposals, scoped OAuth renewal and terminal stream validation. |
-| `Media` | Public-content consent, bounded uploads, persistent deduplication, IPFS references and retrieved-byte hash verification. |
-| Reconciliation worker | Checks submitted hashes and updates records. It never signs, broadcasts, retries transfers or finalizes campaigns. |
+| `Auth` | Origin-bound EIP-191/NEP-413 challenges, signature verification and persistent wallet sessions. Production sessions use secure HttpOnly cookies. |
+| `Marketplace` / `Product` | Owner inventory, editable surfaces, fixed-date sales, buyer campaigns, discovery, messages and wallet-scoped workspaces. |
+| `HubPublication` / `ChainService` | Terms-bound publication, qualified shared-hub attachment, exact Intents authorizations and original-creditor payouts. Eligible publication can use the hub's bounded sponsor pool. |
+| `NativeActions` | Unsigned native-wallet transaction plans and verification of the exact finalized transaction. EVM hub actions use verified Intents authorization. |
+| `NearReads` | Recent finalized state, pinned code/assets, matching campaign terms and pooled escrow solvency checks. |
+| `NearExecutor` | Durable signed bytes, operation identities, signer locks, fee budgets and original-receipt reconciliation for relayer transactions. |
+| `Media` | Public-content consent, bounded uploads, content references and retrieved-byte SHA-256 verification. |
+| `OneClick` / funding / returns | Quoted Base USDC funding and return routes, original-wallet destination checks and finalized delivery evidence. |
+| Reconciliation worker | Reads existing operations and synchronizes receipts and bookings; it does not initiate transfers or settlement. |
+| Production keeper | Bounded, leased maintenance of published offers on the configured hub: final NFT minting and eligible successful settlement. It does not decide disputes or automatically finalize failure. |
 
-The current checkout adapter uses EVM signatures over Intents balances. Native NEAR wallets sign owner/NFT/arbiter actions. Signing in does not authorize spending. Each booked spot settles independently; a multi-owner campaign is not an atomic basket purchase.
+The commercial terms of a published sale are fixed. A buyer campaign can combine placements from different owners, but each spot has an independent booking and settlement. Takeovers end before artwork production; the final placement NFT is issued directly to the final payer. NFT ownership changes do not redirect financial credits.
 
-Publishing checks one deployed contract per spot against the exact manifest, price, roles, dates and takeover rules. Draft changes invalidate publication preparation; published commercial terms cannot change. Owners deploy/initialize the current contract or use the local operator service before attachment. HTTP routes cannot submit arbitrary code or operator transaction plans.
+Participants can sign an on-chain issue before the review deadline. Open issues block successful settlement until the independent arbiter resolves them. Installation evidence and hashes preserve what was submitted; they do not independently verify physical delivery or audience exposure.
 
-Creating an issue is an **arbiter request**, not an on-chain decision. The separate arbiter signs the settlement gate. Evidence hashes do not establish physical truth. Exposure/impression statistics are unmeasured, not fabricated.
+## API outline
 
-## HTTP contract
+All application endpoints start with `/api`. JSON mutations require `Content-Type: application/json`; browser clients send their session cookie. Sign-in and payment authorization are separate.
 
-All paths start with `/api`. Private requests use `Authorization: Bearer <session token>`; JSON mutations use `Content-Type: application/json`. Customers never provide wallet private keys through HTTP.
-
-| Flow | Routes |
+| Flow | Entry points |
 | --- | --- |
-| Discovery | `GET /browse`, `GET /sales/:id` |
-| Session | `POST /auth/challenge`, `POST /auth/verify`, `POST /auth/logout`, `GET /me` |
-| Owner setup | `POST /ai/draft`, `POST /assets`, `PATCH /assets/:id`, `POST /sales`, `PATCH /sales/:id` |
-| Publication | `POST /sales/:id/publication`, `POST /sales/:id/publish` |
-| Buyer campaign | `POST /campaigns`, `POST /bookings`, `GET /bookings/:id`, `POST /bookings/:id/submit` |
-| Signatures | `GET /intents/:id`, `POST /intents/:id/relay`, `POST /nomination` |
-| NFT/fulfillment | `POST /native-actions`, `POST /native-actions/:id/confirm` |
-| Communication | `GET /bookings/:id/messages`, `POST /bookings/:id/messages`, `POST /bookings/:id/issues` |
-| Artifacts | `POST /media` |
-| Money | `GET /wallet/balances`, `POST /claims`, `POST /withdrawal-intent`, `POST /routes`, `POST /exit-intent` |
-| Reconciliation | `GET /operations/:id`, `GET /routes/:id`, `GET /routes/:id/reconcile`, `GET /integration` |
+| Public discovery | `GET /catalog`, `GET /browse`, `GET /sales/:id` |
+| Account | `POST /auth/challenge`, `POST /auth/verify`, `GET /auth/session`, `POST /auth/logout`, `GET /workspace` |
+| Owner setup | `/assets`, `/sales`, `/captures`, `/ai/draft` |
+| Publication | `POST /sales/:id/publication-options`, `/sales/:id/prepare-publish` |
+| Buyer | `/campaigns`, `/bookings`, `/intents` |
+| Actions and evidence | `/native-actions`, `/token-actions`, `/media`, `/placements/:id/issues` |
+| Money and recovery | `/wallet/balances`, `/claims`, `/routes`, `/wallet-funding`, `/withdrawal-intent`, `/wallet-requests` |
 
-Sign-in starts with `{ "wallet": "<public address>" }`. EVM verification supplies `challengeId` and a personal-message `signature`. Native verification adds `accountId` and `publicKey`, with a base64 NEP-413 signature over the supplied message/nonce/recipient.
+Prepared plans bind their actor, receiver, amount or action, terms and relevant state. Intents include authorization nonces and deadlines. Changed prices require a fresh review. Submitted operations retain their original hashes; an unknown result is reconciled rather than replaced with another payment. Refunds and withdrawals go to the original entitled wallet, subject to its signed withdrawal instructions.
 
-Booking preparation takes `campaignId`, `saleId` and `spotId`. The stored `planId` identifies the exact Intents message to sign. Plans expire within two minutes; changed prices/rounds require a fresh plan. Repeating a submitted plan reconciles its original transaction.
+## Optional AI
 
-Native action kinds: `accept-nomination`, `mint`, `transfer`, `artwork`, `lock-artwork`, `delivery-proof`, `issue-decision`, `finalize-success`, `finalize-failure`. The returned wallet transaction contains its exact method, arguments, gas and deposit. Approval requires the revision the seller reviewed.
+Manual onboarding works without AI credentials. Owners can describe a vehicle, upload a photo and edit approximate 2D surfaces. AI suggestions still require owner review; the system does not infer verified physical measurements.
 
-Media accepts canonical `base64`, `mime` and `publicContentAcknowledged: true`, limited to 1 MB. AI accepts `prompt` and optional PNG/JPEG `imageDataUrl`, limited to 2 MB. Draft geometry is approximate, requires owner approval and contains no inferred physical measurements.
+A server API provider can be configured for public AI drafting with `OPENAI_API_KEY` and optional `OPENAI_MODEL`. A separate personal companion supports an owner's own locally authenticated ChatGPT connection, restricted to explicitly configured owner wallets. Public visitors cannot consume that personal subscription. OAuth credentials stay local; pairing secrets belong only in protected server/local configuration.
 
-## Provider setup
+Local personal sign-in is available through `npm run connect:chatgpt --prefix backend`. The companion runs with `node backend/bin/personal-ai-agent.mjs`; its explicit configuration is defined in [the agent](bin/personal-ai-agent.mjs). It must remain online for its owner to use that connection. The ordinary manual editor remains available when AI is offline.
 
-Optional secrets belong in owner-only `.local/integration.env`, never frontend variables or Git. The parser reads literal data rather than shell commands. Credential fields: `INTEGRATION_NEAR_ACCOUNT_ID`, `INTEGRATION_NEAR_PRIVATE_KEY`, `INTEGRATION_BUYER_A_PRIVATE_KEY`, `INTEGRATION_BUYER_B_PRIVATE_KEY`, `INTEGRATION_ONECLICK_API_KEY`, `INTEGRATION_IPFS_PINNING_TOKEN`. Use dedicated qualification wallets. Pinata uses the JWT, not a separate API secret.
-
-For eligible ChatGPT plan access:
+## Tests
 
 ```sh
-npm run connect:chatgpt --prefix backend
+npm test --prefix backend
+npm test --prefix prototype
 ```
 
-Open **http://127.0.0.1:4389** and complete consent. A separate scoped registration and renewable credentials live under `.local/chatgpt-auth/`. Coding-agent credentials are never read. See OpenAI's [local sign-in](https://developers.openai.com/siwc/token-sharing-open-source/sign-in) and [inference](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference) guides. This supports text/image analysis within the account's plan limits, not image generation. An interrupted rotating-token refresh requires reconnection rather than blind retries.
+Unit tests use isolated stores and controlled provider responses. See [Sandbox proofs](../proofs/sandbox/README.md) for actual compiled-contract suites.
 
-[Pinata uploads](https://docs.pinata.cloud/api-reference/endpoint/upload-a-file) publish public content. Qualification uses only small synthetic artifacts.
+### Production interface on NEAR Sandbox
 
-## Spending and recovery
-
-Live operator execution requires `INTEGRATION_ALLOW_MAINNET=true`. Default qualification ceilings: **1 USDC** gross Base transfers, **0.0001 ETH** Base gas, **0.15 NEAR** fees, **7.5 NEAR** concurrent allocations, **16 NEAR** gross allocations, and **12 NEAR** retained in treasury. Refunds never reset gross counters. Exact integer accounting persists across restart and processes.
-
-Signed bytes/hashes are durable before broadcast. [NEAR finality](https://docs.near.org/api/rpc/transactions) and relevant receipts are checked before settlement. Unknown outcomes retain reservations. Explicit rebroadcast reuses identical bytes/hash. A narrowly constrained lower-gas settlement replacement consumes the same unused nonce; its predecessor reservation clears only after final inclusion.
-
-Ordinary pinned Intents transfers move exact principal; the configured swap fee is not an extra transfer surcharge. [1Click fees](https://docs.agentsonintents.com/integration/distribution-channels/1click-api/fee-config) and slippage are separate. Provider `SUCCESS` alone never proves payout: return verification requires canonical finalized Base USDC Transfer logs to the quoted original wallet.
+Requires the pinned Rust toolchain/Wasm target, Python 3, Playwright from the backend development dependencies, and Google Chrome (`PLAYWRIGHT_CHANNEL=chrome`, the runner's default). Build the fixture inputs from the repository root:
 
 ```sh
-node backend/bin/qualify.mjs preflight
-node backend/bin/qualify.mjs balances
-node backend/bin/qualify.mjs status
-node backend/bin/qualify.mjs fund A
-node backend/bin/qualify.mjs fund B
-node backend/bin/qualify.mjs campaign failure
-node backend/bin/qualify.mjs buy failure A
-node backend/bin/qualify.mjs buy failure B
-node backend/bin/qualify.mjs claim failure A
-node backend/bin/qualify.mjs finalize failure
-node backend/bin/qualify.mjs claim failure B
-node backend/bin/qualify.mjs recover failure
+python3 proofs/intents-compatibility/fetch-pinned.py
+bash scripts/build-hub.sh
+cargo build --locked --release --target wasm32-unknown-unknown -p proof-test-token
+cp target/wasm32-unknown-unknown/release/proof_test_token.wasm target/proof-artifacts/test-token.wasm
+cargo build --locked -p technical-proof --bin hub-lab-chain
+npm run build:lab --prefix backend
+npm run build --prefix prototype
+node backend/bin/product-sandbox.mjs
 ```
 
-The success scenario uses 10/15-cent principal, final NFT rights, evidence, issue decisions and post-review payouts. `qualify-api.mjs` exercises the HTTP flow with dedicated wallets. Dates are accelerated synthetic test dates, not commercial defaults.
+The runner starts a fresh real NEAR Sandbox and a production-mode API with development wallet/lab endpoints disabled. It uses the actual pinned Intents verifier, compiled shared hub, synthetic USDC and generated EVM keys held only in the Node test runner. A fresh owner starts without NEAR or USDC funding. No personal environment file or public funded wallet is loaded.
 
-Recovery keys remain in owner-only `.local/backend/keys/` files; the treasury key remains in private configuration. `qualify.mjs recover success` can return remaining contract NEAR after zero-liability checks, but **also deletes the live NFT contract**; retain it while the proof is needed. Role-wallet balances remain controlled by their retained keys. Keys and operational records are excluded from Git and public deployment.
+The scenario exercises publication, purchases/takeover, a rejected signature, a lost submit response, recreated API/store/workers with retained SQLite state, automatic NFT minting, artwork approval, installation evidence, participant issues, arbiter resolution, automatic success, exact original-wallet payouts and native USDC delivery. It also checks that `accountsChanged` invalidates the prior session. Final assertions require all received offer funds to be withdrawn, with no pending withdrawals or remaining liabilities.
 
-## Scope
+Qualification boundaries are explicit: the browser wallet provider is injected, while its signatures and contract execution are real. Pinning HTTP uses isolated synthetic storage, with the real media validation and retrieved-byte hashing. Native arbiter actions use the authenticated API; the direct native-USDC withdrawal is exercised through the interface. Real extension/Meteor approval windows, hosted provider availability and Base bridge delivery need separate qualification. Generated evidence stays under ignored `.local/product-sandbox/`.
 
-Funded qualification covers Base funding, purchase/takeover, principal refunds, reward cancellation/vesting, final NFT nomination/transfer, artwork/proof, dispute decisions, settlement, native USDC redemption and original-wallet Base returns. Sandbox covers costly rejection/failure cases. Multi-owner application composition uses controlled chain adapters in tests; the funded scenarios use the dedicated qualification seller.
+## Production hosting
 
-The hosted frontend is not connected yet. Global-code factory creation is a separate Sandbox proof; no mainnet global publication was purchased. Development deployments retain recovery keys and are upgradeable test accounts. This is integration qualification, not a production security audit or automated physical verification.
-## Dedicated wallet interface
+The [Dockerfile](../Dockerfile) builds the frontend and wallet adapter, then runs the API on Node 24.12. [Railway configuration](../.railway/railway.ts) uses one replica, `/api/health`, a persistent volume and bounded CPU/memory. Install its tooling with `npm ci --prefix .railway --ignore-scripts`; preview infrastructure changes with `railway config plan` before applying them. Set `APP_STATE_DIR` to the mounted state directory; preserve and back up the SQLite database and transaction journals across deploys. An ephemeral serverless filesystem is not suitable for this state model.
 
-The [integration lab](lab/README.md) exercises the full owner, buyer, takeover, NFT, fulfillment and payout lifecycle without changing the design prototype. It runs a real local NEAR Sandbox chain and also provides an external-wallet interface alongside the existing mainnet API. See its qualification file for what was tested and its remaining mainnet limits.
+Use the [configuration template](../.env.example). Configure `APP_ENV=production`, exact HTTPS `APP_ORIGIN`/`APP_API_ORIGIN`, the pinned hub account/code hash, provider credentials and the relayer's server secret. Production does not discover a developer's local environment file. Live execution and the keeper each require explicit enablement. Cross-origin static hosting needs matching allowed origins and API/wallet-asset routing.
 
-Wallet publication uses `POST /api/sales/:id/prepare-publish` and `POST /api/publication-actions/:planId/confirm`. Request reservations, explicit rejections and reconciliation use `/api/wallet-requests`. `POST /api/token-actions` prepares owner-signed native USDC storage, self-withdrawal and redeposit actions. These return unsigned plans; the public API never accepts a customer private key.
-
-## Connected product pages
-
-Build `prototype` with `npm ci --prefix prototype && npm run build --prefix prototype`, and build the wallet bundle with `npm run build:lab --prefix backend`. The local API now serves the product pages at its root (`http://127.0.0.1:4318/` for mainnet); `/lab` remains the dedicated technical console. The static Vercel prototype remains a separate design preview.
-
-The connected pages use persisted owner inventory, edited surfaces, immutable sales, buyer campaigns, individual payments, placement NFTs, public artifacts, participant messages, issue decisions, and original-wallet payouts. `/settings/wallets` switches identities; `/account/recovery` checks original transactions. Prices use native USDC held in NEAR Intents. Base funding and returns use exact, reviewed 1Click routes with final-chain reconciliation.
-
-`npm run lab --prefix backend` starts a valueless real NEAR Sandbox at port 4320. `LAB_PORT=4324 LAB_PUBLICATION_MODE=recoverable npm run lab --prefix backend` exercises dedicated development accounts with retained recovery keys instead of the keyless global-code factory. `prototype/tests/connected-flows.js` is a Playwright CLI scenario for this latter configuration; it uses the actual product forms and signatures. Local clock controls exist only in Sandbox.
-
-Mainnet recoverable publication and funded development identities are separately disabled by default. Enabling them requires the local execution configuration and sufficient approved allocation, gas and treasury-floor limits. Each new development spot currently reserves approximately 7.15 NEAR for code/storage and operating balance; the exact quote uses the compiled artifact and current protocol fees. Recovery must first clear all token liabilities. Deleting a development account also removes its NFT, so retain it while the campaign or demonstration needs that NFT. This account model is for development qualification; the factory path creates keyless accounts.
-
-Photos used for drafting remain private unless the owner explicitly publishes a listing cover. Phone capture uses a short-lived, single-upload capability and needs a device that can reach the same local server. Image analysis proposes editable 2D surfaces; physical dimensions and installation still require owner verification. GPS, measured impressions and automated physical verification are not implemented.
-
-To inspect a dedicated development spot’s recoverable collateral, run `node backend/bin/recover-publication.mjs PLAN_ID SPOT_ID`. This is read-only. Add `--execute` to retire a terminal, zero-liability account and return its remaining NEAR to the configured treasury. Minted NFTs require the additional explicit `--retire-nft` flag. Repeating recovery reconciles the original deletion; it does not create another transfer. Unknown or outstanding transactions block retirement.
-
-The browser scenarios in `prototype/tests/connected-{flows,native,capture,recovery}.js` cover the product forms on a fresh Sandbox. Run the native and takeover scenarios before recovery (recovery registers the arbiter’s token storage once). They exercise one-cent bookings, rejected signatures, two-cent takeovers, NFT authority, real synthetic IPFS artifacts, successful and failed settlement, withdrawals/refunds, camera handoff, API restart and wallet-scoped recovery. Extension prompts still require manual verification with the user’s installed wallet; the automated scenarios use explicitly labeled, valueless Sandbox signers.
+Keep the hub administrator/upgrade key local and use a separate hosted relayer account. The hub retains an upgrade key; code-hash qualification detects changes but does not remove that trust assumption. Customer wallet keys and personal AI subscription credentials never belong in the frontend, public repository or hosted application secrets.
