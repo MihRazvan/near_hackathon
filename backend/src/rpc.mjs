@@ -1,22 +1,73 @@
 import { assert, AppError, uint } from './core.mjs';
 
+const RETRYABLE_READS=new Set(['status','block','query','tx','EXPERIMENTAL_protocol_config','gas_price']);
+const RETRYABLE_HTTP=new Set([429,502,503,504]);
+const unavailable=(message='Chain provider is temporarily unavailable')=>new AppError('RPC_UNAVAILABLE',message,503);
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function retryDelay(response,attempt,now){
+ const value=response?.headers?.get?.('retry-after');
+ if(typeof value==='string'&&value.trim()){
+  const raw=value.trim(),milliseconds=/^\d+(?:\.\d+)?$/.test(raw)?Number(raw)*1000:Date.parse(raw)-now;
+  if(Number.isFinite(milliseconds))return Math.min(2000,Math.max(0,milliseconds));
+ }
+ return 500*(attempt+1);
+}
 export class Rpc {
-  constructor(endpoint,{fetchImpl=fetch,intervalMs=120}={}) {this.endpoint=endpoint;this.fetch=fetchImpl;this.intervalMs=intervalMs;this.next=0;}
+  constructor(endpoint,{fetchImpl=fetch,intervalMs=120,sleep=delay,now=Date.now}={}) {
+    Object.assign(this,{endpoint,fetch:fetchImpl,intervalMs,sleep,now,next:0});
+  }
   async call(method,params,{timeoutMs=15000}={}) {
-    const start=Math.max(Date.now(),this.next);this.next=start+this.intervalMs;
-    if(start>Date.now())await new Promise(resolve=>setTimeout(resolve,start-Date.now()));
-    let response;
-    try {response=await this.fetch(this.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({jsonrpc:'2.0',id:'everywhere',method,params}),signal:AbortSignal.timeout(timeoutMs)});}
-    catch {throw new AppError('RPC_UNAVAILABLE','Chain provider is temporarily unavailable',503);}
-    assert(response.ok,'RPC_UNAVAILABLE',`Chain provider HTTP ${response.status}`,503);
-    const value=await response.json();
-    if(value.error){
-      const type=value.error.cause?.name??value.error.data?.name;
-      const code=type==='UNKNOWN_ACCOUNT'?'UNKNOWN_ACCOUNT':type==='UNKNOWN_TRANSACTION'?'UNKNOWN_TRANSACTION':value.error.code===30||['TIMEOUT_ERROR','DOES_NOT_TRACK_SHARD','INTERNAL_ERROR'].includes(type)?'RPC_UNAVAILABLE':'RPC_REJECTED';
-      throw new AppError(code,`Chain query failed (${type??value.error.code})`,409);
+    assert(Number.isFinite(timeoutMs)&&timeoutMs>0,'RPC_UNAVAILABLE','Chain request timeout is invalid',503);
+    const deadline=this.now()+timeoutMs,body=JSON.stringify({jsonrpc:'2.0',id:'everywhere',method,params}),attempts=RETRYABLE_READS.has(method)?3:1;
+    const remaining=()=>deadline-this.now();
+    const wait=async ms=>{
+      if(ms>=remaining())throw unavailable();
+      if(ms>0)await this.sleep(ms);
+      if(remaining()<=0)throw unavailable();
+    };
+    for(let attempt=0;attempt<attempts;attempt++){
+      // Every attempt shares the caller's deadline and the same serialized
+      // payload. Retried finalized-block queries cannot drift to another block.
+      const start=Math.max(this.now(),this.next);if(start>=deadline)throw unavailable();this.next=start+this.intervalMs;
+      await wait(Math.max(0,start-this.now()));
+      const controller=new AbortController();let timer,response,retry=false;
+      const expired=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(unavailable());},Math.max(1,Math.ceil(remaining())));});
+      try{
+        try{response=await Promise.race([this.fetch(this.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body,signal:controller.signal}),expired]);}
+        catch{
+          if(attempt+1<attempts&&remaining()>0)retry=true;else throw unavailable();
+        }
+        if(response){
+          if(remaining()<=0)throw unavailable();
+          if(!response.ok){
+            if(RETRYABLE_HTTP.has(response.status)&&attempt+1<attempts)retry=true;
+            else throw unavailable(`Chain provider HTTP ${response.status}`);
+          }else{
+            let value;
+            try{value=await Promise.race([response.json(),expired]);}
+            catch(error){
+              const transport=error instanceof TypeError||error?.name==='AbortError'||['ECONNRESET','EPIPE','ETIMEDOUT'].includes(error?.code);
+              if(transport&&attempt+1<attempts&&remaining()>0)retry=true;
+              else throw unavailable('Chain provider returned an invalid or incomplete response');
+            }
+            if(!retry){
+              if(remaining()<=0)throw unavailable();
+              assert(value&&typeof value==='object'&&!Array.isArray(value)&&('result' in value||value.error),'RPC_UNAVAILABLE','Chain provider returned an invalid response',503);
+              if(value.error){
+                // Application/query failures are authoritative, including an
+                // unknown transaction. They never trigger transport retries.
+                const type=value.error.cause?.name??value.error.data?.name;
+                const code=type==='UNKNOWN_ACCOUNT'?'UNKNOWN_ACCOUNT':type==='UNKNOWN_TRANSACTION'?'UNKNOWN_TRANSACTION':value.error.code===30||['TIMEOUT_ERROR','DOES_NOT_TRACK_SHARD','INTERNAL_ERROR'].includes(type)?'RPC_UNAVAILABLE':'RPC_REJECTED';
+                throw new AppError(code,`Chain query failed (${type??value.error.code})`,409);
+              }
+              return value.result;
+            }
+          }
+        }
+      }finally{clearTimeout(timer);controller.abort();}
+      if(retry)await wait(retryDelay(response,attempt,this.now()));
     }
-    return value.result;
+    throw unavailable();
   }
 }
 
