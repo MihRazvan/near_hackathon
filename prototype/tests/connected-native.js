@@ -11,7 +11,7 @@ async page => {
  async function act(name){await page.locator(`[data-live-action="${name}"]`).first().click();await idle();if(await page.locator('#connected-notice.orange:visible').count())throw new Error(await page.locator('#connected-notice').textContent());}
  async function assertText(text){if(!await page.getByText(text,{exact:false}).count())throw new Error('Missing visible text: '+text);}
  await connect('Owner');await go('/host/assets/new');
- await page.locator('[name=method]').selectOption('manual');await page.locator('[name=title]').fill('One-cent product qualification');await page.locator('[name=city]').fill('Bucharest');await page.locator('[name=description]').fill('Synthetic demo vehicle; one reviewed advertising panel.');await submit('asset-create');await idle();
+ await page.locator('[name=method]').selectOption('manual');await page.locator('[name=title]').fill('One-cent product qualification');await page.locator('[name=city]').fill('Bucharest');await page.locator('textarea[name=description]').fill('Synthetic demo vehicle; one reviewed advertising panel.');await submit('asset-create');await idle();
  const assetId=new URL(page.url()).pathname.split('/')[3];
  await page.locator('[name=reviewed]').check();await submit('asset-edit');await idle();checks.push('Owner reviewed and saved editable surface');
  await go('/host/sales/new?asset='+assetId);await page.locator('[name=title]').fill('One-cent recoverable campaign');await act('quick-dates');await page.locator('[name="price:spot-1"]').fill('0.01');await page.locator('[name=takeoverDefault]').uncheck();await submit('sale-edit');await idle();

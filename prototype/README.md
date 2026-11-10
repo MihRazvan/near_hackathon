@@ -53,3 +53,15 @@ npm run build --prefix prototype
 Run the full application browser qualification through [the backend Sandbox runner](../backend/README.md#production-interface-on-near-sandbox). It uses real signatures and contract execution with an injected wallet shell, isolated media transport and clearly stated external-provider limits.
 
 The [Docker deployment](../Dockerfile) serves the compiled frontend with the persistent API. A separately hosted static bundle needs `/api` and `/wallets.js` routed to that backend, matching origins and HTTPS session configuration. Keep keys and provider secrets on their appropriate server/local side; they are never frontend build variables. See [production hosting](../backend/README.md#production-hosting).
+
+## Visual identity
+
+The interface takes its cues from street advertising and transport signage: Barlow Condensed display type, Manrope interface text, petrol blue, signal yellow and warm white. The outward-arrow mark represents a physical surface reaching a wider audience. Marketplace and onboarding pages use street photography; working screens prioritize readable forms, financial states and clear tables.
+
+- `src/brand.mjs` contains the shared wordmark and mark.
+- `src/identity.css` defines fonts, tokens, public pages and shared controls.
+- `src/workspace-identity.css` carries those tokens into advertiser, owner and operations screens.
+- `src/integration/marketing.mjs` contains the homepage composition and illustrative ad preview. It does not create bookable inventory.
+- [Asset credits](public/ASSETS.md) record the image sources and included open font licenses. Fonts and photographs are served locally.
+
+Design research included [Barlow’s transit-inspired origins](https://github.com/jpt/barlow), [Anthropic’s frontend design guidance](https://github.com/anthropics/skills/tree/main/skills/frontend-design), [Impeccable](https://github.com/pbakaus/impeccable) and [Vercel’s interface guidelines](https://github.com/vercel-labs/web-interface-guidelines). The application keeps its existing vanilla ES modules and uses native CSS transitions, respecting reduced-motion preferences.

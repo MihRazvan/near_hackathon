@@ -1,4 +1,7 @@
 import './style.css';
+import './identity.css';
+import './workspace-identity.css';
+import { wordmark, outwardArrow } from './brand.mjs';
 import { live, currentPerson, initializeConnected, renderConnected, topbar, handleAction, handleForm, legacyAction, mountConnected } from './integration/index.mjs';
 import { run } from './integration/runtime.mjs';
 import { state, person, navigate, toast } from './store.mjs';
@@ -21,7 +24,7 @@ function navLink([url,title,i]) {
 }
 function publicShell(body) {
   const p=person(),account=live.session?link('/'+(live.data?.profile?.defaultWorkspace==='owner'?'host':'buy'),esc(p.name)+' ↗','text-link'):link('/sign-in','Sign in','text-link');
-  return `${topbar()}<header class="site-header"><a class="brand" href="/"><span class="brand-mark">≡</span>everywhere</a><nav class="site-nav" aria-label="Main navigation"><a href="/explore">Explore spaces</a><a href="/how-it-works/buy">How it works</a><a href="/how-it-works/list">For space owners</a></nav><div class="header-end">${link('/host/assets/new',`List a space ${icon('plus')}`,'button small')}${account}</div></header><nav class="mobile-nav-links" aria-label="Mobile navigation"><a href="/explore">Explore</a><a href="/buy">Buy space</a><a href="/host">List space</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">everywhere</a><span>Advertise on everything. Start with vehicles.</span><nav aria-label="Footer"><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a></nav></footer>`;
+  return `${topbar()}<header class="site-header"><a class="brand" href="/">${wordmark}</a><nav class="site-nav" aria-label="Main navigation"><a href="/explore">Find a space</a><a href="/how-it-works/buy">How it works</a><a href="/how-it-works/list">For space owners</a></nav><div class="header-end">${link('/host/assets/new',`List a space ${icon('plus')}`,'button small')}${account}</div></header><nav class="mobile-nav-links" aria-label="Mobile navigation"><a href="/explore">Explore</a><a href="/buy">Buy space</a><a href="/host">List space</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Real spaces. Real possibilities.</span><span>Built on NEAR</span></div></footer>`;
 }
 function workspaceShell(body, scope) {
   const role=scope==='owner'?'owner':scope==='ops'?'ops':scope==='shared'&&live.data?.profile?.defaultWorkspace==='owner'?'owner':'buyer';
@@ -29,13 +32,15 @@ function workspaceShell(body, scope) {
   const accountNav=[['/inbox','Inbox','mail'],['/notifications','Notifications','bell'],['/settings/profile','Settings','settings']];
   if((live.data?.arbiterSales?.length||live.data?.supportAdmin)&&role!=='ops')accountNav.push(['/ops','Campaign review','shield']);
   const label=role==='owner'?'Owner':role==='ops'?'Campaign review':'Buyer';
-  return `${topbar()}<div class="workspace"><aside class="sidebar"><a class="brand" href="/"><span class="brand-mark">≡</span>everywhere</a><div class="workspace-switch"><a href="/buy" class="${role==='buyer'?'active':''}">Buy space</a><a href="/host" class="${role==='owner'?'active':''}">List space</a></div><div><div class="nav-section-label">${role==='ops'?'CAMPAIGN OPERATIONS':label.toUpperCase()+' WORKSPACE'}</div><nav aria-label="${label} navigation">${nav.map(navLink).join('')}</nav></div><div><div class="nav-section-label">YOUR ACCOUNT</div><nav aria-label="Account navigation">${accountNav.map(navLink).join('')}</nav></div><div class="sidebar-bottom"><nav><a href="/explore">${icon('arrow')}Explore marketplace</a><a href="/help">${icon('file')}Help & support</a></nav><div class="sidebar-person"><span class="avatar">${esc(initials)}</span><div><strong>${esc(name)}</strong><small>${esc(p.brand||'Your workspace')}</small></div></div></div></aside><div class="workspace-main"><header class="workspace-topbar"><div class="workspace-breadcrumb"><a href="${role==='owner'?'/host':role==='ops'?'/ops':'/buy'}">${label}</a><span>/</span><strong>${esc(currentRoute.title)}</strong></div><div class="actions"><a class="wallet-label" href="/settings/wallets">${icon('wallet')}${esc(short(p.wallet)||'Connect wallet')}</a>${link('/notifications',icon('bell')+'<span class="sr-only">Notifications</span>','icon-button')}${link('/settings/profile','<span class="avatar">'+esc(initials)+'</span><span class="sr-only">Your profile</span>','')}</div></header><nav class="mobile-workspace-nav" aria-label="Workspace navigation">${[...nav,['/buy','Buy','grid'],['/host','List','car'],['/settings/wallets','Wallet','wallet']].map(navLink).join('')}</nav><main class="workspace-content" id="main">${body}</main></div></div>`;
+  return `${topbar()}<div class="workspace"><aside class="sidebar"><a class="brand" href="/">${wordmark}</a><div class="workspace-switch"><a href="/buy" class="${role==='buyer'?'active':''}">Buy space</a><a href="/host" class="${role==='owner'?'active':''}">List space</a></div><div><div class="nav-section-label">${role==='ops'?'CAMPAIGN OPERATIONS':label.toUpperCase()+' WORKSPACE'}</div><nav aria-label="${label} navigation">${nav.map(navLink).join('')}</nav></div><div><div class="nav-section-label">YOUR ACCOUNT</div><nav aria-label="Account navigation">${accountNav.map(navLink).join('')}</nav></div><div class="sidebar-bottom"><nav><a href="/explore">${icon('arrow')}Explore marketplace</a><a href="/help">${icon('file')}Help & support</a></nav><div class="sidebar-person"><span class="avatar">${esc(initials)}</span><div><strong>${esc(name)}</strong><small>${esc(p.brand||'Your workspace')}</small></div></div></div></aside><div class="workspace-main"><header class="workspace-topbar"><div class="workspace-breadcrumb"><a href="${role==='owner'?'/host':role==='ops'?'/ops':'/buy'}">${label}</a><span>/</span><strong>${esc(currentRoute.title)}</strong></div><div class="actions"><a class="wallet-label" href="/settings/wallets">${icon('wallet')}${esc(short(p.wallet)||'Connect wallet')}</a>${link('/notifications',icon('bell')+'<span class="sr-only">Notifications</span>','icon-button')}${link('/settings/profile','<span class="avatar">'+esc(initials)+'</span><span class="sr-only">Your profile</span>','')}</div></header><nav class="mobile-workspace-nav" aria-label="Workspace navigation">${[...nav,['/buy','Buy','grid'],['/host','List','car'],['/settings/wallets','Wallet','wallet']].map(navLink).join('')}</nav><main class="workspace-content" id="main">${body}</main></div></div>`;
 }
 function render() {
   state.connectedPerson=currentPerson();
   currentRoute=location.pathname==='/_testing'&&live.config&&!live.config.production?{id:'T01',title:'Local testing',scope:'shared',params:{}}:matchRoute(location.pathname);
   let body=renderConnected(currentRoute);
   if(!body.includes('<h1'))body=body.replace('<h2>','<h1 tabindex="-1" class="empty-title">').replace('</h2>','</h1>');
+  document.body.dataset.route=currentRoute.id;
+  document.body.dataset.scope=currentRoute.scope;
   document.title=`${currentRoute.title} · Everywhere`;
   // Public and authentication pages remain useful without a signed-in account.
   app.innerHTML=['public','account','global'].includes(currentRoute.scope)||currentRoute.id==='O05'||!live.session?publicShell(body):workspaceShell(body,currentRoute.scope);
@@ -43,6 +48,8 @@ function render() {
 }
 document.addEventListener('click',async event=>{
   if(!event.target?.closest)return;
+  const preview=event.target.closest('[data-preview-toggle]');
+  if(preview){const figure=preview.closest('.street-preview'),blank=figure.classList.toggle('is-blank');preview.setAttribute('aria-pressed',String(!blank));preview.innerHTML=(blank?'Preview a campaign':'See the blank canvas')+outwardArrow;return;}
   const action=event.target.closest('[data-live-action]');
   if(action){event.preventDefault();await run(()=>handleAction(action,event));return;}
   const generic=event.target.closest('[data-action]');

@@ -24,6 +24,10 @@ export const label = (v) =>
     .replaceAll("-", " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 const paths = {
+  bike: "M5 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm14 0a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM5 14l5-9 5 9H5m8-9h4l2 9M8 5h4",
+  moto: "M5 19a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm14 0a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM5 15l4-7h6l4 7M9 8 7 5H3M15 8l-1-5h3M9 8l4 7h3",
+  surface: "M3 4h18v16H3zM3 10h18M9 4v6M15 10v10M3 15h12",
+  takeover: "M4 8h14m-4-4 4 4-4 4M20 16H6m4-4-4 4 4 4",
   arrow: "M5 12h14m-6-6 6 6-6 6",
   search: "m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",
   grid: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
@@ -82,7 +86,7 @@ export const empty = (title, text, action = "") =>
 export const banner = (title, text, tone = "") =>
   `<div class="notice ${tone}">${icon(tone === "orange" ? "clock" : "shield")}<div><strong>${title}</strong><p>${text}</p></div></div>`;
 export const table = (headers, rows) =>
-  `<div class="table-wrap"><table><thead><tr>${headers.map((x) => `<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>${rows.length ? "" : '<p class="muted table-empty">Nothing here yet.</p>'}</div>`;
+  `<div class="table-region"><p class="table-scroll-hint">${icon('arrow')} Scroll across to see all columns</p><div class="table-wrap" role="region" aria-label="Data table, scroll horizontally for more columns" tabindex="0"><table><thead><tr>${headers.map((x) => `<th scope="col">${x}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>${rows.length ? "" : '<p class="muted table-empty">Nothing here yet.</p>'}</div></div>`;
 export function tabs(items, selected) {
   return `<nav class="tabs" aria-label="Page sections">${items.map(([title, href, id]) => `<a href="${esc(href)}" class="${selected === (id ?? title) ? "active" : ""}">${title}</a>`).join("")}</nav>`;
 }

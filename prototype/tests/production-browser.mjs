@@ -38,7 +38,7 @@ export async function productionBrowser({page,wallets,getHarness,restart}){
  assert.equal(await page.locator('a[href="/_screens"]').count(),0);checks.push('Production configuration, external wallets only, no lab/funded routes or product-map links');
  await connect('owner');await go('/host/assets/new');
  if(await page.locator('[name=method]').count())await page.locator('[name=method]').selectOption('manual');
- await page.locator('[name=title]').fill('Synthetic shared-hub qualification van');await page.locator('[name=city]').fill('Bucharest');await page.locator('[name=description]').fill('Synthetic browser regression vehicle. No physical advertisement is installed.');await submit('asset-create');
+ await page.locator('[name=title]').fill('Synthetic shared-hub qualification van');await page.locator('[name=city]').fill('Bucharest');await page.locator('textarea[name=description]').fill('Synthetic browser regression vehicle. No physical advertisement is installed.');await submit('asset-create');
  const assetId=new URL(page.url()).pathname.split('/')[3];await page.locator('[name=reviewed]').check();await page.locator('[name="price:spot-1"]').fill('0.01');await submit('asset-edit');assert.match(page.url(),/\/host\/sales\/new/);checks.push('Owner created a real persisted asset and reviewed editable geometry');
  await page.locator('[name=title]').fill('One-cent production browser campaign');const details=page.locator('details').filter({has:page.locator('[name=biddingClose]')});await details.locator('summary').click();
  const start=Math.ceil(getHarness().clock.now()/60000)*60000+5*60000,steps={biddingClose:start,artworkDue:start+5*60000,installationDue:start+10*60000,serviceStart:start+10*60000,serviceEnd:start+15*60000,reviewEnd:start+20*60000};
