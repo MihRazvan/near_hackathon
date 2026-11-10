@@ -8,6 +8,11 @@
   "devCommand": "npm run dev --prefix prototype",
   "redirects": [
     {
+      "source": "/",
+      "destination": "https://web-production-3ff8f.up.railway.app/",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "destination": "https://web-production-3ff8f.up.railway.app/:path*",
       "permanent": false
