@@ -50,9 +50,9 @@ export class NativeActions {
    transaction:{signerId:actor,receiverId,actions:[{type:'FunctionCall',params:{methodName:method,args,gas,deposit}}]}};
   const plan={...body,planId:hashObject(body)};this.store.insert('native-plan',plan.planId,actor,{plan,status:'prepared'});return plan;
  }
- async prepare(wallet,{contractId,kind,mediaId,expectedRevision,receiverId,caseId,open}){
+ async prepare(wallet,{contractId,kind,mediaId,expectedRevision,receiverId,caseId,open,purpose,controlAcknowledged,expectedController}){
   const actor=walletId(wallet);
-  if(this.store.get('deployment',contractId)?.mode==='hub'){const plan=await hubNativePlan({store:this.store,reads:this.reads,snapshot:await this.chain.snapshot(contractId),wallet:actor,input:{contractId,kind,mediaId,expectedRevision,receiverId,caseId,open},now:this.now()});this.store.insert('native-plan',plan.planId,actor,{plan,status:'prepared'});return plan;}
+  if(this.store.get('deployment',contractId)?.mode==='hub'){const plan=await hubNativePlan({store:this.store,reads:this.reads,snapshot:await this.chain.snapshot(contractId),wallet:actor,input:{contractId,kind,mediaId,expectedRevision,receiverId,caseId,open,purpose,controlAcknowledged,expectedController},now:this.now()});this.store.insert('native-plan',plan.planId,actor,{plan,status:'prepared'});return plan;}
   assert(!actor.startsWith('0x'),'NEAR_WALLET_REQUIRED','Connect the NEAR wallet that owns this placement or role',400);
   const s=await this.chain.snapshot(contractId),state=s.state,rights=s.rights;
   let method,args={},deposit='0';const gas='25000000000000';

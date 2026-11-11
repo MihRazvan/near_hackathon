@@ -63,3 +63,8 @@ export function placementProgress(snapshot,wallet,now=Date.now(),{automaticRecei
  if(review!==null&&now<review)return {key:'review',title:'Your campaign is in its review window.',text:'Review the installation evidence and report any issue before the review deadline.'};
  return {key:'settlement',title:'The campaign is ready for final review.',text:'The campaign reviewer will resolve any remaining issues and confirm the outcome.'};
 }
+
+export function canTransferCreativeControl(snapshot,wallet,now=Date.now()){
+ const state=snapshot?.state,rights=snapshot?.rights,due=millis(snapshot?.campaign?.terms?.artwork_due_ns),cutoff=millis(state?.cutoff_ns);
+ return !!(snapshot?.mode==='hub'&&wallet&&state?.outcome==='open'&&state.nft_minted===true&&rights?.bidding_closed===true&&rights.active===true&&!state.artwork_locked&&!rights.locked&&rights.current_owner_id===wallet&&(rights.artwork_controller_id??rights.current_owner_id)===wallet&&cutoff!==null&&cutoff<=now&&due!==null&&due>now+5000);
+}

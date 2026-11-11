@@ -246,11 +246,27 @@ async fn shared_hub_real_chain_multi_owner_lifecycle_and_payout_isolation() -> R
         before
     );
     w.advance(now + 600 * ns).await?;
+    // Creative authority follows the minted NFT during its actual editing
+    // window. Payer credits and seller revenue remain independent throughout.
+    w.ok("attacker.sandbox", "hub.sandbox", "mint_final_placement", json!({"offer_id":offer(1)}), 0).await?;
+    let finances_before_transfer = w.view("hub.sandbox", "get_totals", json!({})).await?;
+    let payer_credit_before_transfer = w.view("hub.sandbox", "get_credit", json!({"offer_id":offer(1),"account_id":"buyer-b.sandbox"})).await?;
+    w.ok("buyer-b.sandbox", "hub.sandbox", "nft_transfer", json!({"receiver_id":EVM,"token_id":offer(1)}), 1).await?;
+    assert!(w.call("buyer-b.sandbox", "hub.sandbox", "submit_artwork", json!({"offer_id":offer(1),"artifact_uri":"ipfs://old-owner","artifact_sha256":"CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg="}), 0).await?.is_failure());
+    w.auth(EVM, json!({"action":"submit_artwork","offer_id":offer(1),"token_id":offer(1),"artifact_uri":"ipfs://new-owner","artifact_sha256":"CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg="})).await?;
+    let transferred_rights = w.view("hub.sandbox", "get_placement_rights", json!({"offer_id":offer(1)})).await?;
+    assert_eq!(transferred_rights["current_owner_id"], EVM);
+    assert_eq!(transferred_rights["proposal"]["submitted_by"], EVM);
+    assert_eq!(w.state(1).await?["holder"]["account_id"], "buyer-b.sandbox");
+    assert_eq!(w.view("hub.sandbox", "get_totals", json!({})).await?, finances_before_transfer);
+    assert_eq!(w.view("hub.sandbox", "get_credit", json!({"offer_id":offer(1),"account_id":"buyer-b.sandbox"})).await?, payer_credit_before_transfer);
+    w.auth(EVM, json!({"action":"transfer_placement","offer_id":offer(1),"receiver_id":"buyer-b.sandbox"})).await?;
+    assert!(w.call("intents.sandbox", "hub.sandbox", "on_auth", json!({"signer_id":EVM,"msg":json!({"action":"submit_artwork","offer_id":offer(1),"token_id":offer(1),"artifact_uri":"ipfs://former-controller","artifact_sha256":"CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg="}).to_string()}), 0).await?.is_failure());
     for (n, seller) in [(1, EVM), (2, "seller.sandbox")] {
         w.auth("buyer-b.sandbox",json!({"action":"submit_artwork","offer_id":offer(n),"token_id":offer(n),"artifact_uri":"ipfs://artwork","artifact_sha256":"CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg="})).await?;
         w.auth(
             seller,
-            json!({"action":"lock_artwork","offer_id":offer(n),"expected_revision":"1"}),
+            json!({"action":"lock_artwork","offer_id":offer(n),"expected_revision":if n==1 { "2" } else { "1" }}),
         )
         .await?;
         w.auth(seller,json!({"action":"submit_delivery_proof","offer_id":offer(n),"artifact_uri":"ipfs://installation","artifact_sha256":"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk="})).await?;

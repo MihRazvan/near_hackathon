@@ -195,7 +195,11 @@ export const forms={
  'prepare-booking':data=>prepareBooking(data),
  nomination:async data=>{const plan=await api('nomination',{contractId:String(data.get('contractId')),recipientId:String(data.get('recipientId'))});const r=await intentPlan(plan,'Nominate your final placement NFT recipient');
   for(let i=0;i<20;i++){await api('wallet-requests/'+r.id+'/reconcile',{});await refresh({render:false});if(snapshot(data.get('contractId'))?.state.nominated_recipient===data.get('recipientId'))break;await new Promise(r=>setTimeout(r,300));}rerender();},
- 'nft-transfer':async data=>{await confirmAction(String(data.get('contractId')),'transfer',{receiverId:String(data.get('receiverId'))});},
+ 'nft-transfer':async data=>{
+  const creative=data.get('purpose')==='creative-control';
+  if(creative&&!data.has('transferAcknowledged'))throw new Error('Confirm that the recipient will control this placement’s creative.');
+  await confirmAction(String(data.get('contractId')),'transfer',{receiverId:String(data.get('receiverId')).trim(),...(creative?{purpose:'creative-control',controlAcknowledged:true,expectedController:String(data.get('expectedController')),expectedRevision:String(data.get('expectedRevision'))}:{})});
+ },
  artwork:async data=>{const mediaId=await artifact(data);await confirmAction(String(data.get('contractId')),'artwork',{mediaId});},
  'delivery-proof':async data=>{const mediaId=await artifact(data);await confirmAction(String(data.get('contractId')),'delivery-proof',{mediaId});},
  issue:async data=>{const contractId=String(data.get('contractId')),mediaId=await artifact(data),issue=await api('placements/'+contractId+'/issues',{reason:String(data.get('reason')),mediaId});

@@ -47,3 +47,16 @@ test('a proven prebroadcast failure offers original-signature recovery on paymen
  request.canRetryOriginal=false;payment=buyerView({id:'B07',params:{id:'booking'}});assert.doesNotMatch(payment,/Retry original signature/);assert.doesNotMatch(accountView({id:'A03'}),/Retry original signature/);
  request.canRetryOriginal=true;request.transactionHash='original-hash';assert.doesNotMatch(buyerView({id:'B07',params:{id:'booking'}}),/Retry original signature/);assert.doesNotMatch(accountView({id:'A03'}),/Retry original signature/);
 });
+
+test('production creative transfer names the current controller and requires explicit consent without moving payment rights',()=>{
+ const {snapshot}=setup();snapshot.mode='hub';Object.assign(snapshot.state,{holder:{account_id:'payer.near'},cutoff_ns:ns(now-1),nft_minted:true});Object.assign(snapshot.rights,{bidding_closed:true,active:true,current_owner_id:wallet,revision:'2'});live.data.placements=[snapshot];
+ const html=buyerView({id:'B08',params:{id:'offer'}});assert.match(html,/data-live-form="nft-transfer"/);assert.match(html,/name="purpose" value="creative-control"/);assert.match(html,/name="expectedController" value="0x111/);assert.match(html,/name="expectedRevision" value="2"/);assert.match(html,/name="transferAcknowledged" required/);assert.match(html,/NEAR account or EVM address/);assert.match(html,/cannot undo it without the recipient/);assert.match(html,/Refunds, takeover rewards and payouts stay with their original wallets/);assert.match(html,/Your wallet will ask you to sign this transfer/);assert.match(html,/Creative controller:/);assert.match(html,/href="\/records\/sale"/);
+ snapshot.rights.current_owner_id='new-controller.near';let after=buyerView({id:'B08',params:{id:'offer'}});assert.doesNotMatch(after,/data-live-form="nft-transfer"/);assert.doesNotMatch(after,/data-live-form="artwork"/);assert.match(after,/new-controller\.near/);
+ live.session={wallet:'new-controller.near',kind:'near'};after=buyerView({id:'B08',params:{id:'offer'}});assert.match(after,/data-live-form="nft-transfer"/);assert.match(after,/data-live-form="artwork"/);
+ snapshot.state.artwork_locked=true;after=buyerView({id:'B08',params:{id:'offer'}});assert.doesNotMatch(after,/data-live-form="nft-transfer"/);assert.match(after,/transferring the receipt does not reopen editing/);
+});
+
+test('placement preserves its private receipt beside the public campaign record',()=>{
+ const {snapshot}=setup();live.data.dashboard.bookings=[{id:'booking',contractId:'offer',saleId:'sale',owner:wallet,accepted:true,status:'accepted'}];snapshot.state.holder={account_id:wallet};
+ const html=buyerView({id:'B08',params:{id:'booking'}});assert.match(html,/href="\/receipts\/booking"/);assert.match(html,/href="\/records\/sale"/);
+});

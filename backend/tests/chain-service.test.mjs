@@ -41,3 +41,42 @@ test('payout retries use a deterministic successor only after final failure and 
  operations.set(first.id,{...operations.get(first.id),phase:'failed',result:{outcome:{final_execution_status:'FINAL'}}});const retry=await chain.claimForWallet({contractId:'campaign.near',creditorId:payer});assert.notEqual(retry.id,first.id);assert.equal((await chain.claimForWallet({contractId:'campaign.near',creditorId:payer})).id,retry.id);assert.equal(sends,2);
  operations.set(retry.id,{...operations.get(retry.id),phase:'failed',result:{}});await assert.rejects(chain.claimForWallet({contractId:'campaign.near',creditorId:payer}),{code:'RECONCILIATION_REQUIRED'});assert.equal(sends,2);
 });
+
+async function creativeRelayFixture(){
+ const {privateKeyToAccount}=await import('viem/accounts'),{hubIntentPlan}=await import('../src/hub-actions.mjs');
+ // Fixed public test key, never a funded or configured development wallet.
+ const account=privateKeyToAccount('0x'+'11'.repeat(32)),wallet=account.address.toLowerCase(),store=new Store(),now=1800000000000,ns=delta=>String(BigInt(now+delta)*1000000n),offerId='offer-'+'a'.repeat(32);
+ const snapshot={accountId:offerId,offerId,receiverId:'hub.near',mode:'hub',codeHash:'qualified-hub',state:{outcome:'open',nft_minted:true,artwork_locked:false,cutoff_ns:ns(-60000),intents_contract_id:'intents.near'},rights:{current_owner_id:wallet,bidding_closed:true,active:true,locked:false,revision:'3'},campaign:{terms:{artwork_due_ns:ns(240000)}}};
+ const plan=await hubIntentPlan({store,reads:{},snapshot,wallet,input:{kind:'transfer',receiverId:'0x'+'22'.repeat(20),purpose:'creative-control',controlAcknowledged:true,expectedController:wallet,expectedRevision:'3'},now});
+ store.insert('intent',plan.planId,wallet,{plan,status:'prepared'});
+ const f={wallet,store,snapshot,plan,clock:now,sends:[],snapshots:0,reconciled:[],signature:await account.signMessage({message:plan.message})};
+ f.service=new ChainService({store,config:{stateDir:'/unused',enabled:true,treasury:'hot.near',assets:{intentsId:'intents.near',intentsCodeHash:'qualified-intents'}},now:()=>f.clock,near:{reconcile:async id=>{f.reconciled.push(id);return store.operation(id);}}});
+ f.service.snapshot=async id=>{assert.equal(id,offerId);f.snapshots++;return structuredClone(snapshot);};f.service.treasurySigner=async()=>({fixture:true});f.service.call=async action=>{f.sends.push(action);return {id:action.id,phase:'confirmed'};};
+ f.relay=()=>f.service.relayUnlocked({buyerId:wallet,planId:plan.planId,signature:f.signature});return f;
+}
+
+test('creative-control relay freshly rejects changed owner, approval, revision and expiry before any dispatch',async t=>{
+ for(const [name,change,code]of [
+  ['new receipt owner',f=>f.snapshot.rights.current_owner_id='recipient.near','NFT_OWNER_REQUIRED'],
+  ['artwork approved',f=>{f.snapshot.state.artwork_locked=true;f.snapshot.rights.locked=true;},'CREATIVE_TRANSFER_CLOSED'],
+  ['new artwork revision',f=>f.snapshot.rights.revision='4','STALE_ARTWORK'],
+  ['editing closed on chain',f=>f.snapshot.rights.active=false,'CREATIVE_TRANSFER_CLOSED'],
+  ['signed deadline elapsed',f=>f.clock=Date.parse(f.plan.expiresAt),'EXPIRED_INTENT'],
+ ])await t.test(name,async()=>{
+  const f=await creativeRelayFixture();try{change(f);await assert.rejects(f.relay(),{code});assert.equal(f.sends.length,0);assert.equal(f.reconciled.length,0);assert.equal(f.store.get('intent',f.plan.planId).status,'prepared');assert.equal(f.store.operation('relay-'+f.plan.planId),null);}finally{f.store.close();}
+ });
+});
+
+test('a current creative-controller signature dispatches only its exact original transfer plan',async()=>{
+ const f=await creativeRelayFixture();try{const result=await f.relay();assert.equal(result.phase,'confirmed');assert.equal(f.snapshots,1);assert.equal(f.sends.length,1);const action=f.sends[0];assert.equal(action.id,'relay-'+f.plan.planId);assert.equal(action.receiverId,'intents.near');assert.equal(action.method,'execute_intents');assert.equal(action.args.signed.length,1);assert.equal(f.store.get('intent',f.plan.planId).operationId,action.id);assert.equal(f.store.get('intent',f.plan.planId).status,'confirmed');}finally{f.store.close();}
+});
+
+test('recorded creative transfers reconcile the original operation before expired or changed creative policy is considered',async()=>{
+ const {Budget}=await import('../src/budget.mjs'),f=await creativeRelayFixture();
+ try{
+  const id='relay-'+f.plan.planId;new Budget(f.store,Object.fromEntries(['sourceUsdc','baseGas','nearFees','nearAllocation','nearAllocationGross'].map(key=>[key,'0']))).reserve({id,kind:'near',scope:'hot.near',plan:{originalIntentId:f.plan.planId},amounts:{}});f.store.transition(id,['reserved'],'broadcast-unknown',{transactionHash:'original-transaction'});
+  f.clock=Date.parse(f.plan.expiresAt)+60000;f.snapshot.state.artwork_locked=true;f.snapshot.rights.current_owner_id='recipient.near';f.service.config.enabled=false;f.signature=undefined;f.service.snapshot=async()=>assert.fail('an already dispatched transfer must not prepare against new state');
+  const result=await f.relay();assert.equal(result.id,id);assert.equal(result.phase,'broadcast-unknown');assert.equal(result.transaction_hash,'original-transaction');assert.deepEqual(f.reconciled,[id]);assert.equal(f.sends.length,0);assert.equal(f.store.get('intent',f.plan.planId).operationId,id);assert.equal(f.store.get('intent',f.plan.planId).status,'broadcast-unknown');
+  await assert.rejects(f.service.relayUnlocked({buyerId:'0x'+'22'.repeat(20),planId:f.plan.planId}),{code:'WRONG_WALLET'});assert.deepEqual(f.reconciled,[id]);
+ }finally{f.store.close();}
+});

@@ -103,3 +103,28 @@ test('a native owner can publish with an independent EVM arbiter, whose decision
  const s=snapshot();s.state.arbiter_id=admin;s.rights.bidding_closed=true;const decision=await hubIntentPlan({store,reads:{},snapshot:s,wallet:admin,input:{kind:'finalize-failure'},now});validateIntentPlan(decision,{now});assert.equal(JSON.parse(decision.payload.intents[0].msg).action,'finalize_failure');assert.equal(decision.signerId,admin);await assert.rejects(hubIntentPlan({store,reads:{},snapshot:s,wallet:buyer,input:{kind:'finalize-failure'},now}),{code:'ARBITER_REQUIRED'});
  }finally{store.close();}
 });
+
+test('creative-control transfers bind the acknowledged controller and revision, with deadline-bounded EVM or native plans',async()=>{
+ const store=new Store(),s=snapshot(),recipient='receiver.near',input={kind:'transfer',purpose:'creative-control',controlAcknowledged:true,expectedController:buyer,expectedRevision:'2',receiverId:recipient},accounts=[];
+ Object.assign(s.state,{nft_minted:true,cutoff_ns:ns(-1000),holder:{account_id:'payer.near'}});Object.assign(s.rights,{active:true,bidding_closed:true,revision:'2'});s.campaign.terms.artwork_due_ns=ns(60000);const finance=JSON.stringify(s.state),reads={account:async id=>accounts.push(id)};
+ try{
+  const evm=await hubIntentPlan({store,reads,snapshot:s,wallet:buyer,input,now});validateIntentPlan(evm,{now});const call=evm.payload.intents[0],msg=JSON.parse(call.msg);
+  assert.equal(evm.context.purpose,'creative-control');assert.equal(evm.context.expectedController,buyer);assert.equal(evm.context.expectedRevision,'2');assert.equal(evm.context.controlAcknowledged,true);assert.equal(evm.context.artworkDueNs,ns(60000));assert.equal(evm.expiresAt,new Date(now+55000).toISOString());assert.equal(msg.action,'transfer_placement');assert.equal(msg.receiver_id,recipient);assert.equal(msg.offer_id,offerId);assert.equal(call.tokens,undefined);assert.deepEqual(accounts,[recipient]);assert.equal(JSON.stringify(s.state),finance);
+  s.rights.current_owner_id='native.near';const native=await hubNativePlan({store,reads,snapshot:s,wallet:'native.near',input:{...input,expectedController:'native.near',receiverId:buyer},now});assert.equal(native.purpose,'creative-control');assert.equal(native.expiresAt,evm.expiresAt);assert.equal(native.transaction.receiverId,'hub.near');assert.equal(native.transaction.actions[0].params.methodName,'nft_transfer');assert.equal(native.transaction.actions[0].params.deposit,'1');assert.equal(native.transaction.actions[0].params.args.receiver_id,buyer);assert.deepEqual(accounts,[recipient]);
+  await assert.rejects(hubIntentPlan({store,reads,snapshot:s,wallet:buyer,input,now}),{code:'NFT_OWNER_REQUIRED'});
+  store.insert('media','new-art','native.near',{status:'verified',uri:'ipfs://new-art',sha256:'22'.repeat(32)});const artwork=await hubNativePlan({store,reads,snapshot:s,wallet:'native.near',input:{kind:'artwork',mediaId:'new-art'},now});assert.equal(artwork.transaction.actions[0].params.methodName,'submit_artwork');assert.equal(JSON.stringify(s.state),finance);
+ }finally{store.close();}
+});
+
+test('creative-control policy rejects stale/closed transfers while standard archival NFT transfers remain valid',async()=>{
+ const {assertCreativeTransfer}=await import('../src/hub-actions.mjs'),store=new Store(),s=snapshot(),input={kind:'transfer',purpose:'creative-control',controlAcknowledged:true,expectedController:buyer,expectedRevision:'0',receiverId:'0x'+'22'.repeat(20)};
+ Object.assign(s.state,{nft_minted:true,cutoff_ns:ns(-1000)});Object.assign(s.rights,{active:true,bidding_closed:true});s.campaign.terms.artwork_due_ns=ns(60000);
+ try{
+  assertCreativeTransfer(s,buyer,input,now);
+  for(const bad of [{...input,controlAcknowledged:false},{...input,controlAcknowledged:undefined}])assert.throws(()=>assertCreativeTransfer(s,buyer,bad,now),{code:'TRANSFER_ACKNOWLEDGEMENT_REQUIRED'});
+  assert.throws(()=>assertCreativeTransfer(s,buyer,{...input,expectedController:'other.near'},now),{code:'NFT_OWNER_REQUIRED'});assert.throws(()=>assertCreativeTransfer(s,buyer,{...input,expectedRevision:'old'},now),{code:'STALE_ARTWORK'});
+  for(const change of [s=>s.state.nft_minted=false,s=>s.state.outcome='success',s=>s.state.outcome='failure',s=>s.state.artwork_locked=true,s=>s.rights.locked=true,s=>s.rights.active=false,s=>s.rights.bidding_closed=false,s=>s.state.cutoff_ns=ns(1),s=>s.campaign.terms.artwork_due_ns=ns(5000)]){const changed=structuredClone(s);change(changed);assert.throws(()=>assertCreativeTransfer(changed,buyer,input,now),{code:'CREATIVE_TRANSFER_CLOSED'});}
+  s.state.outcome='success';s.state.artwork_locked=true;s.rights.locked=true;s.rights.active=false;s.campaign.terms.artwork_due_ns=ns(-1000);
+  const archival=await hubIntentPlan({store,reads:{},snapshot:s,wallet:buyer,input:{kind:'transfer',receiverId:input.receiverId},now});assert.equal(JSON.parse(archival.payload.intents[0].msg).action,'transfer_placement');assert.equal(archival.context.purpose,undefined);
+ }finally{store.close();}
+});

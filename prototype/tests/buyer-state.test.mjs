@@ -28,3 +28,12 @@ test('explicit artwork control follows the authorized controller after receipt o
  assert.equal(placementProgress(s,'creative.near',now).key,'artwork');
  assert.equal(placementProgress(s,'payer.near',now).key,'await-artwork');
 });
+
+test('creative transfer follows the minted owner, not the original payer, within the editing window',async()=>{
+ const {canTransferCreativeControl}=await import('../src/integration/buyer-state.mjs'),s=snapshot();s.mode='hub';Object.assign(s.state,{holder:{account_id:'payer.near'},cutoff_ns:ns(now-1),nft_minted:true});Object.assign(s.rights,{bidding_closed:true,active:true,current_owner_id:'creative.near'});s.campaign.terms.artwork_due_ns=ns(now+60000);
+ assert.equal(canTransferCreativeControl(s,'creative.near',now),true);assert.equal(canTransferCreativeControl(s,'payer.near',now),false);
+ for(const change of [s=>s.state.nft_minted=false,s=>s.state.outcome='success',s=>s.state.outcome='failure',s=>s.state.artwork_locked=true,s=>s.rights.locked=true,s=>s.rights.active=false,s=>s.rights.bidding_closed=false,s=>s.rights.artwork_controller_id='someone-else.near',s=>s.state.cutoff_ns=ns(now+1),s=>s.campaign.terms.artwork_due_ns=ns(now+5000),s=>delete s.campaign.terms.artwork_due_ns,s=>s.mode='legacy']){
+  const changed=structuredClone(s);change(changed);assert.equal(canTransferCreativeControl(changed,'creative.near',now),false);
+ }
+ assert.equal(canTransferCreativeControl(s,'creative.near',now+60000),false);
+});

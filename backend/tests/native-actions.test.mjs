@@ -30,3 +30,19 @@ test('settlement preparation distinguishes already settled state from missing pr
 test('a verified final native receipt does not regress if upstream history is unavailable',async()=>{
  const store=new Store();try{const plan={planId:'final'};store.insert('native-plan','final','owner.near',{plan,status:'confirmed',transactionHash:'1'.repeat(44)});const actions=new NativeActions({store,reads:{rpc:{call:async()=>assert.fail('final receipts must remain final')}}});assert.equal((await actions.confirm('owner.near','final','1'.repeat(44))).status,'confirmed');await assert.rejects(actions.confirm('owner.near','final','2'.repeat(44)),{code:'TRANSACTION_CHANGED'});}finally{store.close();}
 });
+
+test('native hub preparation retains creative-transfer consent, controller and revision in its stored wallet plan',async()=>{
+ const now=1800000000000,ns=delta=>String(BigInt(now+delta)*1000000n),contractId='offer-'+'a'.repeat(32),owner='owner.near',recipient='0x'+'22'.repeat(20),store=new Store();
+ const snapshot={mode:'hub',accountId:contractId,offerId:contractId,receiverId:'hub.near',codeHash:'qualified-hub',state:{outcome:'open',nft_minted:true,artwork_locked:false,cutoff_ns:ns(-60000)},rights:{current_owner_id:owner,bidding_closed:true,active:true,locked:false,revision:'3'},campaign:{terms:{artwork_due_ns:ns(45000)}}};
+ store.insert('deployment',contractId,owner,{mode:'hub'});
+ const actions=new NativeActions({store,chain:{snapshot:async id=>{assert.equal(id,contractId);return snapshot;}},reads:{account:async()=>assert.fail('EVM recipients do not need native registration')},now:()=>now});
+ const input={contractId,kind:'transfer',receiverId:recipient,purpose:'creative-control',controlAcknowledged:true,expectedController:owner,expectedRevision:'3'};
+ try{
+  const plan=await actions.prepare(owner,input);assert.equal(plan.purpose,'creative-control');assert.equal(plan.controlAcknowledged,true);assert.equal(plan.expectedController,owner);assert.equal(plan.expectedRevision,'3');assert.equal(plan.artworkDueNs,ns(45000));assert.equal(plan.expiresAt,new Date(now+40000).toISOString());
+  assert.equal(plan.transaction.signerId,owner);assert.equal(plan.transaction.receiverId,'hub.near');assert.deepEqual(plan.transaction.actions[0].params,{methodName:'nft_transfer',args:{offer_id:contractId,receiver_id:recipient,token_id:contractId},gas:'50000000000000',deposit:'1'});assert.deepEqual(store.get('native-plan',plan.planId).plan,plan);
+  await assert.rejects(actions.prepare(owner,{...input,controlAcknowledged:false}),{code:'TRANSFER_ACKNOWLEDGEMENT_REQUIRED'});
+  await assert.rejects(actions.prepare(owner,{...input,expectedController:'former.near'}),{code:'NFT_OWNER_REQUIRED'});
+  await assert.rejects(actions.prepare(owner,{...input,expectedRevision:'2'}),{code:'STALE_ARTWORK'});
+  assert.equal(store.list('native-plan',owner).length,1,'invalid transfers must not create wallet plans');
+ }finally{store.close();}
+});

@@ -1,9 +1,21 @@
 import { assert, walletId, hashObject } from './core.mjs';
 import { intentPlan } from './intents.mjs';
 
+export function assertCreativeTransfer(snapshot,actor,input,now=Date.now()){
+ const state=snapshot.state,rights=snapshot.rights,controller=rights.artwork_controller_id??rights.current_owner_id;
+ assert(input.purpose==='creative-control'&&input.controlAcknowledged===true,'TRANSFER_ACKNOWLEDGEMENT_REQUIRED','Confirm that creative control can only be returned by the recipient',400);
+ assert(actor===rights.current_owner_id&&actor===controller&&input.expectedController===actor,'NFT_OWNER_REQUIRED','Only the current receipt owner and creative controller can transfer creative control',403);
+ assert(input.expectedRevision===String(rights.revision??'0'),'STALE_ARTWORK','Artwork changed. Review the latest revision before transferring control');
+ const due=Number(BigInt(snapshot.campaign.terms.artwork_due_ns)/1000000n),cutoff=BigInt(state.cutoff_ns);
+ assert(snapshot.mode==='hub'&&state.nft_minted===true&&state.outcome==='open'&&rights.bidding_closed===true&&rights.active===true&&!rights.locked&&!state.artwork_locked&&cutoff<=BigInt(now)*1000000n&&due>now+5000,'CREATIVE_TRANSFER_CLOSED','Creative control can only be transferred while artwork submissions are open, before approval and the deadline');
+ return {expiresMs:Math.min(now+120000,due-5000)};
+}
+const creativeContext=(snapshot,input)=>input.purpose==='creative-control'?{purpose:input.purpose,controlAcknowledged:true,expectedController:input.expectedController,expectedRevision:input.expectedRevision,artworkDueNs:snapshot.campaign.terms.artwork_due_ns}:{};
+
 export async function hubAction({store,reads,snapshot:s,wallet,input,now=Date.now()}){
  const actor=walletId(wallet),state=s.state,rights=s.rights,kind=input.kind;
  assert(s.mode==='hub'&&s.offerId&&s.receiverId,'HUB_REQUIRED','This action requires a shared marketplace offer');
+ assert(input.purpose===undefined||(kind==='transfer'&&input.purpose==='creative-control'),'INVALID_ACTION','Unsupported action purpose',400);
  const before=field=>BigInt(s.campaign.terms[field])>BigInt(now)*1000000n;
  const seller=()=>assert(actor===state.seller_id,'SELLER_REQUIRED','Only this space owner can prepare the action',403);
  const arbiter=()=>assert(actor===state.arbiter_id,'ARBITER_REQUIRED','Only this campaign arbiter can prepare the decision',403);
@@ -39,7 +51,7 @@ export async function hubAction({store,reads,snapshot:s,wallet,input,now=Date.no
   assert(state.round==='0'&&state.total_received==='0'&&state.total_pending==='0','CAMPAIGN_BOOKED','Only an unbooked placement can be cancelled');method='cancel_empty_offer';
  }
  else if(kind==='transfer'){
-  owner();const recipient=walletId(input.receiverId);assert(recipient!==actor,'INVALID_RECIPIENT','Choose a different recipient');
+  owner();assert(input.purpose===undefined||input.purpose==='creative-control','INVALID_ACTION','Unsupported transfer purpose',400);if(input.purpose==='creative-control')assertCreativeTransfer(s,actor,input,now);const recipient=walletId(input.receiverId);assert(recipient!==actor,'INVALID_RECIPIENT','Choose a different recipient');
   if(!recipient.startsWith('0x'))await reads.account(recipient);method=actor.startsWith('0x')?'transfer_placement':'nft_transfer';args=actor.startsWith('0x')?{receiver_id:recipient}:{receiver_id:recipient,token_id:s.offerId};deposit=actor.startsWith('0x')?'0':'1';
  }else assert(false,'INVALID_ACTION','Unsupported placement action',400);
  return {method,args:{offer_id:s.offerId,...args},deposit,gas};
@@ -47,15 +59,15 @@ export async function hubAction({store,reads,snapshot:s,wallet,input,now=Date.no
 export async function hubIntentPlan({store,reads,snapshot,wallet,input,now=Date.now()}){
  const actor=walletId(wallet);assert(actor.startsWith('0x'),'EVM_SIGNER_REQUIRED','This action requires an EVM Intents signer');
  const action=await hubAction({store,reads,snapshot,wallet:actor,input,now});
- const plan=intentPlan({signerId:actor,verifier:snapshot.state.intents_contract_id,now,intents:[{intent:'auth_call',contract_id:snapshot.receiverId,
-  msg:JSON.stringify({action:action.method,...action.args}),min_gas:action.gas}],context:{kind:'hub-action',action:input.kind,contractId:snapshot.accountId,offerId:snapshot.offerId,receiverId:snapshot.receiverId,codeHash:snapshot.codeHash,...(input.caseId?{caseId:input.caseId}:{})}});
+ const plan=intentPlan({signerId:actor,verifier:snapshot.state.intents_contract_id,now,...(input.purpose==='creative-control'?assertCreativeTransfer(snapshot,actor,input,now):{}),intents:[{intent:'auth_call',contract_id:snapshot.receiverId,
+  msg:JSON.stringify({action:action.method,...action.args}),min_gas:action.gas}],context:{kind:'hub-action',action:input.kind,contractId:snapshot.accountId,offerId:snapshot.offerId,receiverId:snapshot.receiverId,codeHash:snapshot.codeHash,...creativeContext(snapshot,input),...(input.caseId?{caseId:input.caseId}:{})}});
  return plan;
 }
 export async function hubNativePlan({store,reads,snapshot,wallet,input,now=Date.now()}){
  const actor=walletId(wallet);assert(!actor.startsWith('0x'),'NEAR_WALLET_REQUIRED','Connect a native NEAR wallet');
  const action=await hubAction({store,reads,snapshot,wallet:actor,input,now});
  const body={schema:'everywhere-native-action/v1',type:'native',wallet:actor,contractId:snapshot.accountId,offerId:snapshot.offerId,codeHash:snapshot.codeHash,kind:input.kind,
-  ...(input.caseId?{caseId:input.caseId}:{}),createdAt:new Date(now).toISOString(),expiresAt:new Date(now+120000).toISOString(),transaction:{signerId:actor,receiverId:snapshot.receiverId,
+  ...creativeContext(snapshot,input),...(input.caseId?{caseId:input.caseId}:{}),createdAt:new Date(now).toISOString(),expiresAt:new Date(input.purpose==='creative-control'?assertCreativeTransfer(snapshot,actor,input,now).expiresMs:now+120000).toISOString(),transaction:{signerId:actor,receiverId:snapshot.receiverId,
    actions:[{type:'FunctionCall',params:{methodName:action.method,args:action.args,gas:action.gas,deposit:action.deposit}}]}};
  return {...body,planId:hashObject(body)};
 }

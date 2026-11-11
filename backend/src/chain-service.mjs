@@ -1,4 +1,4 @@
-import { hubIntentPlan } from './hub-actions.mjs';
+import { hubIntentPlan, assertCreativeTransfer } from './hub-actions.mjs';
 import { hubSnapshot, offerArgs, receiver, isOfferId, qualifyHub, hubPriceAtRound } from './hub.mjs';
 import { KeyPairSigner, baseEncode } from 'near-api-js';
 import { readFile } from 'node:fs/promises';
@@ -141,7 +141,7 @@ export class ChainService {
       assert(current.state.round===plan.context.expectedRound&&current.state.next_price===plan.context.amount,'PRICE_CHANGED','Campaign price changed; sign a fresh purchase');
       assert(current.campaign.terms.published_terms_sha256===plan.context.publishedTermsHash,'TERMS_CHANGED','Campaign rules changed');
     }
-    if(plan.context.kind==='hub-action'){const current=await this.snapshot(plan.context.contractId);assert(current.receiverId===plan.context.receiverId&&current.offerId===plan.context.offerId&&current.codeHash===plan.context.codeHash,'HUB_CHANGED','Marketplace offer routing changed');}
+    if(plan.context.kind==='hub-action'){const current=await this.snapshot(plan.context.contractId);assert(current.receiverId===plan.context.receiverId&&current.offerId===plan.context.offerId&&current.codeHash===plan.context.codeHash,'HUB_CHANGED','Marketplace offer routing changed');if(plan.context.purpose==='creative-control')assertCreativeTransfer(current,payer,plan.context,this.now());}
     if(plan.context.kind==='publish'){const block=await this.reads.block();await qualifyHub(this.reads,this.config,block);assert(this.config.hub.accountId===plan.context.receiverId&&this.config.hub.codeHash===plan.context.codeHash,'HUB_CHANGED','Publication marketplace changed');}
     const signed=await signedErc191(plan,signature,{now:this.now()});
     const operation=await this.call({id,signerId:this.config.treasury,signer:await this.treasurySigner(),receiverId:this.config.assets.intentsId,
