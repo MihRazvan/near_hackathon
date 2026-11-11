@@ -1,0 +1,562 @@
+{
+  "schema": "everywhere-qualification/v1",
+  "network": "mainnet",
+  "source": "recorded-mainnet-qualification",
+  "contract": {
+    "codeHash": "5i3hw9oXjH6Ri3fGGZ177U7ckk87oeqtUUVxtYMgPsiS",
+    "wasmSha256": "45f29ecac83ae3c31c7e8f300d314484d82184f40f35c4bb92c319f298b5240b",
+    "publishedTermsSha256": "gQufMUiYvCIgv6Vp9TlnYyo/ctFFaO8Q9302yZcJos8="
+  },
+  "record": {
+    "saleId": "e22dd301-786f-476c-af74-0df7cd2e6168",
+    "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+    "hubId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+    "completedAt": "2026-11-10T12:19:00.993Z",
+    "note": "Synthetic integration qualification. Real mainnet transactions and USDC; synthetic artwork and installation evidence. No physical advertisement was installed.",
+    "physicalInstallationVerified": false,
+    "actors": {
+      "owner": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "buyerA": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+      "buyerB": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4"
+    },
+    "schedule": {
+      "biddingClose": "2026-11-10T11:56:00.000Z",
+      "artworkDue": "2026-11-10T12:08:00.000Z",
+      "installationDue": "2026-11-10T12:11:00.000Z",
+      "serviceStart": "2026-11-10T12:11:00.000Z",
+      "serviceEnd": "2026-11-10T12:13:00.000Z",
+      "reviewEnd": "2026-11-10T12:16:00.000Z"
+    },
+    "amounts": {
+      "received": "30000",
+      "withdrawn": "30000",
+      "pending": "0",
+      "ownerEarnings": "10000",
+      "buyerRefund": "10000",
+      "buyerReward": "10000",
+      "unit": "USDC base units",
+      "decimals": 6
+    },
+    "artifacts": {
+      "artwork": {
+        "uri": "ipfs://bafkreigeoxej32yxu2fm4t2sdxp36fguwem5pm6imk5ewep6f2dqyhudie",
+        "sha256": "c475c89deb17a68ace4f521ddfbf14d4b119d7b3c862ba4b11fe2e870c1e8341",
+        "provenance": "synthetic-qualification",
+        "physicalInstallationVerified": false
+      },
+      "delivery": {
+        "uri": "ipfs://bafkreicadz6cevuety7u52d4ugj7hk2c3xcm7idvlg6uudlpaleri4fo6i",
+        "sha256": "401e7c2256849e3f4ee87ca193f3ab42ddc4cfa07559bd4a0d6f02c91470aef2",
+        "provenance": "synthetic-qualification",
+        "physicalInstallationVerified": false
+      }
+    },
+    "steps": [
+      {
+        "id": "publish",
+        "label": "Publish the synthetic campaign",
+        "transactionHash": "HbCTaoUnJXAttYkDSNTaAqjJP5N7CwMyzVQbLsaqXDmj",
+        "explorerUrl": "https://nearblocks.io/txns/HbCTaoUnJXAttYkDSNTaAqjJP5N7CwMyzVQbLsaqXDmj",
+        "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+        "method": "execute_intents",
+        "action": "create_offer",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "intents.near",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "offer_created",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "seller_id": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+              "sponsored": true
+            }
+          },
+          {
+            "executorId": "intents.near",
+            "standard": "dip4",
+            "event": "intents_executed",
+            "match": {
+              "account_id": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8"
+            }
+          }
+        ],
+        "receiptDigest": "746f8aecfcbfcf31fd2b4e380ab25dc5d6c5834333bbec18084f0e5b869d9caa",
+        "blockHashes": [
+          "E35Bv1dh47rLo5pkHkG3LLEMSDXSVen6S3TjyYBYm4Ae",
+          "8mKrqCM2dqeDXgJNTfNpZeyaSoCRwMbwmk3wRdKSR7U8"
+        ]
+      },
+      {
+        "id": "purchase",
+        "label": "Advertiser A books for 0.01 USDC",
+        "transactionHash": "AZy3yJpa9WQoCJpPURXMMUxAe73PuBc176CHkAh6StDP",
+        "explorerUrl": "https://nearblocks.io/txns/AZy3yJpa9WQoCJpPURXMMUxAe73PuBc176CHkAh6StDP",
+        "actorId": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+        "method": "execute_intents",
+        "action": "purchase",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "intents.near",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "purchase_accepted",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "buyer_id": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+              "round": "1",
+              "amount": "10000"
+            }
+          },
+          {
+            "executorId": "intents.near",
+            "standard": "dip4",
+            "event": "intents_executed",
+            "match": {
+              "account_id": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e"
+            }
+          },
+          {
+            "executorId": "intents.near",
+            "standard": "nep245",
+            "event": "mt_transfer",
+            "match": {
+              "old_owner_id": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+              "new_owner_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "token_ids": [
+                "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1"
+              ],
+              "amounts": [
+                "10000"
+              ]
+            }
+          }
+        ],
+        "receiptDigest": "bc966c42ff952755dd00d673103a0917f4d7213605cca60038f970e5db702d6a",
+        "blockHashes": [
+          "DoX8hyn1Emq6mpB6RGi3GovtCNcqtPRwTrA8keKtgDQU",
+          "BBHosNaE37bDMccmrZYGHpi18B6qTUWioie9ii8Zgokk"
+        ]
+      },
+      {
+        "id": "takeover",
+        "label": "Advertiser B takes over for 0.02 USDC",
+        "transactionHash": "CpcLyWf2Z82adPomhDMihdsoThUzuoJNVMU2d24Nbz7R",
+        "explorerUrl": "https://nearblocks.io/txns/CpcLyWf2Z82adPomhDMihdsoThUzuoJNVMU2d24Nbz7R",
+        "actorId": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4",
+        "method": "execute_intents",
+        "action": "purchase",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "intents.near",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "purchase_accepted",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "buyer_id": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4",
+              "round": "2",
+              "amount": "20000"
+            }
+          },
+          {
+            "executorId": "intents.near",
+            "standard": "dip4",
+            "event": "intents_executed",
+            "match": {
+              "account_id": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4"
+            }
+          },
+          {
+            "executorId": "intents.near",
+            "standard": "nep245",
+            "event": "mt_transfer",
+            "match": {
+              "old_owner_id": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4",
+              "new_owner_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "token_ids": [
+                "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1"
+              ],
+              "amounts": [
+                "20000"
+              ]
+            }
+          }
+        ],
+        "receiptDigest": "32c10776b0bfe113440ff098444b13bdb1df2bef9bfed24a64ac7afaec70f9a6",
+        "blockHashes": [
+          "7RkaSougbz9JAvqGRTNB48CYnTVxJsKJT4RU7sWGDdns",
+          "31hELkeo1kYR8kd2HajADEoVX71odyDvmCEmb1pfru5B"
+        ]
+      },
+      {
+        "id": "mint",
+        "label": "Mint final placement NFT",
+        "transactionHash": "EEuqArfWpEpqqW28xnT7biSWvC1zrfABEiUaH6FrHTZW",
+        "explorerUrl": "https://nearblocks.io/txns/EEuqArfWpEpqqW28xnT7biSWvC1zrfABEiUaH6FrHTZW",
+        "actorId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "actorRole": "permissionless-relayer",
+        "method": "mint_final_placement",
+        "action": "mint_final_placement",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "nep171",
+            "event": "nft_mint",
+            "match": {
+              "owner_id": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4",
+              "token_ids": [
+                "offer-0b69ca766dbadfc7f25d3f0ae6e49783"
+              ]
+            }
+          }
+        ],
+        "receiptDigest": "c261db44d29de29db50e3a577972aed606144bc71794092ca0b79fe790e7effa",
+        "blockHashes": [
+          "33zPPXKCWBr5LsPDnBG4bkgSy9gAqNqytPQF1jbZWKK6"
+        ]
+      },
+      {
+        "id": "artwork",
+        "label": "Submit synthetic artwork",
+        "transactionHash": "8gkb9AFFpeEME3KjDKPK9uELpvd9Acvb5YfLvh5DJmm8",
+        "explorerUrl": "https://nearblocks.io/txns/8gkb9AFFpeEME3KjDKPK9uELpvd9Acvb5YfLvh5DJmm8",
+        "actorId": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4",
+        "method": "execute_intents",
+        "action": "submit_artwork",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "intents.near",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "artwork_submitted",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "revision": "1",
+              "token_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "owner_id": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4"
+            }
+          },
+          {
+            "executorId": "intents.near",
+            "standard": "dip4",
+            "event": "intents_executed",
+            "match": {
+              "account_id": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4"
+            }
+          }
+        ],
+        "receiptDigest": "6bcb9a9a50636a2aad8705cd83817875bee4f9f751b40b78f93038126e8b58b7",
+        "blockHashes": [
+          "AysmbXzEzT9gXtrfdhgysXs55NQioR6gEvwXTrWoUEoo",
+          "6fCCULDGC23c4yzWGorheRcLRKjMt1r31hkmAHkCyd3q"
+        ]
+      },
+      {
+        "id": "approve-artwork",
+        "label": "Lock artwork revision",
+        "transactionHash": "AjNRB83dxms7wvZ9nKtcM7XDpvK24kHFTHofR6JH6fPv",
+        "explorerUrl": "https://nearblocks.io/txns/AjNRB83dxms7wvZ9nKtcM7XDpvK24kHFTHofR6JH6fPv",
+        "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+        "method": "execute_intents",
+        "action": "lock_artwork",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "intents.near",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "artwork_locked",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "revision": "1"
+            }
+          },
+          {
+            "executorId": "intents.near",
+            "standard": "dip4",
+            "event": "intents_executed",
+            "match": {
+              "account_id": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8"
+            }
+          }
+        ],
+        "receiptDigest": "1259633452b8c87be9f119a25e156ec024428e496c255c9c52a6d361b15d40cb",
+        "blockHashes": [
+          "5TGKgWKLLJzPyUhyG4df5CHm5vJitgxxa4YbaJY4gzpL",
+          "6BxiV6isBRdbJzi7aqwbm8SeWwjNokXBPSiLerh1LJ1t"
+        ]
+      },
+      {
+        "id": "delivery",
+        "label": "Submit synthetic installation evidence",
+        "transactionHash": "2hMHgdTdhp2PWcisvD4SvXN7YBzyTyTVG9G9YNPmzUrX",
+        "explorerUrl": "https://nearblocks.io/txns/2hMHgdTdhp2PWcisvD4SvXN7YBzyTyTVG9G9YNPmzUrX",
+        "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+        "method": "execute_intents",
+        "action": "submit_delivery_proof",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "intents.near",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "delivery_proof_submitted",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "owner_id": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8"
+            }
+          },
+          {
+            "executorId": "intents.near",
+            "standard": "dip4",
+            "event": "intents_executed",
+            "match": {
+              "account_id": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8"
+            }
+          }
+        ],
+        "receiptDigest": "83c6c517dd04341103147ce88e02610cca75a5038c05881e61dba7b948d7d254",
+        "blockHashes": [
+          "H9TgWcHB4dvaztCKTinHbAHM5jM12G6idF1EdQxA1bUv",
+          "7zLa96jXBT1YpYDdDH8XtEwKDhMdz7ykmNXNKTzMbkXX"
+        ]
+      },
+      {
+        "id": "settle",
+        "label": "Finalize successful campaign",
+        "transactionHash": "H1XeGeNvHZbsyXfL3zmCfdryH3y23wEZJP9qcW1iACTW",
+        "explorerUrl": "https://nearblocks.io/txns/H1XeGeNvHZbsyXfL3zmCfdryH3y23wEZJP9qcW1iACTW",
+        "actorId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "actorRole": "permissionless-relayer",
+        "method": "finalize_success",
+        "action": "finalize_success",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "finalized",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "outcome": "success"
+            }
+          }
+        ],
+        "receiptDigest": "445e7287826ea68163ff9108cce35ed470d1413ad318ecbfda82805177e91ee2",
+        "blockHashes": [
+          "3aJpRk8TnSTBjGxyKvFdY3wffKDvvSpYd3jtpkc2wb7G"
+        ]
+      },
+      {
+        "id": "owner-claim",
+        "label": "Owner claims 0.01 USDC",
+        "transactionHash": "GFVV3NgwJrvNbPU6AueQj7ndVzJDTcVQwDxpi2D7LAan",
+        "explorerUrl": "https://nearblocks.io/txns/GFVV3NgwJrvNbPU6AueQj7ndVzJDTcVQwDxpi2D7LAan",
+        "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+        "method": "release_credit",
+        "action": "release_credit",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "withdrawal_started",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "amount": "10000",
+              "owner_id": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+              "withdrawal_id": "0"
+            }
+          },
+          {
+            "executorId": "intents.near",
+            "standard": "nep245",
+            "event": "mt_transfer",
+            "match": {
+              "old_owner_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "new_owner_id": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+              "token_ids": [
+                "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1"
+              ],
+              "amounts": [
+                "10000"
+              ],
+              "memo": "offer-0b69ca766dbadfc7f25d3f0ae6e49783:withdrawal:0"
+            }
+          },
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "withdrawal_resolved",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "withdrawal_id": "0",
+              "succeeded": true
+            }
+          }
+        ],
+        "receiptDigest": "46b575dba5c579e5a627aff455545cd8154284835ca940a07b954f1f827427d8",
+        "blockHashes": [
+          "B4JLaJwG6iauCMCFHhResxaiG3SwT4rqHu1y9FiUenHf",
+          "GkcauQVWf6dCQsiDCNTP7Wz24KQb1fNG54KQDaawhWsV",
+          "G6NCYBJowcThuWgDpNnKjWJ4AfwqC8UEkRKVuY33aP9g"
+        ]
+      },
+      {
+        "id": "buyer-refund-reward",
+        "label": "Advertiser A claims 0.01 USDC refund plus 0.01 USDC reward",
+        "transactionHash": "8o1cuqg4otvCTd5DzippdQJTrxUKjfsHMkfeoZgeD8yN",
+        "explorerUrl": "https://nearblocks.io/txns/8o1cuqg4otvCTd5DzippdQJTrxUKjfsHMkfeoZgeD8yN",
+        "actorId": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+        "method": "release_credit",
+        "action": "release_credit",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "withdrawal_started",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "amount": "20000",
+              "owner_id": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+              "withdrawal_id": "1"
+            }
+          },
+          {
+            "executorId": "intents.near",
+            "standard": "nep245",
+            "event": "mt_transfer",
+            "match": {
+              "old_owner_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "new_owner_id": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+              "token_ids": [
+                "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1"
+              ],
+              "amounts": [
+                "20000"
+              ],
+              "memo": "offer-0b69ca766dbadfc7f25d3f0ae6e49783:withdrawal:1"
+            }
+          },
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "withdrawal_resolved",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "withdrawal_id": "1",
+              "succeeded": true
+            }
+          }
+        ],
+        "receiptDigest": "9ff386897d6ad37f4d75c16f0295e400a40bcaac58e70f1aae0cfde10d753829",
+        "blockHashes": [
+          "5EmgijaZPf6S3MzrbTn8FgqHV2YikLX5FLV1sGmXze9U",
+          "9CeK6zSLnrg7KiVrCi4hAkD1ioNNH4FtXMj1AwtfiiPJ",
+          "GLp7vidt4hnGtkSJx9hLKFGZPW7ksAWx1p53Cdac4bWN"
+        ]
+      },
+      {
+        "id": "storage",
+        "label": "Reclaim unused storage reserve",
+        "transactionHash": "4cx7uFPmNDmG8AdLoqXkNnjjdkVH93SuwRaT6SiWq4U8",
+        "explorerUrl": "https://nearblocks.io/txns/4cx7uFPmNDmG8AdLoqXkNnjjdkVH93SuwRaT6SiWq4U8",
+        "actorId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "actorRole": "permissionless-relayer",
+        "method": "reclaim_storage_reserve",
+        "action": "reclaim_storage_reserve",
+        "offerId": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+        "signerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+        "receiverId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+        "requirements": [
+          {
+            "executorId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+            "standard": "pitboard",
+            "event": "storage_reserve_reclaimed",
+            "match": {
+              "offer_id": "offer-0b69ca766dbadfc7f25d3f0ae6e49783",
+              "hub_id": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+              "amount": "563499999999999999999998",
+              "sponsored": true
+            }
+          }
+        ],
+        "receiptDigest": "1e3d71f6056380fbf0d34d5e881851ca230a86b11d23aaa1ca6ddbae0921aff0",
+        "blockHashes": [
+          "CQ6ab7hpxpynq64VSVsimBHmrsQc9MZWfR7ziihQoJhh"
+        ]
+      }
+    ],
+    "coverage": [
+      {
+        "feature": "EVM wallet authorization, purchase and takeover",
+        "status": "mainnet-verified"
+      },
+      {
+        "feature": "Final placement NFT minted directly to final payer",
+        "status": "mainnet-verified"
+      },
+      {
+        "feature": "Artwork commitment, owner lock and synthetic fulfillment",
+        "status": "mainnet-verified"
+      },
+      {
+        "feature": "Permissionless success, original-wallet claims and storage recovery",
+        "status": "mainnet-verified"
+      },
+      {
+        "feature": "NFT creative authority transfer",
+        "status": "not-recorded-in-this-run",
+        "note": "No NFT transfer occurred in this V3 qualification."
+      },
+      {
+        "feature": "Physical installation",
+        "status": "not-performed",
+        "note": "The installation artifact is explicitly synthetic."
+      }
+    ],
+    "funding": {
+      "source": "Existing NEAR Intents USDC balances",
+      "basePrefunding": "Separate earlier activity; this run did not perform a new Base bridge or external withdrawal."
+    }
+  },
+  "verification": {
+    "status": "verified",
+    "checkedAt": "2026-11-11T14:51:41.394Z",
+    "blockHash": "54h1rPvpYuUjpKtu2DKTKwaEZtfnjc11M3UvyWdjYGMg",
+    "blockHeight": 224079988,
+    "method": "Public mainnet RPC: finalized complete transaction outcomes, scoped executor/event/offer bindings, actual USDC transfer events, NFT mint, qualified current state and artifact commitments"
+  }
+}

@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { CampaignRecords } from './campaign-records.mjs';
 import { assert, AppError, walletId } from './core.mjs';
 import { sessionToken,sessionCookie } from './session-http.mjs';
 import { serveWalletAssets } from './wallet-assets.mjs';
@@ -16,6 +17,7 @@ async function jsonBody(request,maxBytes=3000000){
 }
 function publicOperation(op){return {id:op.id,phase:op.phase,transactionHash:op.transaction_hash};}
 export function httpApp({config,store,auth,marketplace,chain,nativeActions,publication,walletRequests,assetAI,personalAI,supportService,media,budget,near,source,routes,reads,client,returnVerifier,lab,product,funding,capture,provisioning,fundedWallets}){
+ const records=new CampaignRecords({config,store,chain,marketplace,product});
  const rates=new Map();let activeUploads=0;
  const server=createServer(async(request,response)=>{
   let uploadSlot=false;
@@ -56,6 +58,8 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    }
    if(method==='GET'&&path[1]==='lab-config'&&lab){send(200,{...await lab.publicConfig(),developmentWallets:fundedWallets?.list()??[]});return;}
    if(method==='POST'&&path[1]==='funded-wallet'&&path[2]==='sign-in'&&fundedWallets?.enabled){send(200,await fundedWallets.signIn(await jsonBody(request)));return;}
+   if(method==='GET'&&path[1]==='campaign-records'&&path.length===3){send(200,await records.record(path[2]));return;}
+   if(method==='GET'&&path[1]==='evidence'&&path[2]==='qualification'&&path.length===3){send(200,await records.qualification());return;}
    if(method==='GET'&&path[1]==='catalog'&&product){send(200,await product.catalog());return;}
    if(method==='POST'&&path[1]==='captures'&&path[3]==='photo'&&capture){send(201,capture.upload(path[2],await jsonBody(request)));return;}
    if(method==='POST'&&path[1]==='lab-wallet'&&path[2]==='sign-in'&&lab?.sandbox){send(200,await lab.signIn(await jsonBody(request)));return;}

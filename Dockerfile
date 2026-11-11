@@ -18,6 +18,7 @@ COPY --from=build /app/backend/package.json ./backend/package.json
 COPY --from=build /app/backend/lab/dist ./backend/lab/dist
 COPY --from=build /app/prototype/dist ./prototype/dist
 COPY backend/src ./backend/src
+COPY deployments/mainnet.json deployments/qualification.json ./deployments/
 COPY backend/bin/server.mjs ./backend/bin/server.mjs
 EXPOSE 8080
 CMD ["node", "backend/bin/server.mjs"]

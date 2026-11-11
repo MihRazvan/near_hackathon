@@ -24,3 +24,7 @@
 !prototype/public/fonts/**
 !prototype/public/images
 !prototype/public/images/*.webp
+
+!deployments
+!deployments/mainnet.json
+!deployments/qualification.json
