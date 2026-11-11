@@ -78,7 +78,7 @@ export async function startProductSandbox({fixturePath,stateDir,port=4330}){
   for(let attempt=0;attempt<150;attempt++){const pending=store.db.prepare("SELECT id FROM operations WHERE phase NOT IN ('confirmed','failed','superseded')").all();if(!pending.length)break;for(const op of pending)await near.reconcile(op.id);if(attempt===149)throw new Error('Reconcile original operations before fast-forwarding Sandbox');await sleep(100);}
   let finish;clock.pause=new Promise(resolve=>{finish=resolve;});
   try{for(let i=0;i<3000;i++){await clock.refresh();if(clock.now()>target){await sleep(700);await clock.refresh();product.publicSnapshots.clear();return;}
-   await rpc.call('sandbox_fast_forward',{delta_height:Math.max(1,Math.min(100,Math.ceil((target-clock.now())/300)))},{timeoutMs:30000});
+   await rpc.call('sandbox_fast_forward',{delta_height:Math.max(1,Math.min(25,Math.ceil((target-clock.now())/300)))},{timeoutMs:60000});
   }throw new Error('Sandbox clock did not reach the requested stage');}finally{clock.pause=null;finish();}
  }
  async function fund(wallet){await direct('usdc.sandbox','usdc.sandbox','mint',{account_id:'usdc.sandbox',amount:'1000000'});await direct('usdc.sandbox','usdc.sandbox','ft_transfer_call',{receiver_id:'verifier.sandbox',amount:'1000000',msg:wallet,memo:null},'1');}
