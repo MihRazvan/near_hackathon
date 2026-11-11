@@ -15,6 +15,12 @@ These photographs were downloaded from Unsplash and are used under the [Unsplash
 
 Edit prompt: Preserve the original van, street, camera angle, building, lighting and photographic texture. Apply a signal-yellow vinyl advertising decal inside the recessed cargo panel with dark petrol condensed lettering reading “GOOD THINGS” and “GET AROUND.” plus a diagonal arrow. Follow the panel perspective, curvature and central door seam so the decal looks physically installed. Add no interface graphics or other scene changes.
 
+`images/van-dublin-takeover.webp` is a second AI-edited derivative of the same source, created with OpenAI’s built-in image-generation tool for the interactive example. It applies a petrol-green “COFFEE CLUB / YOUR DAILY STOP.” vinyl treatment following the van panel, seams, lighting and perspective. Both brand variants are prepared illustrations, not evidence of a physical installation.
+
+## Motorcycle pilot artwork
+
+The downloadable Everywhere motorcycle design is original vector artwork using the project’s colors and wordmark. Lettering is outlined from the Barlow Condensed and Manrope fonts credited below. It is a draft composition with no physical print size; the permitted panel must be measured and the printer must approve its fit before production.
+
 ## Fonts
 
 Fonts are served locally; displaying the interface does not make a Google Fonts request.

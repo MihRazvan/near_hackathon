@@ -6,6 +6,32 @@ The application now uses persisted inventory, wallet authentication and real NEA
 
 Open the [live application](https://everywhere-near.vercel.app). The [public deployment manifest](deployments/mainnet.json) identifies the mainnet contract, pinned code and completed synthetic qualification campaign. That campaign exercised real payments and on-chain fulfillment records; no physical advertisement was installed.
 
+## Try it in two minutes
+
+Open **[Try a takeover](https://everywhere-near.vercel.app/experience)** and sign in with an existing EVM or NEAR wallet. Choose a prepared brand, book the example spot, trigger its competitor’s takeover, close booking, approve the example delivery, and claim the example payouts. The optional studio handoff moves creative authority while the original money destinations stay fixed. Progress resumes for the same wallet on the same browser.
+
+Wallet authentication is real. This accelerated experience uses example money and does not request token funding, broadcast transactions or issue a visitor-owned NFT. It is separate from ordinary marketplace inventory and payments. There are no artificial waiting periods; two minutes is a visitor target, not a claim about wallet-provider response times.
+
+Then open the **[recorded mainnet campaign](https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168)**. Its 11 transaction receipts cover actual 1¢/2¢ USDC purchases, takeover, NFT mint, artifact commitments, fulfillment, settlement and original-wallet payouts: **3¢ received, 3¢ withdrawn, zero pending**. The qualification used synthetic artwork and delivery evidence; no physical advertisement was installed. The creative-control handoff has separate real Sandbox coverage; it was not recorded in this V3 mainnet campaign. Funding came from pre-existing Intents balances, rather than a new Base bridge in that run.
+
+The public record exposes current finalized state and a scoped receipt manifest, with explicit unavailable/mismatch states. Reproduce historical verification without keys or funds:
+
+```sh
+node backend/bin/verify-evidence.mjs
+```
+
+The [qualification manifest](deployments/qualification.json) binds the receipt hashes, original signed action meanings, actors, offer, token amounts, terms and artifact digests. The verifier re-reads finalized NEAR receipts and campaign state. The [machine-readable endpoint](https://everywhere-near.vercel.app/api/evidence/qualification) distinguishes historical receipt verification from its cached current-state check.
+
+## Hackathon tracks
+
+| Track | What the implementation demonstrates |
+| --- | --- |
+| **Open Innovation** (`open`) | Physical advertising rights with pre-production takeovers, original-payer refunds, completion rewards and independently inspectable settlement. |
+| **Real-World Money** (`realworld`) | USDC payments and recoverable claims for advertising services, EVM signing through NEAR Intents, native withdrawals and quoted Base funding routes. |
+| **NFTs That Do Something** (`nfts`) | A NEP-171 placement receipt controls who can submit artwork during the permitted window. Transfer changes that authority while financial creditors stay fixed. Approval locks the creative before printing. |
+
+Everywhere develops the pre-existing **Pitboard** vehicle-sponsorship concept and takeover idea. This repository contains the Everywhere application, wallet integration, NEAR contracts, shared marketplace hub and verification suites. The earlier static marketplace prototype begins at [46483c9](https://github.com/MihRazvan/near_hackathon/commit/46483c9); NEAR contract implementation begins at [ae3efa1](https://github.com/MihRazvan/near_hackathon/commit/ae3efa1). The commit history shows the progression from prototype to connected platform; we do not present the earlier concept as newly invented.
+
 ## The campaign lifecycle
 
 1. **List space.** Create a vehicle listing, review its surfaces, and set campaign dates and all-in prices including printing and installation. Takeovers can be enabled per surface.
@@ -53,9 +79,13 @@ See [backend setup](backend/README.md), [frontend development](prototype/README.
 npm test --prefix backend
 npm test --prefix prototype
 npm run build --prefix prototype
+node prototype/tests/startup-browser.mjs
+node prototype/tests/judge-browser.mjs
 ```
 
-The [production browser qualification](backend/README.md#production-interface-on-near-sandbox) runs the actual interface against a real isolated NEAR Sandbox, the compiled shared hub and the pinned Intents verifier. It covers an unfunded EVM owner, publication, distinct buyers, takeovers, rejected signatures, restart recovery, automatic NFT minting, fulfillment, disputes, settlement, exact payouts and native USDC withdrawal.
+The judge browser suite uses isolated API fixtures for desktop/mobile layouts, example isolation, wallet-scoped progress, evidence outages and retries. It does not claim actual wallet or mainnet execution.
+
+The [production browser qualification](backend/README.md#production-interface-on-near-sandbox) runs the actual interface against a real isolated NEAR Sandbox, the compiled shared hub and the pinned Intents verifier. It covers an unfunded EVM owner, publication, distinct buyers, takeovers, rejected signatures, restart recovery, automatic NFT minting, EVM creative-control transfer and former-controller rejection, fulfillment, disputes, settlement, exact payouts and native USDC withdrawal.
 
 Its injected EIP-1193 wallet shell produces real signatures; it does not automate a real extension's approval UI. Media-provider HTTP is isolated while the actual upload/digest verification runs. Native arbiter actions use the authenticated API and real signatures. Base routing and real pinning-provider availability require separate provider qualification.
 
@@ -66,3 +96,7 @@ Manual description/photo onboarding and surface editing are the default. An opti
 Production uses the [Docker image](Dockerfile) and [Railway configuration](.railway/railway.ts), one application instance and a persistent SQLite volume. Configure HTTPS origins and server secrets explicitly. A static frontend deployment also needs the API and wallet-adapter routes; the frontend build alone does not provide the application backend. Deployment configuration is described in the [backend README](backend/README.md#production-hosting).
 
 Personal wallet keys, local credentials, state databases and generated qualification evidence are excluded from the repository.
+
+## Physical motorcycle pilot
+
+The team has selected its Pitboard motorcycle and Everywhere branding for a genuine pilot. The [prepared owner draft](https://everywhere-near.vercel.app/host/assets/new?pilot=motorcycle) includes editable Honda CBR600F2 details and downloadable outlined vector artwork. Nothing is automatically saved, published, paid or installed. The owner must confirm the actual motorcycle details, permitted panel, dimensions, city, schedule and printing requirements, upload a current photo, and later supply real installation evidence. The draft artwork has no promised physical print size. Until those steps happen, the public qualification remains explicitly synthetic.
