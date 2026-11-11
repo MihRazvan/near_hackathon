@@ -49,7 +49,7 @@ export function homeView({
     <div class="hero-copy"><p class="hero-intro"><span class="status-dot"></span> Big ideas belong out here.</p>
       <h1 id="home-title" tabindex="-1">ADVERTISE<br>ON EVERYTHING.</h1>
       <p class="hero-description">The next great ad space isn’t on a screen. It’s on the car next door. Find a real-world spot for your brand, or turn your own space into one.</p>
-      <div class="actions">${link("/explore", "Find your space " + outwardArrow, "button primary")}${link("/host/assets/new", "Earn with your space", "button quiet")}</div>
+      <div class="actions">${link("/explore", "Find your space " + outwardArrow, "button primary")}${link("/experience", "Try a takeover " + outwardArrow, "button signal")}</div>
       <p class="hero-footnote">Starting with vehicles. Going everywhere.</p>
     </div>${streetPreview()}
   </section>
@@ -60,6 +60,6 @@ export function homeView({
     ${!availableCount && publishedCount ? `<p class="inventory-note">Looking for a previous campaign? ${link("/explore?availability=all", "Browse past campaign records", "text-link")}</p>` : ""}
   </section>
   <section class="owner-feature" aria-labelledby="owner-title"><div class="owner-photo"><img src="/images/van-side.webp" alt="An unbranded van with a large side panel, illustrating a potential advertising surface" width="1400" height="933" loading="lazy"><span>See a van? We see possibilities.</span></div><div class="owner-copy"><h2 id="owner-title">THAT EMPTY SPACE<br>HAS POTENTIAL.</h2><p>Your car. Your cargo bike. Your daily route. Give a brand a place in the real world, on your terms.</p><ul><li>Choose exactly where an ad can go.</li><li>Set your dates, rules and all-in price.</li><li>Print, install, share proof. Get paid.</li></ul>${link("/host/assets/new", "Put your space to work " + outwardArrow, "button signal")}</div></section>
-  <section class="takeover-feature" aria-labelledby="takeover-title"><div class="takeover-symbol" aria-hidden="true">${icon("takeover")}</div><div><h2 id="takeover-title">FOUND THE SPOT?<br>MAKE YOUR MOVE.</h2><p>Some spaces allow takeovers before booking closes. A new advertiser can claim the spot, while the previous advertiser keeps their refund and any eligible reward.</p>${link("/help/takeovers", "Get to know takeovers " + outwardArrow, "editorial-link")}</div><div class="takeover-note"><span>Owner’s choice.</span><span>Clear deadline.</span><span>Always before printing.</span></div></section>
+  <section class="takeover-feature" aria-labelledby="takeover-title"><div class="takeover-symbol" aria-hidden="true">${icon("takeover")}</div><div><h2 id="takeover-title">FOUND THE SPOT?<br>MAKE YOUR MOVE.</h2><p>Some spaces allow takeovers before booking closes. A new advertiser can claim the spot, while the previous advertiser keeps their refund and any eligible reward.</p>${link("/experience", "Make your move " + outwardArrow, "editorial-link")}</div><div class="takeover-note"><span>Owner’s choice.</span><span>Clear deadline.</span><span>Always before printing.</span></div></section>
   <section class="closing-line"><h2>SMALL SPACE.<br>BIG POTENTIAL.</h2><div><p>For the brands with something to say.<br>And the people with a place to say it.</p>${link("/explore", "Find your space " + outwardArrow, "button primary")}</div></section>`;
 }

@@ -1994,3 +1994,9 @@ body[data-route="P09"] .panel p {
     overscroll-behavior-x: contain;
   }
 }
+
+/* Keep a named wallet's public navigation usable on narrow screens. */
+.site-header .header-end { min-width: 0; }
+.site-header .public-account-link { display: block; min-width: 0; max-width: 165px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) { .site-header .public-account-link { max-width: 82px; } }
+@media (max-width: 360px) { .site-header .public-account-link { max-width: 62px; } }

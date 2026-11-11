@@ -8,6 +8,8 @@ import { accountView,sharedView,opsView,testingView } from './shared.mjs';
 import { actions,forms,assetFields } from './actions.mjs';
 import { esc,link,act,notice,heading,empty } from './ui.mjs';
 import { captureView } from './capture.mjs';
+import { renderExperience,mountExperience } from './experience.mjs';
+import { campaignRecordView,mountCampaignRecord } from './record.mjs';
 
 export { live,currentPerson };
 export async function initializeConnected(){await initialize();}
@@ -19,7 +21,9 @@ export function topbar(){
 export function renderConnected(r){
  if(!live.config)return '';
  let body;
- if(r.scope==='global')body=globalView(r);
+ if(r.id==='X01')body=renderExperience(live);
+ else if(r.id==='P10')body=campaignRecordView(r.params.id);
+ else if(r.scope==='global')body=globalView(r);
  else if(r.id==='T01'&&!live.config.production)body=testingView();
  else if(['O04','O05'].includes(r.id))body=captureView(r);
  else if(r.scope==='public')body=publicView(r);
@@ -54,6 +58,8 @@ export function legacyAction(target,r){
  toast('This action is unavailable. Refresh the page and try again.');
 }
 export function mountConnected(r){
+ if(r.id==='X01')mountExperience();
+ if(r.id==='P10')mountCampaignRecord(r.params.id);
  const providers=document.querySelector('form[data-live-form="connect-evm"] select');
  if(providers){const old=providers.value;providers.innerHTML=live.providers.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')||'<option value="">No injected EVM wallet detected</option>';if(live.providers.some(p=>p.id===old))providers.value=old;}
  document.querySelectorAll('form[data-live-form]').forEach(form=>form.addEventListener('input',()=>form.dataset.dirty='true'));

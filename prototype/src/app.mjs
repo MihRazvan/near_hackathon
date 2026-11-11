@@ -1,6 +1,10 @@
 import './style.css';
 import './identity.css';
 import './workspace-identity.css';
+import './experience.css';
+import './record.css';
+import { handleExperienceAction } from './integration/experience.mjs';
+import { handleRecordAction } from './integration/record.mjs';
 import { wordmark, outwardArrow } from './brand.mjs';
 import { live, currentPerson, initializeConnected, renderConnected, topbar, handleAction, handleForm, legacyAction, mountConnected } from './integration/index.mjs';
 import { run } from './integration/runtime.mjs';
@@ -23,8 +27,8 @@ function navLink([url,title,i]) {
   return `<a href="${esc(url)}" class="${active(url)?'active':''}" ${active(url)?'aria-current="page"':''}>${icon(i)}${esc(title)}</a>`;
 }
 function publicShell(body) {
-  const p=person(),account=live.session?link('/'+(live.data?.profile?.defaultWorkspace==='owner'?'host':'buy'),esc(p.name)+' ↗','text-link'):link('/sign-in','Sign in','text-link');
-  return `${topbar()}<header class="site-header"><a class="brand" href="/">${wordmark}</a><nav class="site-nav" aria-label="Main navigation"><a href="/explore">Find a space</a><a href="/host">For space owners</a></nav><div class="header-end">${link('/host/assets/new',`List a space ${icon('plus')}`,'button small')}${account}</div></header><nav class="mobile-nav-links" aria-label="Mobile navigation"><a href="/explore">Explore</a><a href="/buy">Buy space</a><a href="/host">List space</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Real spaces. Real possibilities.</span><span>Built on NEAR</span></div></footer>`;
+  const p=person(),account=live.session?link('/'+(live.data?.profile?.defaultWorkspace==='owner'?'host':'buy'),esc(p.name)+' ↗','text-link public-account-link'):link('/sign-in','Sign in','text-link');
+  return `${topbar()}<header class="site-header"><a class="brand" href="/">${wordmark}</a><nav class="site-nav" aria-label="Main navigation"><a href="/explore">Find a space</a><a href="/experience">Try a takeover</a><a href="/host">For space owners</a></nav><div class="header-end">${link('/host/assets/new',`List a space ${icon('plus')}`,'button small')}${account}</div></header><nav class="mobile-nav-links" aria-label="Mobile navigation"><a href="/explore">Explore</a><a href="/experience">Try a takeover</a><a href="/host">List space</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Real spaces. Real possibilities.</span><span>Built on NEAR</span></div></footer>`;
 }
 function workspaceShell(body, scope) {
   const role=scope==='owner'?'owner':scope==='ops'?'ops':scope==='shared'&&live.data?.profile?.defaultWorkspace==='owner'?'owner':'buyer';
@@ -60,6 +64,10 @@ document.addEventListener('click',async event=>{
   if(event.target.closest('[data-startup-retry]')){location.reload();return;}
   const preview=event.target.closest('[data-preview-toggle]');
   if(preview){const figure=preview.closest('.street-preview'),blank=figure.classList.toggle('is-blank');figure.querySelector('[data-preview-ad]')?.setAttribute('aria-hidden',String(blank));figure.querySelector('[data-preview-original]')?.setAttribute('aria-hidden',String(!blank));preview.setAttribute('aria-pressed',String(!blank));preview.innerHTML=(blank?'Preview a campaign':'See the blank canvas')+outwardArrow;return;}
+  const example=event.target.closest('[data-experience-action]');
+  if(example){event.preventDefault();handleExperienceAction(example,live);return;}
+  const record=event.target.closest('[data-record-action]');
+  if(record){event.preventDefault();await handleRecordAction(record);return;}
   const action=event.target.closest('[data-live-action]');
   if(action){event.preventDefault();await run(()=>handleAction(action,event));return;}
   const generic=event.target.closest('[data-action]');

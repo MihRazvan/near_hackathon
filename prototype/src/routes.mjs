@@ -8,6 +8,8 @@ export const routes = [
     ["P07","/help","Help center"],
     ["P08","/help/:article","Help article"],
     ["P09","/policies/:policy","Policies"],
+    ["X01","/experience","Try a takeover"],
+    ["P10","/records/:id","Campaign record"],
   ]),
   ...group("account", [
     ["A01","/sign-in","Wallet sign-in"],
