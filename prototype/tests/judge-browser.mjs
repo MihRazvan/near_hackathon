@@ -51,6 +51,8 @@ try{
    if(action==='brand')await page.locator('[data-experience-value=coffeeclub]').click();else await page.locator(`[data-experience-action=${action}]`).click();
    assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+1&&getComputedStyle(e).position!=='absolute'&&e.clientWidth>0).map(e=>({tag:e.tagName,cls:e.className,right:e.getBoundingClientRect().right}))),[],`${width}px ${action} overflow`);
    await page.waitForFunction(()=>[...document.images].every(i=>i.complete&&i.naturalWidth>0));
+   if(width<=390&&['book','takeover','claim'].includes(action)){const positions=await page.evaluate(()=>({photo:document.querySelector('.exp-photo-stack').getBoundingClientRect().bottom,caption:document.querySelector('.exp-current-brand').getBoundingClientRect().top}));assert.ok(positions.caption>=positions.photo,'Advertiser caption must leave the mobile vehicle artwork visible');}
+
    if(action==='transfer')assert.match(await page.locator('[data-nft-controller]').innerText(),/Creative studio/);
    if((width===1440||width===390)&&['takeover','transfer','claim'].includes(action))await screenshot({path:resolve(out,`experience-${width}-${action}.png`),fullPage:true});
   }

@@ -47,6 +47,7 @@
 .exp-campaign { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(290px, 1fr); gap: clamp(24px, 3vw, 38px); align-items: start; }
 .exp-visual, .exp-decision { min-width: 0; }
 .exp-scene { margin: 0; background: var(--exp-paper); padding: 10px 10px 0; border: 1px solid var(--exp-ink); }
+.exp-photo-frame { position: relative; min-width: 0; }
 .exp-photo-stack { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--exp-ground); border-radius: 2px; }
 .exp-photo-stack > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 .exp-photo-current { position: absolute; inset: 0; }
@@ -167,7 +168,7 @@
   .exp-visual { width: 100%; display: contents; }
   .exp-scene { width: 100%; order: 0; }
   .exp-photo-stack { aspect-ratio: 16 / 9; }
-  .exp-current-brand { padding: 6px 9px; bottom: 10px; }
+  .exp-current-brand { position: static; width: fit-content; max-width: 100%; margin: 10px 0 0; padding: 8px 10px; }
   .exp-current-brand > strong { font-size: 23px; }
   .exp-current-brand > span { font-size: 8px; }
   .exp-current-brand .exp-photo-approved { display: none; }
