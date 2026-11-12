@@ -19,28 +19,15 @@ Edit prompt: Preserve the original van, street, camera angle, building, lighting
 
 ## Motorcycle pilot artwork
 
-The downloadable Everywhere motorcycle design is original vector artwork using the project’s colors and wordmark. Lettering is outlined from the Barlow Condensed and Manrope fonts credited below. It is a draft composition with no physical print size; the permitted panel must be measured and the printer must approve its fit before production.
+The downloadable Everywhere motorcycle design is original vector artwork using the project’s colors and wordmark. Lettering is outlined from Bricolage Grotesque, credited below. The pink/cobalt folded-poster identity matches the production website. It is a draft composition with no physical print size; the permitted panel must be measured and the printer must approve its fit before production.
 
 ## Fonts
 
-Fonts are served locally; displaying the interface does not make a Google Fonts request.
+The production identity uses self-hosted **Bricolage Grotesque** for display typography and **Hanken Grotesk** for interface text. The browser makes no Google Fonts request.
 
-### Barlow Condensed
+- `fonts/bricolage-grotesque-latin-variable.woff2` — Bricolage Grotesque Project Authors, copyright 2022. Variable weight, width and optical size; Latin subset. [Original project](https://github.com/ateliertriay/bricolage), [Google Fonts source](https://github.com/google/fonts/tree/main/ofl/bricolagegrotesque), [included SIL Open Font License 1.1](fonts/bricolage-OFL.txt).
+- `fonts/hanken-grotesk-latin-variable.woff2` — Hanken Grotesk Project Authors, copyright 2021. Variable weights 400–800; Latin subset. [Original project](https://github.com/marcologous/hanken-grotesk), [Google Fonts source](https://github.com/google/fonts/tree/main/ofl/hankengrotesk), [included SIL Open Font License 1.1](fonts/hanken-OFL.txt).
 
-Designed by Jeremy Tribby and contributors. Copyright 2017 The Barlow Project Authors.
+These WOFF2 subsets were obtained from the official Google Fonts CSS service on 12 November 2026. Both fonts remain under their included licenses.
 
-- `fonts/barlow-condensed-600-latin.woff2` — semibold, Latin subset.
-- `fonts/barlow-condensed-700-latin.woff2` — bold, Latin subset.
-- `fonts/barlow-condensed-800-latin.woff2` — extra bold, Latin subset.
-
-[Original project](https://github.com/jpt/barlow), [Google Fonts source](https://github.com/google/fonts/tree/main/ofl/barlowcondensed), [included SIL Open Font License 1.1](fonts/barlow-OFL.txt).
-
-### Manrope
-
-Designed by Mikhail Sharanda and contributors. Copyright 2018 The Manrope Project Authors.
-
-- `fonts/manrope-latin-variable.woff2` — variable weight, Latin subset; the interface uses weights 400–800.
-
-[Original project](https://github.com/sharanda/manrope), [Google Fonts source](https://github.com/google/fonts/tree/main/ofl/manrope), [included SIL Open Font License 1.1](fonts/manrope-OFL.txt).
-
-The WOFF2 files were obtained from the official Google Fonts CSS service on 10 November 2026. Both families remain under their included font licenses.
+Earlier prototype font assets, Barlow Condensed (Jeremy Tribby and contributors) and Manrope (Mikhail Sharanda and contributors), retain their included [Barlow license](fonts/barlow-OFL.txt) and [Manrope license](fonts/manrope-OFL.txt). They are not used by the current interface.

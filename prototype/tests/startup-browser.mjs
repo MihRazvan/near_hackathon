@@ -47,7 +47,7 @@ try{
  await page.goto(origin+'/explore?type=van',{waitUntil:'commit'});
  await page.locator('#startup[aria-busy="true"]').waitFor();
  assert.equal(await page.locator('.site-header').count(),0);
- assert.equal(await page.locator('#startup').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(18, 62, 66)');
+ assert.equal(await page.locator('#startup').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(26, 26, 26)');
  assert.equal(await page.locator('.startup-track span').evaluate(el=>getComputedStyle(el).animationName),'none');
  if(process.env.STARTUP_SCREENSHOT_DIR){await mkdir(process.env.STARTUP_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:resolve(process.env.STARTUP_SCREENSHOT_DIR,'startup-mobile.png')});}
  const sessionRequest=page.waitForRequest(r=>r.url().endsWith('/api/auth/session'));
@@ -76,7 +76,7 @@ try{
   report.push(failure+' has an accessible retry state and recovers after reload');await test.context.close();
  }
  const noJs=await browser.newContext({javaScriptEnabled:false,viewport:{width:320,height:640}}),fallback=await noJs.newPage();await fallback.goto(origin);
- assert.equal(await fallback.locator('#startup').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(18, 62, 66)');
+ assert.equal(await fallback.locator('#startup').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(26, 26, 26)');
  assert.match(await fallback.locator('noscript').innerText(),/Enable JavaScript/);
  assert.equal(await fallback.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await noJs.close();report.push('Styled static first paint and JavaScript-disabled guidance fit a 320px screen');
