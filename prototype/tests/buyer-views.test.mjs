@@ -34,7 +34,7 @@ test('homepage keeps closed team campaigns visible alongside bookable ones',()=>
 test('marketplace hides stale bookable prices and preserves campaign choice through listing navigation',()=>{
  const {snapshot}=setup();location.search='?campaign=brand';let html=publicView({id:'P02'});assert.match(html,/name="campaign" value="brand"/);assert.match(html,/campaign=brand/);assert.match(html,/0\.01 USDC/);assert.match(html,/href="\/explore\?campaign=brand&amp;type=van"/);
  snapshot.state.cutoff_ns=ns(now-1);html=publicView({id:'P02'});assert.doesNotMatch(html,/0\.01 USDC/);assert.match(html,/No spaces match/);
- html=publicView({id:'P03',params:{slug:'asset'}});assert.doesNotMatch(html,/Book this spot/);assert.doesNotMatch(html,/0\.01 USDC/);
+ html=publicView({id:'P03',params:{slug:'asset'}});assert.doesNotMatch(html,/Book this (?:spot|placement)/);assert.doesNotMatch(html,/0\.01 USDC/);
 });
 test('checkout funds the exact chosen spot while existing holdings cannot be purchased twice',()=>{
  const {snapshot}=setup();location.search='?spot=door';let html=buyerView({id:'B06',params:{intentId:'sale'}});assert.match(html,/data-live-action="fund-and-book" data-sale="sale" data-spot="door"/);assert.match(html,/data-live-form="prepare-booking"/);
