@@ -118,14 +118,16 @@ Team-test listings use AI-generated vehicle references and nominal real USDC pay
 
 | Vehicle | Current setup | Open |
 | --- | --- | --- |
-| Bucharest sport motorcycle | Available booking, 1¢ USDC | [Listing](https://everywhere-near.vercel.app/spaces/0627cf2a-28ad-4952-a16f-6b9fdfdbbe87?sale=2c541941-6d2f-4cf2-8cad-375cf4ad43ff) |
-| Lisbon blue hatchback | Booked for 1¢; available takeover starts at 2¢ | [Listing](https://everywhere-near.vercel.app/spaces/7aec3544-317c-494c-adc2-cab5d510aa17?sale=59fca18a-6594-4591-a241-593c2604d76e) |
-| Berlin workshop van | 1¢ purchase, 2¢ takeover, NFT transferred to studio, studio artwork submitted | [Public record](https://everywhere-near.vercel.app/records/aa80efd3-472d-4e64-b8f8-fec738d2d3e2) |
+| Bucharest sport motorcycle | Side fairing and tail panel, each starting at 1¢ USDC; tail panel uses fixed booking | [Listing](https://everywhere-near.vercel.app/spaces/0627cf2a-28ad-4952-a16f-6b9fdfdbbe87?sale=2c541941-6d2f-4cf2-8cad-375cf4ad43ff) |
+| Lisbon blue hatchback | Door-panel takeover starts at 2¢; independent rear door starts at 1¢ | [Listing](https://everywhere-near.vercel.app/spaces/7aec3544-317c-494c-adc2-cab5d510aa17?sale=59fca18a-6594-4591-a241-593c2604d76e) |
+| Berlin workshop van | Cargo-panel NFT transferred to studio, studio artwork submitted; independent cab door starts at 1¢ | [NFT record](https://everywhere-near.vercel.app/records/aa80efd3-472d-4e64-b8f8-fec738d2d3e2), [cab-door listing](https://everywhere-near.vercel.app/spaces/3918c8f2-3263-4dfa-971e-02d6d13a6af3?sale=dc7a970a-a0b9-4664-8f7b-e4845a71c007&spot=spot-2) |
 | Amsterdam cargo bicycle | Successful synthetic delivery: 3¢ received, 3¢ paid out, zero pending | [Public record](https://everywhere-near.vercel.app/records/fbc318d7-414a-4a2f-ab26-5270c4d7f905) |
 
-Booking remains open for the motorcycle and hatchback until **November 19, 2026, 12:00 UTC**, subject to their live on-chain state. Their service and review dates are published on each listing. The van's artwork window remains open until approval or its published deadline. The cargo bicycle's short campaign has completed. All four listings belong to dedicated team test wallets; the physical motorcycle pilot above is separate.
+Booking remains open for the motorcycle, hatchback and van cab door until **November 19, 2026, 12:00 UTC**, subject to their live on-chain state. Their service and review dates are published on each listing. The van's artwork window remains open until approval or its published deadline. The cargo bicycle's short campaign has completed. All four listings belong to dedicated team test wallets; the physical motorcycle pilot above is separate.
 
-The [team campaign manifest](deployments/team-campaigns.json) records the four published offers, generated-image digests, setup transaction hashes, van NFT transfer and cargo-bike payouts. It excludes automatic keeper mint, finalization and reserve-reclaim transaction hashes that were not captured in that setup journal. The [NFT handoff transaction](https://nearblocks.io/txns/DbHN9bSg6J2Q72ocWBUjMnEsk7VSTy5btqm7W63crMdB) is separately verifiable from its signed action and NEP-171 transfer event. Historical before/after financial-credit samples are recorded observations.
+The motorcycle, hatchback and van each have two published placements. The cargo bicycle has one completed placement. Compatible offers are grouped on the vehicle page; selecting a placement keeps its original sale, terms, price, contract and checkout. Each additional surface is published as its own offer.
+
+The [team campaign manifest](deployments/team-campaigns.json) records seven published offers across the four vehicles, generated-image digests, setup transaction hashes, van NFT transfer and cargo-bike payouts. It excludes automatic keeper mint, finalization and reserve-reclaim transaction hashes that were not captured in that setup journal. The [NFT handoff transaction](https://nearblocks.io/txns/DbHN9bSg6J2Q72ocWBUjMnEsk7VSTy5btqm7W63crMdB) is separately verifiable from its signed action and NEP-171 transfer event. Historical before/after financial-credit samples are recorded observations.
 
 Run the read-only verifier without keys or funds:
 
@@ -133,4 +135,4 @@ Run the read-only verifier without keys or funds:
 node backend/bin/verify-team-campaigns.mjs
 ```
 
-It checks the pinned mainnet hub, published terms, current NFT ownership and artwork reference, the historical van handoff, the completed cargo-bike accounting, and both original-creditor payout transactions. Listing availability and NFT ownership can change after this setup as participants use the platform. These campaigns used existing Intents USDC balances; they did not require a new Base bridge or deploy another contract.
+It checks the pinned mainnet hub, all seven published offer bindings, the three additional placement creation receipts, current NFT ownership and artwork reference, the historical van handoff, the completed cargo-bike accounting, and both original-creditor payout transactions. Listing availability and NFT ownership can change after this setup as participants use the platform. These campaigns used existing Intents USDC balances; they did not require a new Base bridge or deploy another contract.

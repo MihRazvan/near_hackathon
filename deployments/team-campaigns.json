@@ -1,7 +1,7 @@
 {
   "schema": "everywhere-team-campaigns/v1",
   "network": "mainnet",
-  "recordedAt": "2026-11-12T18:26:24.703Z",
+  "recordedAt": "2026-11-12T21:32:52.564Z",
   "scope": "Team-run mainnet integration campaigns with AI-generated reference vehicles and synthetic artwork/delivery. No physical advertising inventory or installation is established. Setup transactions below exclude automatic keeper mint/finalization/reclaim transactions.",
   "hub": {
     "accountId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
@@ -128,6 +128,83 @@
       },
       "listingUrl": "https://everywhere-near.vercel.app/spaces/a285ca06-e47e-4190-bdc6-59d7925d55ef?sale=fbc318d7-414a-4a2f-ab26-5270c4d7f905",
       "recordUrl": "https://everywhere-near.vercel.app/records/fbc318d7-414a-4a2f-ab26-5270c4d7f905"
+    }
+  ],
+  "additionalPlacements": [
+    {
+      "vehicle": "motorcycle",
+      "role": "additional-booking",
+      "saleId": "d7fd74bd-3932-4f0f-8115-2fdbc324784a",
+      "assetId": "0627cf2a-28ad-4952-a16f-6b9fdfdbbe87",
+      "offerId": "offer-9e3e9a79f630fd4845cf0cda0fdcae77",
+      "spotId": "spot-2",
+      "placementName": "Tail panel",
+      "campaignType": "team-test",
+      "imageProvenance": "ai-generated",
+      "physicalDelivery": false,
+      "initialPriceUsdc": "0.01",
+      "takeoverEnabled": false,
+      "publishedTermsSha256": "7w+d6ElZDh4zx5GrfMdTnmlXsFLAEuRpoO2nVDJIxHI=",
+      "schedule": {
+        "artworkDue": "2026-11-20T12:00:00.000Z",
+        "biddingClose": "2026-11-19T12:00:00.000Z",
+        "installationDue": "2026-11-21T12:00:00.000Z",
+        "reviewEnd": "2026-11-23T13:00:00.000Z",
+        "serviceEnd": "2026-11-22T13:00:00.000Z",
+        "serviceStart": "2026-11-21T13:00:00.000Z"
+      },
+      "listingUrl": "https://everywhere-near.vercel.app/spaces/0627cf2a-28ad-4952-a16f-6b9fdfdbbe87?sale=d7fd74bd-3932-4f0f-8115-2fdbc324784a&spot=spot-2",
+      "recordUrl": "https://everywhere-near.vercel.app/records/d7fd74bd-3932-4f0f-8115-2fdbc324784a"
+    },
+    {
+      "vehicle": "car",
+      "role": "additional-booking",
+      "saleId": "4b29d821-e612-454e-ad62-33d28bf1d5a4",
+      "assetId": "7aec3544-317c-494c-adc2-cab5d510aa17",
+      "offerId": "offer-6bf69cc3eb3a6022aaad04ee9f19a8ba",
+      "spotId": "spot-2",
+      "placementName": "Rear door",
+      "campaignType": "team-test",
+      "imageProvenance": "ai-generated",
+      "physicalDelivery": false,
+      "initialPriceUsdc": "0.01",
+      "takeoverEnabled": true,
+      "publishedTermsSha256": "+oDyDzhVNrPpeGXxDrNotlGrT6ig8YbqvNzEeTQPzeg=",
+      "schedule": {
+        "artworkDue": "2026-11-20T12:00:00.000Z",
+        "biddingClose": "2026-11-19T12:00:00.000Z",
+        "installationDue": "2026-11-21T12:00:00.000Z",
+        "reviewEnd": "2026-11-23T13:00:00.000Z",
+        "serviceEnd": "2026-11-22T13:00:00.000Z",
+        "serviceStart": "2026-11-21T13:00:00.000Z"
+      },
+      "listingUrl": "https://everywhere-near.vercel.app/spaces/7aec3544-317c-494c-adc2-cab5d510aa17?sale=4b29d821-e612-454e-ad62-33d28bf1d5a4&spot=spot-2",
+      "recordUrl": "https://everywhere-near.vercel.app/records/4b29d821-e612-454e-ad62-33d28bf1d5a4"
+    },
+    {
+      "vehicle": "van",
+      "role": "additional-booking",
+      "saleId": "dc7a970a-a0b9-4664-8f7b-e4845a71c007",
+      "assetId": "3918c8f2-3263-4dfa-971e-02d6d13a6af3",
+      "offerId": "offer-0b65e09a66025274cb9a9b52ef05ed96",
+      "spotId": "spot-2",
+      "placementName": "Cab door",
+      "campaignType": "team-test",
+      "imageProvenance": "ai-generated",
+      "physicalDelivery": false,
+      "initialPriceUsdc": "0.01",
+      "takeoverEnabled": true,
+      "publishedTermsSha256": "glIGFY4d3y3HxbjAOMcYtEHZgOc7J3o1u01JVJhKUDo=",
+      "schedule": {
+        "artworkDue": "2026-11-20T12:00:00.000Z",
+        "biddingClose": "2026-11-19T12:00:00.000Z",
+        "installationDue": "2026-11-21T12:00:00.000Z",
+        "reviewEnd": "2026-11-23T13:00:00.000Z",
+        "serviceEnd": "2026-11-22T13:00:00.000Z",
+        "serviceStart": "2026-11-21T13:00:00.000Z"
+      },
+      "listingUrl": "https://everywhere-near.vercel.app/spaces/3918c8f2-3263-4dfa-971e-02d6d13a6af3?sale=dc7a970a-a0b9-4664-8f7b-e4845a71c007&spot=spot-2",
+      "recordUrl": "https://everywhere-near.vercel.app/records/dc7a970a-a0b9-4664-8f7b-e4845a71c007"
     }
   ],
   "nftHandoff": {
@@ -290,6 +367,27 @@
       "actorId": "0xddd17afb03c8def215857ec92e62ae7a35ce824f",
       "transactionHash": "2BPheU9LkNYmym4upMyyHnDWqEN7JVRoWDYyMFc4MwE2",
       "explorerUrl": "https://nearblocks.io/txns/2BPheU9LkNYmym4upMyyHnDWqEN7JVRoWDYyMFc4MwE2"
+    },
+    {
+      "action": "publish-extra-motorcycle",
+      "actorRole": "owner",
+      "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "transactionHash": "AVjQyzZbpPvtF5dybfbthsq8dAp19LA4qEyYy5JFE2DY",
+      "explorerUrl": "https://nearblocks.io/txns/AVjQyzZbpPvtF5dybfbthsq8dAp19LA4qEyYy5JFE2DY"
+    },
+    {
+      "action": "publish-extra-car",
+      "actorRole": "owner",
+      "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "transactionHash": "4eHsAWYdsMx6JisHCZ4t8beRdSfhsbjyVypQxJoCaoRt",
+      "explorerUrl": "https://nearblocks.io/txns/4eHsAWYdsMx6JisHCZ4t8beRdSfhsbjyVypQxJoCaoRt"
+    },
+    {
+      "action": "publish-extra-van",
+      "actorRole": "owner",
+      "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "transactionHash": "3Hkv2oisW4Nt1mswg4QJxpJqvgHx6bV7B6YoFy2d6psS",
+      "explorerUrl": "https://nearblocks.io/txns/3Hkv2oisW4Nt1mswg4QJxpJqvgHx6bV7B6YoFy2d6psS"
     },
     {
       "action": "claim-cargo-bike-owner",
