@@ -27,7 +27,8 @@ function searchForm(q=new URLSearchParams()){
 export function publicView(r){
  const q=new URLSearchParams(location.search),sales=live.catalog?.sales??[];
  if(r.id==='P01'){
-  const available=sales.filter(s=>availableSpots(s).length),teamTests=sales.filter(isTeamTest);
+  const rank=s=>availableSpots(s).length?(s.spots.some(p=>snapshot(p.contractId)?.state.holder)?1:0):s.spots.every(p=>snapshot(p.contractId)?.state.outcome==='success')?3:2;
+  const available=sales.filter(s=>availableSpots(s).length),teamTests=sales.filter(isTeamTest).sort((a,b)=>rank(a)-rank(b));
   const featured=[...teamTests,...available.filter(s=>!isTeamTest(s))];
   return homeView({search:searchForm(),inventory:offerCards(featured.slice(0,4)),teamTests:teamTests.length>0,availableCount:available.length,publishedCount:sales.length});
  }

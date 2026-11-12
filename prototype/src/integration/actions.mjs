@@ -1,3 +1,4 @@
+import {isTeamTest} from './campaign-kind.mjs';
 import { navigate,toast } from '../store.mjs';
 import { live,api,refresh,connect,disconnect,review,nativePlan,intentPlan,nativeAction,poll,sale,snapshot,allSales,booking,rawAsset,amount,fileData,upload,rerender,nativeUnits,ensureSigningWallet } from './runtime.mjs';
 import { fundingAmount,campaignSchedule } from './checkout-state.mjs';
@@ -34,6 +35,7 @@ async function payBooking(id){
 }
 async function prepareBooking(data,{pay=live.config.production}={}){
  if(!data.has('rules'))throw new Error('Agree to the published rules before booking.');
+ if(isTeamTest(sale(String(data.get('saleId'))))&&!data.has('testCampaignAcknowledged'))throw new Error('Acknowledge that this team test uses real USDC with no physical delivery.');
  let campaignId=String(data.get('campaignId'));
  if(!campaignId){campaignId=(await api('campaigns',{name:String(data.get('name')),budgetMicroUsdc:amount(data.get('budget'))})).id;
   // Keep this campaign selected after wallet rejection, without creating duplicates.
@@ -65,6 +67,7 @@ export const actions={
  'fund-and-book':async el=>{
   const form=el.closest('form');if(!form.reportValidity())return;const data=new FormData(form);
   if(!data.has('rules'))throw new Error('Agree to the published rules before booking.');
+ if(isTeamTest(sale(String(data.get('saleId'))))&&!data.has('testCampaignAcknowledged'))throw new Error('Acknowledge that this team test uses real USDC with no physical delivery.');
   const offer=sale(String(data.get('saleId'))),spot=offer?.spots.find(p=>p.id===String(data.get('spotId'))),price=snapshot(spot?.contractId)?.state.next_price;
   if(!price||live.balances?.intentsUsdc===undefined)throw new Error('Refresh this space and your balance before booking.');
   const wallet=live.session.wallet,available=BigInt(live.balances.intentsUsdc);
