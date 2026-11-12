@@ -15,7 +15,7 @@ export function assetFields(data,base){
    box:Object.fromEntries(['x','y','width','height'].map(k=>[k,Number(data.get(k+':'+p.id)??p.box[k]*100)/100]))}))};
 }
 async function artifact(data){const selected=data.get('mediaId'),uri=String(data.get('artifactUri')??'').trim();
- if(uri&&(selected||data.get('file')?.size))throw new Error('Choose an existing upload, paste an IPFS link, or upload a file—one source at a time.');
+ if(uri&&(selected||data.get('file')?.size))throw new Error('Use one artifact source at a time. Remove the IPFS link to select or upload a file.');
  if(selected)return selected;if(uri)return (await api('media/import',{uri,publicContentAcknowledged:data.has('public')})).id;
  const m=await upload(data.get('file'),{text:String(data.get('notes')??''),acknowledged:data.has('public')});return m.id;}
 async function confirmAction(contractId,kind,extra={}){const result=await nativeAction(contractId,kind,extra);await refresh({force:true});toast(result?.status==='confirmed'?'Your campaign is updated.':'Your request is recorded. Confirmation is still being checked.');}
@@ -115,7 +115,7 @@ export const actions={
  'resume-publication':async el=>{await api('provision-plans/'+el.dataset.id+'/start',{reviewed:true});await refresh();toast('The original publication plan is being reconciled. No replacement account was created.');},
  'pay-booking':el=>payBooking(el.dataset.id),
  'cancel-booking':async el=>{await api('bookings/'+el.dataset.id+'/cancel',{});await refresh();toast('Unsent booking cancelled.');},
- faucet:async()=>{const r=await api('lab-wallet/faucet',{});if(r.status!=='confirmed')throw new Error('The original faucet transaction is pending. Reconcile it before trying another wallet.');await refresh();toast('This wallet’s test funding is confirmed.');},
+ faucet:async()=>{const r=await api('lab-wallet/faucet',{});if(r.status!=='confirmed')throw new Error('The original faucet transaction is pending. Reconcile it before trying another wallet.');await refresh();toast('This wallet\'s test funding is confirmed.');},
  'lock-artwork':el=>confirmAction(el.dataset.contract,'lock-artwork',{expectedRevision:el.dataset.revision}),
  'cancel-empty':el=>confirmAction(el.dataset.contract,'cancel-empty'),
  'reclaim-storage':el=>confirmAction(el.dataset.contract,'reclaim-storage'),
@@ -197,7 +197,7 @@ export const forms={
   for(let i=0;i<20;i++){await api('wallet-requests/'+r.id+'/reconcile',{});await refresh({render:false});if(snapshot(data.get('contractId'))?.state.nominated_recipient===data.get('recipientId'))break;await new Promise(r=>setTimeout(r,300));}rerender();},
  'nft-transfer':async data=>{
   const creative=data.get('purpose')==='creative-control';
-  if(creative&&!data.has('transferAcknowledged'))throw new Error('Confirm that the recipient will control this placement’s creative.');
+  if(creative&&!data.has('transferAcknowledged'))throw new Error('Confirm that the recipient will control this placement\'s creative.');
   await confirmAction(String(data.get('contractId')),'transfer',{receiverId:String(data.get('receiverId')).trim(),...(creative?{purpose:'creative-control',controlAcknowledged:true,expectedController:String(data.get('expectedController')),expectedRevision:String(data.get('expectedRevision'))}:{})});
  },
  artwork:async data=>{const mediaId=await artifact(data);await confirmAction(String(data.get('contractId')),'artwork',{mediaId});},

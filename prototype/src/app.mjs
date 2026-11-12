@@ -29,7 +29,7 @@ function navLink([url,title,i]) {
 }
 function publicShell(body) {
   const p=person(),account=live.session?link('/'+(live.data?.profile?.defaultWorkspace==='owner'?'host':'buy'),esc(p.name)+' ↗','text-link public-account-link'):link('/sign-in','Sign in','text-link');
-  return `${topbar()}<header class="site-header"><a class="brand" href="/">${wordmark}</a><nav class="site-nav" aria-label="Main navigation"><a href="/explore">Find a space</a><a href="/experience">Try a takeover</a><a href="/host">For space owners</a></nav><div class="header-end">${link('/host/assets/new',`List a space ${icon('plus')}`,'button small')}${account}</div></header><nav class="mobile-nav-links" aria-label="Mobile navigation"><a href="/explore">Explore</a><a href="/experience">Try a takeover</a><a href="/host">List space</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Real spaces. Real possibilities.</span><span>Built on NEAR</span></div></footer>`;
+  return `${topbar()}<header class="site-header"><a class="brand" href="/">${wordmark}</a><nav class="site-nav" aria-label="Main navigation"><a href="/explore">Find a space</a><a href="/experience">Try a takeover</a><a href="/host">For space owners</a></nav><div class="header-end">${link('/host/assets/new',`List a space ${icon('plus')}`,'button small')}${account}</div></header><nav class="mobile-nav-links" aria-label="Mobile navigation"><a href="/explore">Explore</a><a href="/experience">Try a takeover</a><a href="/host">List space</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Book space on a vehicle.</span><span>Built on NEAR</span></div></footer>`;
 }
 function workspaceShell(body, scope) {
   const role=scope==='owner'?'owner':scope==='ops'?'ops':scope==='shared'&&live.data?.profile?.defaultWorkspace==='owner'?'owner':'buyer';
@@ -45,7 +45,7 @@ function render() {
       const startup=document.querySelector('#startup');
       startup?.setAttribute('aria-busy','false');
       const content=startup?.querySelector('.startup-content');
-      if(content)content.innerHTML=`<img class="startup-mark" src="/favicon.svg" width="64" height="64" alt=""><h1 class="startup-name">Let’s try that again<span>.</span></h1><p class="startup-copy" role="alert">We couldn’t open Everywhere. Check your connection and try again.</p><button type="button" class="startup-retry" data-startup-retry>Try again</button>`;
+      if(content)content.innerHTML=`<img class="startup-mark" src="/favicon.svg" width="64" height="64" alt=""><h1 class="startup-name">Let\'s try that again<span>.</span></h1><p class="startup-copy" role="alert">We couldn\'t open Everywhere. Check your connection and try again.</p><button type="button" class="startup-retry" data-startup-retry>Try again</button>`;
     }
     return;
   }

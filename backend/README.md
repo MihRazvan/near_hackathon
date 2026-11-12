@@ -51,7 +51,7 @@ All application endpoints start with `/api`. JSON mutations require `Content-Typ
 | Actions and evidence | `/native-actions`, `/token-actions`, `/media`, `/placements/:id/issues` |
 | Money and recovery | `/wallet/balances`, `/claims`, `/routes`, `/wallet-funding`, `/withdrawal-intent`, `/wallet-requests` |
 
-Prepared plans bind their actor, receiver, amount or action, terms and relevant state. Intents include authorization nonces and deadlines. Changed prices require a fresh review. Submitted operations retain their original hashes; an unknown result is reconciled rather than replaced with another payment. Refunds and withdrawals go to the original entitled wallet, subject to its signed withdrawal instructions.
+Prepared plans bind their actor, receiver, amount or action, terms and relevant state. Intents include authorization nonces and deadlines. Changed prices require a fresh review. Submitted operations keep their original hashes. An unknown result must be reconciled before another payment. Refunds and withdrawals go to the original entitled wallet, subject to its signed withdrawal instructions.
 
 ## Optional AI
 

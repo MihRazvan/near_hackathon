@@ -10,12 +10,12 @@ export function ownerCampaignStage(snapshot,now){
  const {state:s,rights:r,campaign:c}=snapshot,t=BigInt(Math.trunc(now))*1000000n,terms=c.terms??{};
  if(s.outcome==='success')return {key:'complete',title:'Campaign complete',description:'The campaign has settled successfully. Available earnings are ready to claim.',action:'earnings'};
  if(s.outcome==='failure')return {key:'cancelled',title:'Campaign cancelled',description:'Available refunds belong to the original advertisers. This campaign is closed.',action:'earnings'};
- if(t<ns(s.cutoff_ns))return {key:'booking',title:s.holder?'Advertiser booked':'Open for bookings',description:s.holder?'Bookings remain open until the published deadline. Review the final advertiser’s artwork after bookings close.':'Your listing is available to advertisers. Share it to find your next campaign.',action:'listing'};
+ if(t<ns(s.cutoff_ns))return {key:'booking',title:s.holder?'Advertiser booked':'Open for bookings',description:s.holder?'Bookings remain open until the published deadline. Review the final advertiser\'s artwork after bookings close.':'Your listing is available to advertisers. Share it to find your next campaign.',action:'listing'};
  if(!s.holder)return {key:'unbooked',title:'Booking closed',description:'This period closed without an advertiser. Create another sale to offer a new campaign period.',action:'new-sale'};
  if(!s.artwork_locked){
   if(t>=ns(terms.artwork_due_ns,r.rights_end_ns?ns(r.rights_end_ns):ns(s.refund_end_ns)))return {key:'artwork-overdue',title:'Artwork deadline passed',description:'Artwork is still awaiting approval. Request a review to resolve the campaign before any printing.',action:'support'};
-  if(r.proposal)return {key:'review-artwork',title:'Artwork ready to review',description:'Review the advertiser’s latest artwork and approve the exact version before printing.',action:'fulfillment'};
-  return {key:'awaiting-artwork',title:'Waiting for advertiser artwork',description:'The advertiser can now prepare their artwork. You’ll review it here before production.',action:'message'};
+  if(r.proposal)return {key:'review-artwork',title:'Artwork ready to review',description:'Review the advertiser\'s latest artwork and approve the exact version before printing.',action:'fulfillment'};
+  return {key:'awaiting-artwork',title:'Waiting for advertiser artwork',description:'The advertiser can now prepare their artwork. You\'ll review it here before production.',action:'message'};
  }
  if(!c.delivery_proof){
   if(t>ns(terms.service_end_ns,s.refund_end_ns?ns(s.refund_end_ns):0n))return {key:'proof-overdue',title:'Installation evidence missing',description:'The campaign period has ended without installation evidence. Request a review to resolve it.',action:'support'};

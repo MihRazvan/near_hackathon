@@ -78,7 +78,7 @@ function placement(snapshot, campaign, network) {
 }
 
 function recordCover(asset, synthetic) {
-  if (synthetic) return '<div class="record-photo"><img src="/images/van-dublin-ad.webp" width="1600" height="900" alt="Illustrative van advertisement; not a photograph of the recorded installation"><span>Illustrative vehicle · recorded test evidence below</span></div>';
+  if (synthetic) return '<div class="record-photo"><img src="/images/van-dublin-ad.webp" width="1600" height="900" alt="AI-edited van advertisement used to illustrate the synthetic campaign"><span>Illustrative vehicle · recorded test evidence below</span></div>';
   if (/^ipfs:\/\/baf[a-z2-7]+$/.test(asset.coverUri ?? '')) return `<div class="record-photo"><img src="${esc(asset.coverUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/'))}" width="1600" height="900" alt="Owner-published cover for ${esc(asset.name)}"><span>Owner-published reference photo · not installation evidence</span></div>`;
   return `<div class="record-asset-summary">${icon('car')}<h2>${esc(asset.name)}</h2><p>${esc(asset.type)} · ${esc(asset.city)}</p><span>No public reference photo supplied.</span></div>`;
 }
@@ -86,11 +86,11 @@ function recordCover(asset, synthetic) {
 export function campaignRecordView(id) {
   const entry = records.get(id);
   if (!entry || (entry.loading && !entry.data)) return `<section class="record-loading"><span class="record-loader" aria-hidden="true"></span><h1 tabindex="-1">Opening the campaign record.</h1><p role="status">Reading the published campaign and its NEAR state…</p></section>`;
-  if (entry.error) return `<section class="record-empty"><h1 tabindex="-1">This record isn’t available.</h1><p>${esc(entry.error)}</p><button class="button primary" data-record-action="refresh" data-record-id="${esc(id)}">Try again</button>${link('/explore', 'Explore spaces', 'button')}</section>`;
+  if (entry.error) return `<section class="record-empty"><h1 tabindex="-1">This record isn\'t available.</h1><p>${esc(entry.error)}</p><button class="button primary" data-record-action="refresh" data-record-id="${esc(id)}">Try again</button>${link('/explore', 'Explore spaces', 'button')}</section>`;
   const data = entry.data, campaign = data.campaign, qualification = data.qualification, synthetic = qualification?.synthetic;
   return `<article class="campaign-record"><div class="record-topline"><a href="/explore">${icon('arrow')} Marketplace</a><span>${text(data.network)} · public campaign record</span></div><header class="record-heading"><div><h1 tabindex="-1">${synthetic ? 'A real-world right.<br>Recorded as an NFT.' : esc(campaign.title)}</h1><p>${synthetic ? 'A placement NFT, committed artwork and a complete USDC money trail on NEAR mainnet. This qualification used synthetic artwork and delivery evidence.' : `${esc(campaign.asset.name)} in ${esc(campaign.asset.city)}. A read-only record of the published campaign and its settlement.`}</p></div><div class="record-heading-actions"><button class="button" data-record-action="copy" data-record-id="${esc(id)}">${icon('copy')} Copy record link</button><button class="button quiet" ${entry.loading ? 'disabled' : ''} data-record-action="refresh" data-record-id="${esc(id)}">${entry.loading ? 'Refreshing…' : 'Refresh verification'}</button></div></header>
     ${data.status !== 'available' ? `<div class="notice orange" role="status">Some chain state is temporarily unavailable. Missing state is not confirmation of a payment or campaign outcome.</div>` : ''}
-    ${synthetic ? `<div class="record-provenance">${icon('shield')} <span>Recorded mainnet qualification · this is a historical test, not your campaign or NFT.</span>${link('/experience', 'Try the interactive example', 'record-link')}</div>` : ''}
+    ${synthetic ? `<div class="record-provenance">${icon('shield')} <span>Recorded mainnet qualification · historical test campaign with synthetic delivery evidence.</span>${link('/experience', 'Try the interactive example', 'record-link')}</div>` : ''}
     <div class="record-overview">${recordCover(campaign.asset, synthetic)}<section class="record-schedule"><h2>Campaign dates</h2><dl class="record-facts">${[['Booking deadline', 'biddingClose'], ['Artwork deadline', 'artworkDue'], ['Installation deadline', 'installationDue'], ['Service start', 'serviceStart'], ['Service end', 'serviceEnd'], ['Review deadline', 'reviewEnd']].map(([label, key]) => `<div><dt>${label}</dt><dd>${text(time(campaign.schedule?.[key]))}</dd></div>`).join('')}</dl><p class="record-muted">${synthetic ? 'Dates are those of the completed qualification run. The interactive example compresses its timeline.' : 'Dates and rules were published by the space owner.'}</p></section></div>
     ${data.snapshots.map(snapshot => placement(snapshot, campaign, data.network)).join('') || '<section class="record-empty"><h2>Waiting for a qualified chain read.</h2><p>No state is presented as verified until its source can be checked.</p></section>'}
     ${synthetic ? `<details class="record-verification" data-record-disclosure="receipts"><summary>${icon('receipt')} Recorded mainnet receipts ${icon('chevron')}</summary><div class="record-verification-body">${recordedReceipts()}<a class="record-link" href="/api/evidence/qualification" target="_blank" rel="noopener noreferrer">Machine-readable evidence ${icon('arrow')}</a><p class="record-muted">Reproduce historical receipt verification from the repository: <code>node backend/bin/verify-evidence.mjs</code></p></div></details>` : ''}
@@ -103,7 +103,7 @@ export async function handleRecordAction(target) {
   if (target.dataset.recordAction === 'copy') {
     const status = document.querySelector('.record-share-status');
     try { await navigator.clipboard.writeText(location.origin + '/records/' + encodeURIComponent(id)); if (status) status.textContent = 'Campaign record link copied.'; }
-    catch { if (status) status.textContent = 'Copy this page’s address to share the public record.'; }
+    catch { if (status) status.textContent = 'Copy this page\'s address to share the public record.'; }
   }
 }
 

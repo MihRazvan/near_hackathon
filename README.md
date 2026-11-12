@@ -1,4 +1,4 @@
-# Everywhere — advertise on everything
+# Everywhere: advertise on everything
 
 Everywhere connects people who have physical advertising space with people who want to advertise. The MVP starts with vehicles: owners describe or photograph a vehicle, edit its advertising surfaces, and publish a campaign with dates, prices and content rules. Advertisers discover spaces, book immediately and manage artwork and delivery from their workspace.
 
@@ -8,13 +8,13 @@ The application uses persisted inventory, wallet authentication and real NEAR co
 
 Open the [live application](https://everywhere-near.vercel.app). The [public deployment manifest](deployments/mainnet.json) identifies the mainnet contract, pinned code and completed synthetic qualification campaign. That campaign exercised real payments and on-chain fulfillment records; no physical advertisement was installed.
 
-## Try it in two minutes
+## Try the interactive example
 
-Open **[Try a takeover](https://everywhere-near.vercel.app/experience)** and sign in with an existing EVM or NEAR wallet. Choose a prepared brand, book the example spot, trigger its competitor’s takeover, close booking, approve the example delivery, and claim the example payouts. The featured studio handoff transfers the example placement NFT: artwork authority moves to its new owner while the original money destinations stay fixed. You can also keep creative control yourself. Progress resumes for the same wallet on the same browser.
+Open **[Try a takeover](https://everywhere-near.vercel.app/experience)** and sign in with an existing EVM or NEAR wallet. Choose a prepared brand, book the example spot, trigger its competitor's takeover, close booking, approve the example delivery, and claim the example payouts. The studio handoff transfers the example placement NFT and its artwork authority. Payment claims stay with their original wallets. You can also keep creative control yourself. Progress resumes for the same wallet on the same browser.
 
-Wallet authentication is real. This accelerated experience uses example money and does not request token funding, broadcast transactions or issue a visitor-owned NFT. It is separate from ordinary marketplace inventory and payments. There are no artificial waiting periods; two minutes is a visitor target, not a claim about wallet-provider response times.
+Wallet authentication is real. This accelerated experience uses example money and does not request token funding, broadcast transactions or issue a visitor-owned NFT. It is separate from ordinary marketplace inventory and payments. The example has no waiting periods. Allow about two minutes after wallet sign-in.
 
-Then open the **[recorded mainnet campaign](https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168)**. Its 11 transaction receipts cover actual 1¢/2¢ USDC purchases, takeover, NFT mint, artifact commitments, fulfillment, settlement and original-wallet payouts: **3¢ received, 3¢ withdrawn, zero pending**. The qualification used synthetic artwork and delivery evidence; no physical advertisement was installed. The creative-control handoff has separate real Sandbox coverage; it was not recorded in this V3 mainnet campaign. Funding came from pre-existing Intents balances, rather than a new Base bridge in that run.
+Then open the **[recorded mainnet campaign](https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168)**. Its 11 transaction receipts cover actual 1¢/2¢ USDC purchases, takeover, NFT mint, artifact commitments, fulfillment, settlement and original-wallet payouts: **3¢ received, 3¢ withdrawn, zero pending**. The qualification used synthetic artwork and delivery evidence; no physical advertisement was installed. The creative-control handoff has separate real Sandbox coverage; it was not recorded in this V3 mainnet campaign. The run used pre-existing Intents balances. It did not include a new Base bridge.
 
 The public record exposes current finalized state and a scoped receipt manifest, with explicit unavailable/mismatch states. Reproduce historical verification without keys or funds:
 
@@ -28,7 +28,7 @@ The [qualification manifest](deployments/qualification.json) binds the receipt h
 
 A placement NFT is a transferable, time-bounded right to manage the creative for a specific physical advertising surface and campaign. The owner can submit or replace artwork before approval and the artwork deadline. Transfer the NFT to a creative agency and that agency gains the authority; the former owner loses it. Original-payer refunds, takeover rewards and owner earnings retain their original creditors.
 
-Submitting a new artwork revision updates the NFT metadata’s IPFS reference and content hash. The space owner approves that exact revision before printing. Approval or the artwork deadline closes editing, and the NFT remains a campaign record afterward. A later archival transfer cannot reopen the creative window. These are existing contract behaviors, surfaced directly in the product rather than a separate NFT marketplace.
+Submitting a new artwork revision updates the NFT metadata's IPFS reference and content hash. The space owner approves that exact revision before printing. Approval or the artwork deadline closes editing, and the NFT remains a campaign record afterward. A later archival transfer cannot reopen the creative window. Artwork submission and transfers use the existing marketplace contract.
 
 The short interactive experience puts the NFT handoff in its main path. The public mainnet record shows the actual minted NFT and artwork commitments; the real Sandbox qualification proves transfer, former-controller rejection, new-controller artwork submission and unchanged payout ownership. The physical motorcycle pilot remains pending real installation and evidence.
 
@@ -51,7 +51,7 @@ Everywhere develops the pre-existing **Pitboard** vehicle-sponsorship concept an
 5. **Deliver the campaign.** The advertiser submits artwork. The owner approves its exact revision, arranges printing and installation, and uploads evidence. Participants can open an on-chain issue before review ends; a separate arbiter resolves disputed cases.
 6. **Settle and withdraw.** The background keeper can finalize success after service and review end when artwork is locked, installation evidence exists and no issue remains open. Owners and displaced advertisers claim their respective USDC credits and can withdraw through the supported wallet flows.
 
-The NFT records a placement right, not ownership of the vehicle or proof that an advertisement was installed. Installation evidence is supplied by the owner and disputes require human judgment. The application does not invent impressions, GPS routes or measured exposure statistics.
+The NFT records the right to manage a placement's artwork. Vehicle ownership and installation evidence are separate. Installation evidence is supplied by the owner and disputes require human judgment. The application does not invent impressions, GPS routes or measured exposure statistics.
 
 ## Why NEAR
 

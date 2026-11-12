@@ -12,7 +12,7 @@ export function accountView(r){
  if(r.id==='A02'||r.id==='S04'||r.id==='S08'){
   if(!live.session)return signedOut();const p=live.data?.profile??{};
   if(r.id==='S08')return heading('ACCOUNT / DOCUMENTS','Your booking records.','Receipts belong to the wallet that made the booking.')+table(['Reference','Principal',''],(live.data?.dashboard.bookings??[]).map(b=>[short(b.id),usdc(b.amount),link('/receipts/'+b.id,'View receipt','button small')]));
-  return heading('ACCOUNT / PROFILE','Make this workspace yours.','Profile preferences are stored with your verified wallet.')+
+  return heading('ACCOUNT / PROFILE','Your profile.','Profile preferences are stored with your verified wallet.')+
    card('Your profile',form('profile',input('displayName','Display name',p.displayName??live.session.wallet,'text','required maxlength="100"')+input('brand','Brand or business',p.brand??'','text','maxlength="100"')+
     input('city','City',p.city??'')+select('defaultWorkspace','Default workspace',[['buyer','Buy advertising'],['owner','List advertising spaces']],p.defaultWorkspace??'buyer')+check('notifications','Show account notifications',p.notifications!==false)+submit('Save profile')));
  }
@@ -40,7 +40,7 @@ function supportQueue(){return card('Support requests',`<p>Support conversations
 export function walletView(signIn=false){
  if(live.config.production)return productionWalletView(signIn);
  const connected=live.session;
- return heading('YOUR ACCOUNT',signIn?'Connect your wallet.':'Your wallet, your workspace.','Sign in with a wallet. Every purchase and on-chain action needs its own approval.')+
+ return heading('YOUR ACCOUNT',signIn?'Connect your wallet.':'Your wallet.','Sign in with a wallet. Every purchase and on-chain action needs its own approval.')+
   `<div class="split">${card(connected?'Connected account':'Choose a wallet',connected?`<p><code>${esc(connected.wallet)}</code></p><p>Network: ${esc(live.config.network)}</p>${live.balances?.near?`<p>NEAR for gas: ${nativeUnits(live.balances.near)} NEAR</p>`:live.balances?.baseEth?`<p>Base gas balance: ${nativeUnits(live.balances.baseEth,18)} ETH</p>`:''}<p>Intents balance: ${usdc(live.balances?.intentsUsdc)}</p><div class="actions">${act('disconnect','Disconnect wallet')}${link('/account/recovery','Recover pending requests')}</div>`:
    '<p>Choose a wallet below to verify ownership of your account.</p>')}
   ${card('Browser wallets',form('connect-evm',select('provider','EVM wallet app',live.providers.length?live.providers.map(p=>[p.id,p.name]):[['','No injected EVM wallet detected']])+submit('Connect EVM wallet'))+
@@ -53,8 +53,8 @@ function productionWalletView(signIn){
  const session=live.session,next=new URLSearchParams(location.search).get('next'),safeNext=next?.startsWith('/')&&!next.startsWith('//')?next:live.data?.profile?.defaultWorkspace==='owner'?'/host':'/buy';
  const experience=signIn&&safeNext==='/experience';
  const providers=live.providers.map(p=>act('connect-evm','Connect '+esc(p.name),`data-id="${esc(p.id)}"`,'button primary')).join(' ');
- return heading(experience?'YOUR NEXT MOVE':'YOUR ACCOUNT',experience?'One wallet. Then it’s your move.':signIn?'Welcome to Everywhere.':'Your connected wallet.',experience?'Try the interactive takeover in about two minutes. No token balance needed.':'Sign in with your wallet. Each payment needs your approval.')+
-  `<div class="split">${card(session?'You’re connected':'Choose your wallet',session?`<p><strong>${esc(live.data?.profile?.displayName??short(session.wallet))}</strong></p><p class="tiny"><code>${esc(session.wallet)}</code></p><p>Available balance: <strong>${usdc(live.balances?.intentsUsdc)}</strong></p><div class="actions">${link(safeNext,'Continue','button primary')}${act('disconnect','Disconnect')}</div><p>${link('/buy/money','Manage funds & withdrawals','text-link')}</p>`:'<p>Use the same wallet to manage your advertising or list your own spaces. Signing in does not move money.</p>')}
+ return heading(experience?'YOUR NEXT MOVE':'YOUR ACCOUNT',experience?'Sign in to try a takeover.':signIn?'Welcome to Everywhere.':'Your connected wallet.',experience?'Try the interactive takeover in about two minutes. No token balance needed.':'Sign in with your wallet. Each payment needs your approval.')+
+  `<div class="split">${card(session?'You\'re connected':'Choose your wallet',session?`<p><strong>${esc(live.data?.profile?.displayName??short(session.wallet))}</strong></p><p class="tiny"><code>${esc(session.wallet)}</code></p><p>Available balance: <strong>${usdc(live.balances?.intentsUsdc)}</strong></p><div class="actions">${link(safeNext,'Continue','button primary')}${act('disconnect','Disconnect')}</div><p>${link('/buy/money','Manage funds & withdrawals','text-link')}</p>`:'<p>Use the same wallet to manage your advertising or list your own spaces. Signing in does not move money.</p>')}
   ${card(session?'Use a different wallet':'Connect a wallet',`<div class="stack">${providers||'<p>No browser wallet detected. Open this page in a browser with your wallet enabled.</p>'}${act('connect-near','Connect NEAR wallet · Meteor','','button')}</div><p class="tiny muted">Base wallets such as Rabby and MetaMask can pay in USDC. Your account and campaign records follow the wallet you connect.</p>`)}</div>`+
   `<p class="tiny muted">We never ask for a seed phrase or private key. ${link('/account/recovery','Need help with a payment?','text-link')}</p>`;
 }
@@ -73,7 +73,7 @@ export function sharedView(r){
  if(!live.session)return signedOut();
  if(r.id==='S01'){
   const wallet=live.session.wallet,bookings=allBookings().filter(b=>bookingConversationAllowed(b,wallet)),threads=(live.catalog?.snapshots??[]).filter(s=>placementAccess(s,wallet));
-  return heading('WORKSPACE / INBOX','Keep the conversation with the right people.','Booking conversations stay with the original buyer and space owner, including after a takeover.')+
+  return heading('WORKSPACE / INBOX','Your campaign conversations.','Booking conversations stay with the original buyer and space owner, including after a takeover.')+
    card('Booking conversations',table(['Booking','With','Status',''],bookings.map(b=>[esc(sale(b.saleId)?.title??'Your booking'),esc(short(wallet===b.owner?b.sellerId:b.owner)),badge(b.status==='outbid'?'Taken over':b.status),link('/inbox/'+encodeURIComponent(b.id),'Open booking conversation','button small')])))+
    card('Artwork & delivery conversations',`<p>These conversations follow the current placement roles.</p>${table(['Placement',''],threads.map(s=>[esc(sale(s.campaign.terms.sale_id)?.title??s.accountId),link('/inbox/'+encodeURIComponent(s.accountId),'Open artwork conversation','button small')]))}`);
  }
@@ -96,21 +96,21 @@ export function sharedView(r){
  }
  if(r.id==='S09'){
   const q=new URLSearchParams(location.search),b=booking(q.get('booking')),contract=q.get('contract')??b?.contractId;
-  return heading('WORKSPACE / SUPPORT',contract?'Request a campaign issue review.':'How can we help?',snapshot(contract)?.mode==='hub'?'Describe the issue and add evidence. Confirm the issue in your wallet before the review deadline to hold campaign settlement.':'Issue requests are recorded first. The campaign’s separate arbiter signs any on-chain decision.')+
+  return heading('WORKSPACE / SUPPORT',contract?'Request a campaign issue review.':'How can we help?',snapshot(contract)?.mode==='hub'?'Describe the issue and add evidence. Confirm the issue in your wallet before the review deadline to hold campaign settlement.':'Issue requests are recorded first. The campaign\'s separate arbiter signs any on-chain decision.')+
    card(contract?'Campaign issue':'Support request',contract?form('issue',hidden('contractId',contract)+textArea('reason','What needs review?','','required maxlength="2000"')+artifactFields(live.data.media.filter(m=>m.status==='verified'),'Describe the public issue evidence.')+submit('Submit issue for review')):
     form('support',input('subject','Subject','','text','required maxlength="150"')+textArea('message','Message','','required maxlength="3000"')+submit('Save support request')))+(!contract?card('Your support requests',table(['Subject','Status',''],(live.data.support??[]).filter(t=>t.owner===live.session.wallet).map(t=>[esc(t.subject),badge(t.status),link('/support/cases/'+encodeURIComponent(t.id),'Open conversation','button small')]))):'');
  }
  if(r.id==='S10'){
   const issue=(live.data.issues??[]).find(i=>i.id===r.params.id),ticket=[...(live.data.support??[]),...(supportAdministrator(live)?live.data.supportQueue??[]:[])].find(i=>i.id===r.params.id);
   if(issue){const s=snapshot(issue.contractId),decision=s?.campaign.issues[issue.id],needsSignature=s?.mode==='hub'&&!decision&&issue.owner===live.session.wallet&&s.state.outcome==='open'&&BigInt(s.state.refund_end_ns)>BigInt(Date.now())*1000000n;
-   return heading('SUPPORT / CASE','Your campaign issue.',s?.mode==='hub'?'A confirmed open issue holds settlement until the campaign reviewer resolves it.':'The request and the arbiter’s decision are separate records.')+card('Case',`<p>${esc(issue.reason)}</p>${badge(decision?decision.open?'Issue open':'Resolved':s?.mode==='hub'?'Awaiting wallet confirmation':'Awaiting arbiter')}${needsSignature?`<p>Confirm this issue in your wallet before the review deadline. Saving evidence alone does not hold settlement.</p>${act('open-issue','Confirm issue',`data-contract="${esc(issue.contractId)}" data-id="${esc(issue.id)}"`,'button primary')}`:''}<p>Case reference: ${esc(issue.id)}</p>${link('/buy/placements/'+issue.contractId,'Placement workspace')}`);}
+   return heading('SUPPORT / CASE','Your campaign issue.',s?.mode==='hub'?'A confirmed open issue holds settlement until the campaign reviewer resolves it.':'The request and the arbiter\'s decision are separate records.')+card('Case',`<p>${esc(issue.reason)}</p>${badge(decision?decision.open?'Issue open':'Resolved':s?.mode==='hub'?'Awaiting wallet confirmation':'Awaiting arbiter')}${needsSignature?`<p>Confirm this issue in your wallet before the review deadline. Saving evidence alone does not hold settlement.</p>${act('open-issue','Confirm issue',`data-contract="${esc(issue.contractId)}" data-id="${esc(issue.id)}"`,'button primary')}`:''}<p>Case reference: ${esc(issue.id)}</p>${link('/buy/placements/'+issue.contractId,'Placement workspace')}`);}
   return ticket&&(ticket.owner===live.session.wallet||supportAdministrator(live))?supportCase(ticket):unavailable('Support case not found.');
  }
  return null;
 }
 export function opsView(r){
  if(!live.session)return signedOut();const values=live.data.arbiterSales??[];
- if(!values.length&&!supportAdministrator(live))return heading('CAMPAIGN OPERATIONS','No campaigns name this wallet as arbiter.','Connect a campaign’s named NEAR arbiter to review its issues and finalize its outcome.',link('/settings/wallets','Choose a wallet'));
+ if(!values.length&&!supportAdministrator(live))return heading('CAMPAIGN OPERATIONS','No campaigns name this wallet as arbiter.','Connect a campaign\'s named NEAR arbiter to review its issues and finalize its outcome.',link('/settings/wallets','Choose a wallet'));
  if(r.id==='M01'||r.id==='M05')return heading('CAMPAIGN OPERATIONS','Review what happened.','Review assigned campaigns and support conversations.')+
   (supportAdministrator(live)?supportQueue():'')+
   card('Assigned campaigns',table(['Campaign','Spots',''],values.map(s=>[esc(s.title),String(s.spots.length),link('/ops/listings/'+s.id,'Review campaign','button small')])))+
@@ -123,16 +123,16 @@ export function opsView(r){
  if(r.id==='M03'){
   const issue=live.data.issues.find(i=>i.id===r.params.id),snap=issue&&snapshot(issue.contractId);if(!issue||snap?.state.arbiter_id!==live.session.wallet)return unavailable();
   const decision=snap.campaign.issues[issue.id];
-  return heading('OPERATIONS / ISSUE','Review the campaign evidence.','Your signed decision controls the campaign’s settlement gate.')+
+  return heading('OPERATIONS / ISSUE','Review the campaign evidence.','Your signed decision controls the campaign\'s settlement gate.')+
    `<div class="split">${card('Issue request',`<p>${esc(issue.reason)}</p><p>Requested by ${esc(issue.owner)}</p>${badge(decision?decision.open?'open':'resolved':'awaiting review')}`)}${card('Record your decision',form('issue-decision',hidden('caseId',issue.id)+hidden('contractId',issue.contractId)+select('decision','Decision',[['open','Open an issue and block success'],['close','Resolve after reviewing evidence']],decision?.open?'close':'open')+artifactFields(live.data.media.filter(m=>m.status==='verified'),'Describe your review evidence.')+submit('Review & sign issue decision')))}</div>`+evidence(snap);
  }
- if(r.id==='M04')return heading('OPERATIONS / PAYMENTS','Original-wallet reconciliation.','Payments are reconciled by their original payer. Campaign operations cannot redirect a buyer’s funds.',link('/account/recovery','Open this wallet’s recovery records'));
+ if(r.id==='M04')return heading('OPERATIONS / PAYMENTS','Recover a payment.','Payments are reconciled by their original payer. Campaign operations cannot redirect a buyer\'s funds.',link('/account/recovery','Open this wallet\'s recovery records'));
  return null;
 }
 export function testingView(){
  if(!live.config.sandbox)return unavailable('Local test controls are unavailable on mainnet.');if(!live.session)return signedOut();
  const values=allSales().filter(s=>[s.owner,s.arbiterId].includes(live.session.wallet));
- return heading('LOCAL TESTING','Test real actions without real money.','These controls affect the local NEAR Sandbox only. The product’s normal actions still use signatures and finalized receipts.')+
+ return heading('LOCAL TESTING','Test real actions without real money.','These controls affect the local NEAR Sandbox only. The product\'s normal actions still use signatures and finalized receipts.')+
   card('Advance a campaign stage',form('advance-clock',select('saleId','Campaign',values.map(s=>[s.id,s.title]))+select('stage','Advance to',[['biddingClose','After bidding closes'],['reviewEnd','After service & issue review']])+submit('Advance local chain')))+
   card('Test interrupted responses',`<p>Enable this, then perform one native transaction. The original receipt will remain recoverable after a reload.</p>${act('lose-response',live.loseNextResponse?'Interruption enabled':'Interrupt next transaction response')}`)+
   card('Restart the local API',`<p>The chain, signed-in session and request journal are retained.</p>${act('restart-api','Restart API & retain chain')}`)+

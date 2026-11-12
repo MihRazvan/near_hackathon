@@ -101,7 +101,7 @@ export async function walletRequest(kind,plan,title,perform){
  try{await review(title,plan.message??plan.transaction??plan);}catch(error){if(error.code===4001)await api('wallet-requests/'+r.id+'/reject',{code:4001},{session});throw error;}
  if(live.session?.wallet!==session.wallet)throw new Error('The connected wallet changed. Recover the original request before continuing.');
  await api('wallet-requests/'+r.id+'/dispatch',{}, {session});
- setProgress('Confirm the request in your wallet. We’ll save its status.');
+ setProgress('Confirm the request in your wallet. We\'ll save its status.');
  try{
   const result=await perform(r,session);
   if(kind!=='intent'){

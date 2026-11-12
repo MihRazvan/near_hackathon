@@ -36,6 +36,6 @@ test('the current rail follows creative authority through approval, then deliver
 test('the studio handoff is the featured NFT action, while self-managed artwork remains available',()=>{
  const account=live();handleExperienceAction(target('restart'),account);for(const action of ['book','takeover','close'])handleExperienceAction(target(action),account);
  let html=renderExperience(account);assert.match(html,/<div class="exp-primary-action">[^]*?data-experience-action="transfer"/);assert.match(html,/Keep the NFT &amp; approve artwork|Keep the NFT & approve artwork/);assert.match(html,/Example placement NFT/);assert.match(html,/NFT owner/);assert.match(html,/Artwork control open/);
- handleExperienceAction(target('transfer'),account);html=renderExperience(account);assert.match(html,/data-nft-controller>Creative studio/);assert.match(html,/<div class="exp-primary-action">[^]*?data-experience-action="fulfill"/);assert.match(html,/original financial claims stayed put|financial rights stayed put/);
+ handleExperienceAction(target('transfer'),account);html=renderExperience(account);assert.match(html,/data-nft-controller>Creative studio/);assert.match(html,/<div class="exp-primary-action">[^]*?data-experience-action="fulfill"/);assert.match(html,/Payment claims stay with their original wallets/);
  handleExperienceAction(target('fulfill'),account);html=renderExperience(account);assert.match(html,/Artwork approved &amp; locked/);assert.doesNotMatch(html,/data-experience-action="transfer"/);
 });
