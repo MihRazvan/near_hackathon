@@ -2056,3 +2056,8 @@ body[data-route="P09"] .panel p {
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *,*::before,*::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
 .hero-copy :focus-visible { outline-color: var(--ink); }
 .site-footer :focus-visible { outline-color: var(--pink); }
+
+/* Four featured campaigns share a row on wide screens. */
+.asset-grid.asset-grid-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 1200px) { .asset-grid.asset-grid-four { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .asset-grid.asset-grid-four { grid-template-columns: minmax(0, 1fr); } }

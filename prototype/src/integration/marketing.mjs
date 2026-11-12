@@ -45,6 +45,7 @@ export function homeView({
   inventory,
   availableCount,
   publishedCount,
+  teamTests = false,
 }) {
   return `<section class="street-hero" aria-labelledby="home-title">
     <div class="hero-copy">
@@ -55,7 +56,7 @@ export function homeView({
     </div>${streetPreview()}
   </section>
   <div class="street-assurances"><span>${icon("check")} Printing & installation included</span><span>${icon("calendar")} Clear dates. One campaign price.</span><span>${icon("shield")} Your placement NFT controls the artwork</span></div>
-  <section class="market-section" aria-labelledby="market-title"><div class="section-top"><div><h2 id="market-title">find your<br>next spot.</h2><p>Browse by vehicle and location.</p></div>${link("/explore", "Explore the marketplace " + outwardArrow, "editorial-link")}</div>
+  <section class="market-section" aria-labelledby="market-title"><div class="section-top"><div><h2 id="market-title">${teamTests?'try live<br>campaigns.':'find your<br>next spot.'}</h2><p>${teamTests?'AI-generated vehicles. Real NEAR transactions, starting at 1¢ USDC. No physical delivery.':'Browse by vehicle and location.'}</p></div>${link("/explore", "Explore the marketplace " + outwardArrow, "editorial-link")}</div>
     ${search}${categoryLinks()}
     ${inventory || `<div class="market-invitation"><div><h3>List the first space.</h3><p>Add your vehicle and choose which panels advertisers can book.</p></div>${link("/host/assets/new", "List your space " + outwardArrow, "button primary")}</div>`}
     ${!availableCount && publishedCount ? `<p class="inventory-note">Looking for a previous campaign? ${link("/explore?availability=all", "Browse past campaign records", "text-link")}</p>` : ""}

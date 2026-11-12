@@ -27,11 +27,12 @@ export class CampaignRecords {
   assert(manifest?.asset&&manifest.saleId===sale.id,'RECORD_UNAVAILABLE','Published campaign record is unavailable',503);
   let evidence;try{evidence=await this.manifest();}catch{}
   const matches=evidence?.record.saleId===sale.id&&this.config.network===evidence.network;
+  const teamTest=manifest.campaignType==='team-test';
   const snapshots=[],unavailable=[];
-  for(const spot of sale.spots){try{snapshots.push(publicSnapshot(await this.snapshot(spot.contractId),this.config.network,matches&&spot.contractId===evidence.record.offerId));}catch(error){unavailable.push({contractId:spot.contractId,code:error.code==='RPC_UNAVAILABLE'?'RPC_UNAVAILABLE':'STATE_UNAVAILABLE'});}}
+  for(const spot of sale.spots){try{snapshots.push(publicSnapshot(await this.snapshot(spot.contractId),this.config.network,teamTest||matches&&spot.contractId===evidence.record.offerId));}catch(error){unavailable.push({contractId:spot.contractId,code:error.code==='RPC_UNAVAILABLE'?'RPC_UNAVAILABLE':'STATE_UNAVAILABLE'});}}
   return {schema:'everywhere-campaign-record/v1',network:this.config.network,observedAt:new Date(this.now()).toISOString(),status:unavailable.length?(snapshots.length?'partial':'unavailable'):'available',
-   campaign:{id:sale.id,title:manifest.title,ownerId:sale.owner,ownerDisplayName:this.store.get('profile',sale.owner)?.displayName??sale.owner,
-    asset:{id:manifest.asset.id,name:manifest.asset.title,type:manifest.asset.assetType,city:manifest.asset.city,...(/^ipfs:\/\/[A-Za-z0-9]+$/.test(manifest.asset.coverUri??'')&&/^[0-9a-f]{64}$/.test(manifest.asset.coverSha256??'')?{coverUri:manifest.asset.coverUri,coverSha256:manifest.asset.coverSha256}:{})},schedule:pick(manifest.schedule,FIELDS),spots:sale.spots.map(spot=>({id:spot.id,name:manifest.asset.spots?.find(p=>p.id===spot.id)?.name??spot.id,contractId:spot.contractId}))},
+   campaign:{id:sale.id,title:manifest.title,...(teamTest?{campaignType:'team-test'}:{}),ownerId:sale.owner,ownerDisplayName:this.store.get('profile',sale.owner)?.displayName??sale.owner,
+    asset:{id:manifest.asset.id,name:manifest.asset.title,type:manifest.asset.assetType,city:manifest.asset.city,...pick(manifest.asset,['imageProvenance']),...(/^ipfs:\/\/[A-Za-z0-9]+$/.test(manifest.asset.coverUri??'')&&/^[0-9a-f]{64}$/.test(manifest.asset.coverSha256??'')?{coverUri:manifest.asset.coverUri,coverSha256:manifest.asset.coverSha256}:{})},schedule:pick(manifest.schedule,FIELDS),spots:sale.spots.map(spot=>({id:spot.id,name:manifest.asset.spots?.find(p=>p.id===spot.id)?.name??spot.id,contractId:spot.contractId}))},
    snapshots,unavailable,qualification:{matched:!!matches,evidencePath:matches?'/api/evidence/qualification':null,synthetic:!!matches,note:matches?evidence.record.note:'Delivery evidence is submitted by the space owner. Recording its commitment on NEAR does not independently verify physical installation.'},
    verification:{method:'Finalized NEAR RPC; qualified contract code, settlement assets, parties, terms and solvency',physicalInstallationVerified:false}};
  }

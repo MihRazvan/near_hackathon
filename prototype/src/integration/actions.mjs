@@ -39,7 +39,7 @@ async function prepareBooking(data,{pay=live.config.production}={}){
   // Keep this campaign selected after wallet rejection, without creating duplicates.
   const field=document.querySelector('form[data-live-form="prepare-booking"] [name="campaignId"]');
   if(field){const option=document.createElement('option');option.value=campaignId;option.textContent=String(data.get('name'));field.append(option);field.value=campaignId;}}
- const b=await api('bookings',{campaignId,saleId:String(data.get('saleId')),spotId:String(data.get('spotId'))});
+ const b=await api('bookings',{campaignId,saleId:String(data.get('saleId')),spotId:String(data.get('spotId')),testCampaignAcknowledged:data.has('testCampaignAcknowledged')});
  if(data.get('expectedAmount')&&String(data.get('expectedAmount'))!==b.amount){await api('bookings/'+b.id+'/cancel',{});await refresh({render:false});navigate('/checkout/'+b.saleId+'?spot='+b.spotId+'&campaign='+encodeURIComponent(campaignId));throw new Error('The price changed while you were booking. Review the updated price before paying.');}
  await refresh({render:false});navigate('/payments/'+b.id);if(pay)await payBooking(b.id);return b;
 }
@@ -175,7 +175,7 @@ export const forms={
   if(data.get('method')==='ai'){const r=await api('ai/draft',{prompt:String(data.get('title'))+'. '+String(data.get('description')),...(photoDataUrl?{imageDataUrl:photoDataUrl}:{})});draft=r.draft;}
   else draft={assetType:data.get('assetType'),description:String(data.get('description')),assumptions:['Owner-created layout; confirm physical measurements.'],spots:[{id:'spot-1',name:'Advertising panel',side:'left',box:{x:.3,y:.4,width:.3,height:.2},suggestedPriceCents:'10',confidence:'low'}]};
   let coverMediaId;if(data.has('publicCover')){if(!photoDataUrl)throw new Error('Choose a photo before publishing a listing cover.');coverMediaId=(await api('media',{base64:photoDataUrl.split(',')[1],mime:photoDataUrl.slice(5,photoDataUrl.indexOf(';')),publicContentAcknowledged:true})).id;}
-  const asset=await api('assets',{...draft,title:String(data.get('title')),city:String(data.get('city')),source:data.get('method')==='ai'?'ai':'manual',...(photoDataUrl?{photoDataUrl}:{}),...(coverMediaId?{coverMediaId}:{})});
+  const asset=await api('assets',{...draft,title:String(data.get('title')),city:String(data.get('city')),source:data.get('method')==='ai'?'ai':'manual',campaignType:data.get('campaignType')==='team-test'?'team-test':'physical',imageProvenance:data.has('aiGeneratedImage')?'ai-generated':'owner-photo',...(photoDataUrl?{photoDataUrl}:{}),...(coverMediaId?{coverMediaId}:{})});
   await refresh({render:false});live.assetEdit=null;live.capturePhoto=null;navigate('/host/assets/'+asset.id+'/review');toast('Editable space saved. Review every surface before publishing.');
  },
  'asset-edit':async data=>{

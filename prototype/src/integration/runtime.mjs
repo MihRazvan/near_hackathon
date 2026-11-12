@@ -1,3 +1,4 @@
+import {referenceImage} from './reference-images.mjs';
 import { state, navigate, toast } from '../store.mjs';
 import { esc, short } from '../ui.mjs';
 
@@ -167,7 +168,7 @@ export function allBookings(){const d=live.data?.dashboard;return d?[...d.bookin
 export function booking(id){return allBookings().find(b=>b.id===id);}
 export function rawAsset(id){return live.data?.dashboard.assets.find(a=>a.id===id)??allSales().find(s=>s.assetId===id)?.publication?.manifest.asset;}
 export function assetView(a){return {...a,type:a.assetType==='motorcycle'?'moto':a.assetType,model:a.title,area:a.city,color:'#c8d6cc',
- activity:'Exposure has not been measured',photos:a.photoDataUrl?[a.photoDataUrl]:a.photoUrl?[a.photoUrl]:a.coverUri?.match(/^ipfs:\/\/baf[a-z2-7]+$/)?[a.coverUri.replace('ipfs://','https://gateway.pinata.cloud/ipfs/')]:[],spots:a.spots.map(p=>({...p,x:p.box.x*960,y:p.box.y*480,w:p.box.width*960,h:p.box.height*480,price:Number(p.suggestedPriceCents)/100}))};}
+ activity:'Exposure has not been measured',photos:a.photoDataUrl?[a.photoDataUrl]:a.photoUrl?[a.photoUrl]:referenceImage(a)?[referenceImage(a)]:[],spots:a.spots.map(p=>({...p,x:p.box.x*960,y:p.box.y*480,w:p.box.width*960,h:p.box.height*480,price:Number(p.suggestedPriceCents)/100}))};}
 export async function fileData(file,{max=2000000}={}){if(!file?.size)return null;if(file.size>max)throw new Error('This file exceeds the upload limit.');
  return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Could not read the selected file.'));reader.readAsDataURL(file);});}
 export async function upload(file,{text,acknowledged=false}={}){

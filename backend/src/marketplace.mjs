@@ -11,6 +11,14 @@ function dates(input,now){
  return Object.fromEntries(DATE_KEYS.map((key,index)=>[key,new Date(times[index]).toISOString()]));
 }
 const ns=value=>String(BigInt(Date.parse(value))*1000000n);
+function assetProvenance(input,prior={}){
+ const result={};
+ for(const [key,allowed] of Object.entries({campaignType:['physical','team-test'],imageProvenance:['owner-photo','ai-generated']})){
+  const value=input[key]??prior[key];
+  if(value!==undefined){assert(allowed.includes(value),'INVALID_PROVENANCE','Choose a valid vehicle and image type',400);result[key]=value;}
+ }
+ return result;
+}
 function owned(store,kind,id,owner){const row=store.get(kind,id);assert(row&&row.owner===walletId(owner),'NOT_FOUND','Record not found for this wallet',404);return row;}
 function native(value){const id=walletId(value);assert(!id.startsWith('0x'),'NEAR_OWNER_REQUIRED','Publishing requires the seller NEAR wallet; EVM buyers sign Intents separately',400);return id;}
 
@@ -37,7 +45,7 @@ export class Marketplace {
    assert(this.store.db.prepare("SELECT COUNT(*) count FROM objects WHERE kind='asset' AND owner=?").get(actor).count<OWNER_ASSET_MAX,'ASSET_LIMIT','This wallet has reached its 20-space limit.',429);
    assert(this.store.db.prepare("SELECT COUNT(*) count FROM objects WHERE kind='asset'").get().count<GLOBAL_ASSET_MAX,'ASSET_LIMIT','The platform is at its current space capacity.',429);
    const draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
-   const data={...draft,...this.assetMedia(owner,input),city:text(input.city,'city',100),source:input.source==='ai'?'ai':'manual',status:'draft'};
+   const data={...draft,...this.assetMedia(owner,input),...assetProvenance(input),city:text(input.city,'city',100),source:input.source==='ai'?'ai':'manual',status:'draft'};
    assertLocalPhotoQuota(this.store,{kind:'asset',value:data.photoDataUrl,config:this.chain?.config});
    return this.store.insert('asset',randomUUID(),actor,data);
   });
@@ -48,7 +56,7 @@ export class Marketplace {
    for(const sale of this.store.list('sale',walletId(owner)).filter(s=>s.assetId===id&&s.status==='draft'))this.assertSaleEditable(sale);
    const row=owned(this.store,'asset',id,owner),draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
    assert(row.version===version,'STALE_VERSION','Asset changed; reload before editing');
-   const data={...draft,...this.assetMedia(owner,{...row,...input}),city:text(input.city,'city',100),source:row.source,status:'draft'};
+   const data={...draft,...this.assetMedia(owner,{...row,...input}),...assetProvenance(input,row),city:text(input.city,'city',100),source:row.source,status:'draft'};
    assertLocalPhotoQuota(this.store,{kind:'asset',id,value:data.photoDataUrl,config:this.chain?.config});
    return this.store.update('asset',id,row.owner,version,data);
   });
@@ -66,7 +74,7 @@ export class Marketplace {
   });
   const seller=this.chain?.config?.hub?walletId(owner):native(owner),arbiter=this.chain?.config?.hub?walletId(input.arbiterId):native(input.arbiterId);assert(seller!==arbiter,'INVALID_ARBITER','Seller and arbiter must be separate wallets',400);
   return {assetId:asset.id,title:text(input.title,'sale title',100),schedule,spots,arbiterId:arbiter,
-   takeoverDefault:input.takeoverDefault,rules:text(input.rules,'published advertising rules',3000),printingAndInstallationIncluded:true,status:'draft'};
+   takeoverDefault:input.takeoverDefault,rules:text(input.rules,'published advertising rules',3000),...(asset.campaignType==='team-test'?{campaignType:'team-test'}:{}),printingAndInstallationIncluded:asset.campaignType!=='team-test',status:'draft'};
  }
  createSale(owner,input){return this.store.insert('sale',randomUUID(),walletId(owner),this.saleData(owner,input));}
  updateSale(owner,id,version,input){const sale=owned(this.store,'sale',id,owner);assert(sale.status==='draft','IMMUTABLE_SALE','Published sale rules cannot be changed');
@@ -80,8 +88,8 @@ export class Marketplace {
   }
   if(!allowStarted)dates(sale.schedule,this.now());const asset=owned(this.store,'asset',sale.assetId,owner);
   const manifest={version:1,saleId:sale.id,title:sale.title,sellerId:sale.owner,arbiterId:sale.arbiterId,
-   asset:{id:asset.id,title:asset.title,description:asset.description,assetType:asset.assetType,city:asset.city,spots:asset.spots,...(asset.coverUri?{coverUri:asset.coverUri,coverSha256:asset.coverSha256}:{})},
-   schedule:sale.schedule,spots:sale.spots,rules:sale.rules,printingAndInstallationIncluded:true,
+   asset:{id:asset.id,title:asset.title,description:asset.description,assetType:asset.assetType,city:asset.city,spots:asset.spots,...assetProvenance(asset),...(asset.coverUri?{coverUri:asset.coverUri,coverSha256:asset.coverSha256}:{})},
+   schedule:sale.schedule,spots:sale.spots,rules:sale.rules,...(sale.campaignType==='team-test'?{campaignType:'team-test'}:{}),printingAndInstallationIncluded:sale.printingAndInstallationIncluded,
    settlement:'USDC in NEAR Intents',ownerPayout:'after service and review; open issues block settlement',artworkReview:'after immediate booking; exact revision locked before printing'};
   const hash=Buffer.from(hashObject(manifest),'hex').toString('base64');
   const terms=sale.spots.map(spot=>({sale_id:sale.id,asset_id:asset.id,spot_id:spot.id,published_terms_sha256:hash,takeover_enabled:spot.takeoverEnabled,
@@ -140,9 +148,10 @@ export class Marketplace {
   assert(uint(budgetMicroUsdc)>0n,'INVALID_BUDGET','Campaign budget must be positive',400);
   return this.store.insert('buyer-campaign',randomUUID(),walletId(owner),{name:text(name,'campaign name',100),budgetMicroUsdc,status:'active'});
  }
- async prepareBooking(owner,{campaignId,saleId,spotId}){
+ async prepareBooking(owner,{campaignId,saleId,spotId,testCampaignAcknowledged=false}){
   const buyer=walletId(owner),campaign=owned(this.store,'buyer-campaign',campaignId,buyer),sale=this.sale(saleId),spot=sale.spots.find(s=>s.id===spotId);
   assert(campaign.status==='active'&&spot,'INVALID_BOOKING','Campaign or published spot is unavailable');
+  assert(sale.campaignType!=='team-test'||testCampaignAcknowledged===true,'TEST_CAMPAIGN_ACKNOWLEDGEMENT','This team test uses real USDC and includes no physical delivery. Acknowledge it to continue.',400);
   const id=randomUUID(),invoiceId='booking-'+id;
   const plan=await this.chain.preparePurchase({buyerId:buyer,contractId:spot.contractId,invoiceId});
   return this.store.transaction(()=>{

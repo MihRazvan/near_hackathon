@@ -21,6 +21,16 @@ function setup(){
  Object.assign(live,{config:{production:true,sandbox:false},session:{wallet,kind:'evm'},catalog:{time:new Date(now).toISOString(),sales:[sale],snapshots:[snapshot],owners:[]},balances:{intentsUsdc:'0',baseUsdc:'1000000'},data:{dashboard:{bookings:[],campaigns:[],incomingBookings:[],sales:[]},placements:[],saved:[],requests:[],intents:[],routes:[]}});
  return {sale,snapshot};
 }
+test('generated team tests show real-payment disclosure and acknowledgement at checkout without promising installation',()=>{
+ const {sale}=setup();sale.campaignType='team-test';sale.publication.manifest.campaignType='team-test';sale.publication.manifest.asset.imageProvenance='ai-generated';location.search='?spot=door';
+ const listing=publicView({id:'P03',params:{slug:'asset'}}),checkout=buyerView({id:'B06',params:{intentId:'sale'}});
+ for(const html of [listing,checkout]){assert.match(html,/Team test · AI-generated vehicle/);assert.match(html,/Payments use real USDC/);assert.doesNotMatch(html,/Printing & installation included|One price for the full campaign, printing/);}
+ assert.match(checkout,/name="testCampaignAcknowledged"/);assert.match(checkout,/includes no physical advertising delivery/);
+});
+test('homepage keeps closed team campaigns visible alongside bookable ones',()=>{
+ const {sale,snapshot}=setup();sale.campaignType='team-test';snapshot.state.cutoff_ns=ns(now-1);
+ const html=publicView({id:'P01'});assert.match(html,/City van/);assert.match(html,/try live<br>campaigns/);assert.match(html,/No physical delivery/);
+});
 test('marketplace hides stale bookable prices and preserves campaign choice through listing navigation',()=>{
  const {snapshot}=setup();location.search='?campaign=brand';let html=publicView({id:'P02'});assert.match(html,/name="campaign" value="brand"/);assert.match(html,/campaign=brand/);assert.match(html,/0\.01 USDC/);assert.match(html,/href="\/explore\?campaign=brand&amp;type=van"/);
  snapshot.state.cutoff_ns=ns(now-1);html=publicView({id:'P02'});assert.doesNotMatch(html,/0\.01 USDC/);assert.match(html,/No spaces match/);

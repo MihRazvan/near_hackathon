@@ -15,8 +15,8 @@ function setup(){
    const op={id:'relay-'+planId,phase:'confirmed',result:{outcome:{receipts_outcome:[{outcome:{executor_id:s.accountId,logs:['EVENT_JSON:'+JSON.stringify(event)]}}]}}};operations.set(planId,op);return op;},
   purchaseAccepted:ChainService.prototype.purchaseAccepted};
  const app=new Marketplace({store,chain});
- async function listing(owner,contract){
-  const a=app.createAsset(owner,asset),now=Date.now(),schedule=Object.fromEntries(['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'].map((key,index)=>[key,new Date(now+(index+1)*600000).toISOString()]));
+ async function listing(owner,contract,extra={}){
+  const a=app.createAsset(owner,{...asset,...extra}),now=Date.now(),schedule=Object.fromEntries(['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'].map((key,index)=>[key,new Date(now+(index+1)*600000).toISOString()]));
   const sale=app.createSale(owner,{assetId:a.id,title:'Campaign panel',schedule,spots:[{id:a.spots[0].id,priceCents:'10'}],takeoverDefault:true,arbiterId:'arbiter.near',rules:'Owner prints and installs the approved artwork.'});
   const p=app.publication(owner,sale.id),terms=p.terms[0];
   snapshots.set(contract,{qualified:true,accountId:contract,codeHash:'qualified',state:{seller_id:owner,arbiter_id:'arbiter.near',round:'0',next_price:'100000',outcome:'open',holder:null,intents_contract_id:'intents.near',intents_token_id:'nep141:usdc.near'},campaign:{terms},rights:{minted:false}});
@@ -24,6 +24,21 @@ function setup(){
  }
  return {store,app,snapshots,listing,sends:()=>sends};
 }
+test('team test terms bind generated-image provenance and require acknowledgement before a real payment is prepared',async()=>{
+ const s=setup();try{
+  const l=await s.listing('owner.near','test.near',{campaignType:'team-test',imageProvenance:'ai-generated'});
+  assert.equal(l.p.manifest.campaignType,'team-test');assert.equal(l.p.manifest.asset.imageProvenance,'ai-generated');assert.equal(l.p.manifest.printingAndInstallationIncluded,false);
+  const updated=s.app.updateAsset('owner.near',l.a.id,l.a.version,{...asset,title:'Updated test vehicle'});
+  assert.equal(updated.campaignType,'team-test');assert.equal(updated.imageProvenance,'ai-generated');
+  // Publish the original committed draft after checking the frozen metadata.
+  s.app.updateAsset('owner.near',l.a.id,updated.version,{...asset,title:l.a.title});
+  await l.publish();
+  const c=s.app.createCampaign(buyer,{name:'Test booking',budgetMicroUsdc:'100000'}),input={campaignId:c.id,saleId:l.sale.id,spotId:l.a.spots[0].id};
+  await assert.rejects(s.app.prepareBooking(buyer,input),/includes no physical delivery/);assert.equal(s.store.list('intent').length,0);
+  await assert.rejects(s.app.prepareBooking(buyer,{...input,testCampaignAcknowledged:'true'}),/Acknowledge/);
+  assert.equal((await s.app.prepareBooking(buyer,{...input,testCampaignAcknowledged:true})).status,'prepared');
+ }finally{s.store.close();}
+});
 test('draft ownership, exact on-chain publication and immutable terms survive asset edits',async()=>{
  const s=setup();try{const l=await s.listing('owner.near','spot.near');assert.equal(s.app.browse().length,0);
   assert.throws(()=>s.app.updateAsset('other.near',l.a.id,l.a.version,asset),/this wallet/);

@@ -1,3 +1,4 @@
+import {isTeamTest,deliveryLabel,campaignNotice} from './campaign-kind.mjs';
 import { live,allSales,sale,snapshot,booking,usdc,dateTime,byNs } from './runtime.mjs';
 import { esc,link,badge,card,empty,heading,act,select,form,input,textArea,check,submit,hidden,scene,scheduleSummary,evidence,unavailable,signedOut,notice,table,transaction,short,artifactLink } from './ui.mjs';
 import { verifiedMediaFor } from './workspace-actions.mjs';
@@ -66,10 +67,11 @@ function checkout(r,d){
   (live.balanceError?notice('Your balance is temporarily unavailable.','Refresh your balance before booking.')+act('refresh','Refresh balance'):`<p>Available balance: <strong>${usdc(balance)}</strong></p>`)+
   (needsFunding?notice('Add funds to book this space.',`This booking costs ${usdc(info.price)}. You need ${usdc(micro(info.price)-micro(balance))} more in your spending balance.`):'')+
   check('rules','I agree to the published dates, advertising rules and takeover setting.')+
+  (isTeamTest(offer)?check('testCampaignAcknowledged','I understand this uses real USDC and includes no physical advertising delivery.'):'')+
   (needsFunding?act('fund-and-book','Add funds & book',`data-sale="${offer.id}" data-spot="${spot.id}"`,'button primary'):balance===undefined?act('refresh','Check balance to continue','','button primary'):submit(info.kind==='takeover'?'Continue with takeover':'Continue with booking'))+
   link(moneyLink(next),'Manage your balance','text-link'));
- return heading('BOOK YOUR SPACE',info.kind==='takeover'?'Take over this spot.':'Book this spot.','One price for the full campaign, printing and installation.')+
-  `<div class="split">${card(esc(asset.title),`<p>${esc(asset.spots.find(p=>p.id===spot.id)?.name??spot.id)} · ${esc(asset.city)}</p>${info.price?`<h2>${usdc(info.price)}</h2>`:''}<p>Printing & installation included.</p>${scheduleSummary(offer)}<details><summary>Advertising rules</summary><p>${esc(offer.rules)}</p></details>${spot.takeoverEnabled?notice('Takeovers are enabled.','Your booking can be replaced until booking closes. Your original payment becomes refundable if another advertiser takes over.'):'<p>This is a fixed booking. Another advertiser cannot take it over.</p>'}`)}${card('Complete your booking',bookingForm)}</div>`;
+ return heading('BOOK YOUR SPACE',info.kind==='takeover'?'Take over this spot.':'Book this spot.',isTeamTest(offer)?'A nominal USDC payment for this team test.':'One price for the full campaign, printing and installation.')+campaignNotice(offer)+
+  `<div class="split">${card(esc(asset.title),`<p>${esc(asset.spots.find(p=>p.id===spot.id)?.name??spot.id)} · ${esc(asset.city)}</p>${info.price?`<h2>${usdc(info.price)}</h2>`:''}<p>${deliveryLabel(offer)}.</p>${scheduleSummary(offer)}<details><summary>Advertising rules</summary><p>${esc(offer.rules)}</p></details>${spot.takeoverEnabled?notice('Takeovers are enabled.','Your booking can be replaced until booking closes. Your original payment becomes refundable if another advertiser takes over.'):'<p>This is a fixed booking. Another advertiser cannot take it over.</p>'}`)}${card('Complete your booking',bookingForm)}</div>`;
 }
 function payment(r){
  const b=booking(r.params.id);if(!b)return requestProgress(r.params.id);
@@ -83,7 +85,7 @@ function payment(r){
  else if(status==='retry'){title='This booking was not completed.';next=link('/checkout/'+b.saleId+'?spot='+b.spotId,'Try with the current price','button primary');}
  else next=act('pay-booking','Pay '+usdc(b.amount),`data-id="${b.id}"`,'button primary')+' '+act('cancel-booking','Cancel booking',`data-id="${b.id}"`);
  return heading('YOUR BOOKING',title,status==='confirmed'?'Your workspace keeps the artwork, delivery and payments together.':'Your wallet will show the exact payment before you approve.')+
-  `<div class="split">${card('Booking details',`<h3>${esc(offer?.title??'Advertising placement')}</h3><h2>${usdc(b.amount)}</h2><p>Printing & installation included.</p><p>${badge(state)}</p>${offer?scheduleSummary(offer):''}${walletReceipt(request?.transactionHash)}`)}${card('Next step',next)}</div>`;
+  `<div class="split">${card('Booking details',`<h3>${esc(offer?.title??'Advertising placement')}</h3><h2>${usdc(b.amount)}</h2><p>${deliveryLabel(offer)}.</p><p>${badge(state)}</p>${offer?scheduleSummary(offer):''}${walletReceipt(request?.transactionHash)}`)}${card('Next step',next)}</div>`;
 }
 function receiptCards(){
  const placements=live.data.placements??[];if(!placements.length)return '';

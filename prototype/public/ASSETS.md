@@ -31,3 +31,7 @@ The production identity uses self-hosted **Bricolage Grotesque** for display typ
 These WOFF2 subsets were obtained from the official Google Fonts CSS service on 12 November 2026. Both fonts remain under their included licenses.
 
 Earlier prototype font assets, Barlow Condensed (Jeremy Tribby and contributors) and Manrope (Mikhail Sharanda and contributors), retain their included [Barlow license](fonts/barlow-OFL.txt) and [Manrope license](fonts/manrope-OFL.txt). They are not used by the current interface.
+
+## Generated team-test vehicles
+
+The four JPEGs in `images/team-tests/` were generated with OpenAI's built-in image-generation tool on 12 November 2026, then converted to JPEG for listing covers. They depict fictional reference vehicles: a red sport motorcycle, blue hatchback, white van and green cargo bicycle. These images are used in labelled team-run mainnet test campaigns. They do not establish vehicle ownership, location, availability or physical installation. The [prompt manifest](images/team-tests/prompts.json) contains the complete prompt for each image.

@@ -1,0 +1,23 @@
+{
+  "generator": "OpenAI built-in image generation",
+  "date": "2026-11-12",
+  "provenance": "AI-generated fictional vehicle references, not physical inventory or installation evidence",
+  "images": [
+    {
+      "file": "motorcycle.jpg",
+      "prompt": "Use case: photorealistic-natural. Asset type: landscape reference image for a clearly labelled AI-generated vehicle in a team-run advertising marketplace test. A red and ivory early-1990s sport motorcycle inspired by a Honda CBR600F2, with a substantial blank lower side fairing suitable for a small ad. Parked beside a quiet Bucharest workshop with weathered cream plaster. Single vehicle in full strict left-side profile, pointing right. Both wheels and all bodywork visible, vehicle centered and occupying about 78 percent of image width. Eye-level 50mm documentary photograph, realistic overcast daylight, restrained natural colors, worn pavement and mild everyday imperfections. Clear uninterrupted advertising panel, no installed advertisement, no people obscuring the vehicle, no recognizable logos, no readable license plate or shop signs, no typography, no UI or watermarks. Landscape 3:2 composition. This is a fictional generated reference, not evidence of a real vehicle or installation."
+    },
+    {
+      "file": "car.jpg",
+      "prompt": "Use case: photorealistic-natural. Asset type: landscape reference image for a clearly labelled AI-generated vehicle in a team-run advertising marketplace test. A pale blue contemporary compact hatchback with blank white front and rear door panels suitable for a small ad. Parked on a quiet Lisbon residential street with cream stucco and muted blue tiles. Single vehicle in full strict left-side profile, pointing right. Both wheels and all bodywork visible, vehicle centered and occupying about 78 percent of image width. Eye-level 50mm documentary photograph, realistic overcast daylight, restrained natural colors, worn pavement and mild everyday imperfections. Clear uninterrupted advertising panel, no installed advertisement, no people obscuring the vehicle, no recognizable logos, no readable license plate or shop signs, no typography, no UI or watermarks. Landscape 3:2 composition. This is a fictional generated reference, not evidence of a real vehicle or installation."
+    },
+    {
+      "file": "van.jpg",
+      "prompt": "Use case: photorealistic-natural. Asset type: landscape reference image for a clearly labelled AI-generated vehicle in a team-run advertising marketplace test. An off-white long-wheelbase delivery van with a broad blank recessed cargo side panel suitable for an advertisement. Parked on a quiet Berlin street beside a brick workshop. Single vehicle in full strict left-side profile, pointing right. Both wheels and all bodywork visible, vehicle centered and occupying about 78 percent of image width. Eye-level 50mm documentary photograph, realistic overcast daylight, restrained natural colors, worn pavement and mild everyday imperfections. Clear uninterrupted advertising panel, no installed advertisement, no people obscuring the vehicle, no recognizable logos, no readable license plate or shop signs, no typography, no UI or watermarks. Landscape 3:2 composition. This is a fictional generated reference, not evidence of a real vehicle or installation."
+    },
+    {
+      "file": "cargo-bike.jpg",
+      "prompt": "Use case: photorealistic-natural. Asset type: landscape reference image for a clearly labelled AI-generated vehicle in a team-run advertising marketplace test. A dark green electric cargo bicycle with a large rectangular ivory front cargo box suitable for a small advertisement. Parked on a quiet Amsterdam street beside a brick bicycle shop. Two wheels and a long front loading platform, physically plausible steering and frame. Single vehicle in full strict left-side profile, pointing right. Both wheels and all bodywork visible, vehicle centered and occupying about 78 percent of image width. Eye-level 50mm documentary photograph, realistic overcast daylight, restrained natural colors, worn pavement and mild everyday imperfections. Clear uninterrupted advertising panel, no installed advertisement, no people obscuring the vehicle, no recognizable logos, no readable license plate or shop signs, no typography, no UI or watermarks. Landscape 3:2 composition. This is a fictional generated reference, not evidence of a real vehicle or installation."
+    }
+  ]
+}
