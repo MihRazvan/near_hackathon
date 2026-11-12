@@ -5,11 +5,19 @@ import { randomBytes } from 'node:crypto';
 import { ROOT } from './config.mjs';
 import { assert, walletId, text, hashObject } from './core.mjs';
 
-const MIME={'.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.woff2':'font/woff2','.ico':'image/x-icon','.md':'text/plain; charset=utf-8','.txt':'text/plain; charset=utf-8'};
+const MIME={'.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.json':'application/json','.woff2':'font/woff2','.ico':'image/x-icon','.md':'text/plain; charset=utf-8','.txt':'text/plain; charset=utf-8'};
+export function productAssetName(pathname){
+ if(pathname.startsWith('/assets/')){
+  assert(/^\/assets\/[A-Za-z0-9_.-]+$/.test(pathname),'NOT_FOUND','Asset not found',404);return pathname.slice(1);
+ }
+ if(/^\/(?:fonts\/[A-Za-z0-9_-]+\.(?:woff2|txt)|images\/(?:team-tests\/)?[A-Za-z0-9_-]+\.(?:webp|jpg|png)|images\/team-tests\/prompts\.json|favicon\.svg|ASSETS\.md)$/.test(pathname))return pathname.slice(1);
+ if(pathname.startsWith('/images/')||pathname.startsWith('/fonts/'))return null;
+ return extname(pathname)?null:'index.html';
+}
 export class Product {
  constructor({store,chain,marketplace,config,reads,walletRequests,personalAI,supportService,now=Date.now}){Object.assign(this,{store,chain,marketplace,config,reads,walletRequests,personalAI,supportService,now});this.publicSnapshots=new Map();this.snapshotLoads=new Map();this.snapshotGeneration=0;}
  async publicSnapshot(contractId){
-  const prior=this.publicSnapshots.get(contractId);if(prior&&this.now()-prior.loadedAt<5000)return structuredClone(prior.snapshot);
+  const prior=this.publicSnapshots.get(contractId);if(prior&&this.now()-prior.loadedAt<15000)return structuredClone(prior.snapshot);
   const generation=this.snapshotGeneration;let load=this.snapshotLoads.get(contractId);
   if(!load||load.generation!==generation){load={generation};load.promise=(async()=>{
    try{const snapshot=await this.chain.snapshot(contractId,[]);
@@ -23,12 +31,7 @@ export class Product {
  invalidate(){this.snapshotGeneration++;this.publicSnapshots.clear();}
  async serve(request,response,url){
   if(!['GET','HEAD'].includes(request.method)||url.pathname.startsWith('/api/')||url.pathname.startsWith('/lab'))return false;
-  const root=resolve(ROOT,'prototype/dist');let name='index.html';
-  if(url.pathname.startsWith('/assets/')){
-   assert(/^\/assets\/[A-Za-z0-9_.-]+$/.test(url.pathname),'NOT_FOUND','Asset not found',404);name=url.pathname.slice(1);
-  }else if(/^\/(?:fonts\/[A-Za-z0-9_-]+\.(?:woff2|txt)|images\/[A-Za-z0-9_-]+\.(?:webp|jpg|png)|favicon\.svg|ASSETS\.md)$/.test(url.pathname)){
-   name=url.pathname.slice(1);
-  }else if(extname(url.pathname))return false;
+  const root=resolve(ROOT,'prototype/dist'),name=productAssetName(url.pathname);if(!name)return false;
   let bytes;try{bytes=await readFile(resolve(root,name));}catch(error){if(error.code==='ENOENT')return false;throw error;}
   const nonce=randomBytes(24).toString('base64');
   if(name==='index.html')bytes=Buffer.from(bytes.toString().replace('</head>',`<meta name="everywhere-backend" content="connected"><meta name="lab-csp-nonce" content="${nonce}"></head>`));
@@ -39,7 +42,7 @@ export class Product {
  async catalog(actor){
   const sales=this.marketplace.browse(),snapshots=[],unavailable=[],ids=[...new Set(sales.flatMap(s=>s.spots.map(p=>p.contractId)))];
   // Coalesce public reads across visitors. Transaction preparation always uses fresh chain reads.
-  const queue=[...ids];await Promise.all(Array.from({length:Math.min(3,queue.length)},async()=>{while(queue.length){const contractId=queue.shift();try{
+  const queue=[...ids];await Promise.all(Array.from({length:Math.min(8,queue.length)},async()=>{while(queue.length){const contractId=queue.shift();try{
    const s=await this.publicSnapshot(contractId);
    if(actor){
     // Read only this visitor's credit at the same finalized block as the public state.

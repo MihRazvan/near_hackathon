@@ -3,15 +3,26 @@ import assert from 'node:assert/strict';
 import { Budget } from '../src/budget.mjs';
 import { Store } from '../src/store.mjs';
 import { Marketplace } from '../src/marketplace.mjs';
-import { Product } from '../src/product.mjs';
+import { Product,productAssetName } from '../src/product.mjs';
 const now=1800000000000,owner='seller.near';
 const input={title:'Vehicle',description:'Synthetic panel',assetType:'van',city:'Bucharest',spots:[{id:'stable-panel',name:'Panel',side:'rear',box:{x:.2,y:.2,width:.4,height:.3},suggestedPriceCents:'10',confidence:'low'}]};
+test('static vehicle covers and their prompt manifest are allowed without exposing other nested files',()=>{
+ for(const file of ['motorcycle.jpg','car.jpg','van.jpg','cargo-bike.jpg','prompts.json'])assert.equal(productAssetName('/images/team-tests/'+file),'images/team-tests/'+file);
+ assert.equal(productAssetName('/images/van-dublin.webp'),'images/van-dublin.webp');assert.equal(productAssetName('/spaces/a'),'index.html');
+ for(const path of ['/images/team-tests/../../.env','/images/team-tests/private.json','/images/other/secrets.json','/images/team-tests/file.svg','/.local/integration.env'])assert.equal(productAssetName(path),null);
+ assert.throws(()=>productAssetName('/assets/../../.env'),{code:'NOT_FOUND'});
+});
 test('concurrent public reads coalesce, but a confirmed mutation cannot reuse an earlier in-flight price',async()=>{
  const pending=[],p=new Product({chain:{snapshot:()=>new Promise(resolve=>pending.push(resolve))},now:()=>now});
  const old=p.publicSnapshot('offer'),same=p.publicSnapshot('offer');assert.equal(pending.length,1);
  p.invalidate();const current=p.publicSnapshot('offer');assert.equal(pending.length,2);
  pending[1]({state:{next_price:'20000'},credits:{}});assert.equal((await current).state.next_price,'20000');
  pending[0]({state:{next_price:'10000'},credits:{}});await Promise.all([old,same]);assert.equal((await p.publicSnapshot('offer')).state.next_price,'20000');
+});
+test('public display cache expires after fifteen seconds and invalidation refreshes it immediately',async()=>{
+ let time=0,calls=0;const p=new Product({now:()=>time,chain:{snapshot:async()=>({state:{round:String(++calls)}})}});
+ assert.equal((await p.publicSnapshot('offer')).state.round,'1');time=14999;assert.equal((await p.publicSnapshot('offer')).state.round,'1');
+ time=15000;assert.equal((await p.publicSnapshot('offer')).state.round,'2');p.invalidate();assert.equal((await p.publicSnapshot('offer')).state.round,'3');
 });
 test('cached public state binds private credits to the same complete finalized block without sharing another wallet’s credit',async()=>{
  const store=new Store(),s={accountId:'offer',receiverId:'hub.near',offerId:'offer',blockHash:'final-block',blockHeight:17,credits:{}},p=new Product({store,marketplace:{browse:()=>[{owner:'owner.near',spots:[{contractId:'offer'}]}]},chain:{snapshot:async()=>s},reads:{view:async(id,method,args,block)=>{

@@ -7,6 +7,17 @@ function fixture(fetchImpl,{intervalMs=0}={}){
  const rpc=new Rpc('https://rpc.invalid',{fetchImpl:async(url,options)=>{calls.push({url,body:options.body,signal:options.signal});return fetchImpl(calls.length,options);},intervalMs,now:()=>time,sleep:async ms=>{waits.push(ms);time+=ms;}});
  return {rpc,calls,waits,advance:ms=>time+=ms,time:()=>time};
 }
+test('concurrent identical reads share one request, return separate values and expire on completion',async()=>{
+ let release;const gate=new Promise(resolve=>release=resolve),f=fixture(async()=>{await gate;return Response.json({result:{amount:'1'}});});
+ const a=f.rpc.call('query',{block_id:'final',account_id:'hub.near'}),b=f.rpc.call('query',{block_id:'final',account_id:'hub.near'});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(f.calls.length,1);release();const [first,second]=await Promise.all([a,b]);first.amount='changed';assert.equal(second.amount,'1');
+ await f.rpc.call('query',{block_id:'final',account_id:'hub.near'});assert.equal(f.calls.length,2);
+});
+test('different finalized blocks and transaction broadcasts never share a pending request',async()=>{
+ let release;const gate=new Promise(resolve=>release=resolve),f=fixture(async()=>{await gate;return Response.json({result:{ok:true}});});
+ const pending=[f.rpc.call('query',{block_id:'a'}),f.rpc.call('query',{block_id:'b'}),f.rpc.call('send_tx',{signed_tx_base64:'same'}),f.rpc.call('send_tx',{signed_tx_base64:'same'})];
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(f.calls.length,4);release();await Promise.all(pending);
+});
 test('transient read retries preserve the exact serialized finalized block query even if caller params change',async()=>{
  const params={request_type:'view_account',account_id:'owner.near',block_id:'pinned-final-block'};
  const f=fixture(async attempt=>{if(attempt===1){params.block_id='new-block';return transient(429);}if(attempt===2)throw Error('connection reset');return Response.json({result:{block_hash:'pinned-final-block',block_height:123,amount:'1'}});});

@@ -14,9 +14,19 @@ function retryDelay(response,attempt,now){
 }
 export class Rpc {
   constructor(endpoint,{fetchImpl=fetch,intervalMs=120,sleep=delay,now=Date.now}={}) {
-    Object.assign(this,{endpoint,fetch:fetchImpl,intervalMs,sleep,now,next:0});
+    Object.assign(this,{endpoint,fetch:fetchImpl,intervalMs,sleep,now,next:0,inflight:new Map()});
   }
   async call(method,params,{timeoutMs=15000}={}) {
+    // Share only identical reads that are still running. Completed reads are
+    // never cached, and transaction broadcasts always have their own request.
+    if(!RETRYABLE_READS.has(method))return this.request(method,params,{timeoutMs});
+    const key=JSON.stringify([method,params,timeoutMs]);
+    let pending=this.inflight.get(key);
+    if(!pending){pending=this.request(method,params,{timeoutMs});this.inflight.set(key,pending);}
+    try{return structuredClone(await pending);}
+    finally{if(this.inflight.get(key)===pending)this.inflight.delete(key);}
+  }
+  async request(method,params,{timeoutMs=15000}={}) {
     assert(Number.isFinite(timeoutMs)&&timeoutMs>0,'RPC_UNAVAILABLE','Chain request timeout is invalid',503);
     const deadline=this.now()+timeoutMs,body=JSON.stringify({jsonrpc:'2.0',id:'everywhere',method,params}),attempts=RETRYABLE_READS.has(method)?3:1;
     const remaining=()=>deadline-this.now();
