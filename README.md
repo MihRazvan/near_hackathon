@@ -2,13 +2,15 @@
 
 Everywhere connects people who have physical advertising space with people who want to advertise. The MVP starts with vehicles: owners describe or photograph a vehicle, edit its advertising surfaces, and publish a campaign with dates, prices and content rules. Advertisers discover spaces, book immediately and manage artwork and delivery from their workspace.
 
-The application now uses persisted inventory, wallet authentication and real NEAR contract integrations. The frontend lives in `prototype/` for historical reasons; it contains the connected application.
+Each final placement becomes a NEAR NFT whose owner controls artwork during the permitted window. A studio can receive that NFT and take over the creative without changing the original financial claims.
+
+The application uses persisted inventory, wallet authentication and real NEAR contract integrations. The frontend lives in `prototype/` for historical reasons; it contains the connected application.
 
 Open the [live application](https://everywhere-near.vercel.app). The [public deployment manifest](deployments/mainnet.json) identifies the mainnet contract, pinned code and completed synthetic qualification campaign. That campaign exercised real payments and on-chain fulfillment records; no physical advertisement was installed.
 
 ## Try it in two minutes
 
-Open **[Try a takeover](https://everywhere-near.vercel.app/experience)** and sign in with an existing EVM or NEAR wallet. Choose a prepared brand, book the example spot, trigger its competitor’s takeover, close booking, approve the example delivery, and claim the example payouts. The optional studio handoff moves creative authority while the original money destinations stay fixed. Progress resumes for the same wallet on the same browser.
+Open **[Try a takeover](https://everywhere-near.vercel.app/experience)** and sign in with an existing EVM or NEAR wallet. Choose a prepared brand, book the example spot, trigger its competitor’s takeover, close booking, approve the example delivery, and claim the example payouts. The featured studio handoff transfers the example placement NFT: artwork authority moves to its new owner while the original money destinations stay fixed. You can also keep creative control yourself. Progress resumes for the same wallet on the same browser.
 
 Wallet authentication is real. This accelerated experience uses example money and does not request token funding, broadcast transactions or issue a visitor-owned NFT. It is separate from ordinary marketplace inventory and payments. There are no artificial waiting periods; two minutes is a visitor target, not a claim about wallet-provider response times.
 
@@ -22,13 +24,21 @@ node backend/bin/verify-evidence.mjs
 
 The [qualification manifest](deployments/qualification.json) binds the receipt hashes, original signed action meanings, actors, offer, token amounts, terms and artifact digests. The verifier re-reads finalized NEAR receipts and campaign state. The [machine-readable endpoint](https://everywhere-near.vercel.app/api/evidence/qualification) distinguishes historical receipt verification from its cached current-state check.
 
+## The NFT thesis
+
+A placement NFT is a transferable, time-bounded right to manage the creative for a specific physical advertising surface and campaign. The owner can submit or replace artwork before approval and the artwork deadline. Transfer the NFT to a creative agency and that agency gains the authority; the former owner loses it. Original-payer refunds, takeover rewards and owner earnings retain their original creditors.
+
+Submitting a new artwork revision updates the NFT metadata’s IPFS reference and content hash. The space owner approves that exact revision before printing. Approval or the artwork deadline closes editing, and the NFT remains a campaign record afterward. A later archival transfer cannot reopen the creative window. These are existing contract behaviors, surfaced directly in the product rather than a separate NFT marketplace.
+
+The short interactive experience puts the NFT handoff in its main path. The public mainnet record shows the actual minted NFT and artwork commitments; the real Sandbox qualification proves transfer, former-controller rejection, new-controller artwork submission and unchanged payout ownership. The physical motorcycle pilot remains pending real installation and evidence.
+
 ## Hackathon tracks
 
 | Track | What the implementation demonstrates |
 | --- | --- |
+| **NFTs That Do Something** (`nfts`) | A NEP-171 placement NFT controls who can submit artwork during the permitted window. Transfer changes that authority while financial creditors stay fixed. Artwork revisions update its reference; approval locks the creative before printing. |
 | **Open Innovation** (`open`) | Physical advertising rights with pre-production takeovers, original-payer refunds, completion rewards and independently inspectable settlement. |
 | **Real-World Money** (`realworld`) | USDC payments and recoverable claims for advertising services, EVM signing through NEAR Intents, native withdrawals and quoted Base funding routes. |
-| **NFTs That Do Something** (`nfts`) | A NEP-171 placement receipt controls who can submit artwork during the permitted window. Transfer changes that authority while financial creditors stay fixed. Approval locks the creative before printing. |
 
 Everywhere develops the pre-existing **Pitboard** vehicle-sponsorship concept and takeover idea. This repository contains the Everywhere application, wallet integration, NEAR contracts, shared marketplace hub and verification suites. The earlier static marketplace prototype begins at [46483c9](https://github.com/MihRazvan/near_hackathon/commit/46483c9); NEAR contract implementation begins at [ae3efa1](https://github.com/MihRazvan/near_hackathon/commit/ae3efa1). The commit history shows the progression from prototype to connected platform; we do not present the earlier concept as newly invented.
 

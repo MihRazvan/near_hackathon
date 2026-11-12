@@ -3,6 +3,7 @@ import './identity.css';
 import './workspace-identity.css';
 import './experience.css';
 import './record.css';
+import './placement-nft.css';
 import { handleExperienceAction } from './integration/experience.mjs';
 import { handleRecordAction } from './integration/record.mjs';
 import { wordmark, outwardArrow } from './brand.mjs';

@@ -30,5 +30,12 @@ test('keyboard focus returns to the selected brand or current scene heading afte
 test('the current rail follows creative authority through approval, then delivery and final payouts',()=>{
  const account=live();handleExperienceAction(target('restart'),account);for(const action of ['book','takeover','close'])handleExperienceAction(target(action),account);
  const current=()=>renderExperience(account).match(/<li class="is-current" aria-current="step">([\s\S]*?)<\/li>/)?.[1]??'';
- assert.match(current(),/Control the creative/);handleExperienceAction(target('transfer'),account);assert.match(current(),/Control the creative/);handleExperienceAction(target('fulfill'),account);assert.match(current(),/Follow delivery/);handleExperienceAction(target('settle'),account);assert.match(current(),/Get paid/);handleExperienceAction(target('claim'),account);assert.equal(current(),'');
+ assert.match(current(),/Move the NFT/);handleExperienceAction(target('transfer'),account);assert.match(current(),/Move the NFT/);handleExperienceAction(target('fulfill'),account);assert.match(current(),/Follow delivery/);handleExperienceAction(target('settle'),account);assert.match(current(),/Get paid/);handleExperienceAction(target('claim'),account);assert.equal(current(),'');
+});
+
+test('the studio handoff is the featured NFT action, while self-managed artwork remains available',()=>{
+ const account=live();handleExperienceAction(target('restart'),account);for(const action of ['book','takeover','close'])handleExperienceAction(target(action),account);
+ let html=renderExperience(account);assert.match(html,/<div class="exp-primary-action">[^]*?data-experience-action="transfer"/);assert.match(html,/Keep the NFT &amp; approve artwork|Keep the NFT & approve artwork/);assert.match(html,/Example placement NFT/);assert.match(html,/NFT owner/);assert.match(html,/Artwork control open/);
+ handleExperienceAction(target('transfer'),account);html=renderExperience(account);assert.match(html,/data-nft-controller>Creative studio/);assert.match(html,/<div class="exp-primary-action">[^]*?data-experience-action="fulfill"/);assert.match(html,/original financial claims stayed put|financial rights stayed put/);
+ handleExperienceAction(target('fulfill'),account);html=renderExperience(account);assert.match(html,/Artwork approved &amp; locked/);assert.doesNotMatch(html,/data-experience-action="transfer"/);
 });

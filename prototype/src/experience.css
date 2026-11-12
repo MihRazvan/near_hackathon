@@ -97,16 +97,6 @@
 .is-available .exp-money-status { color: #23614b; }
 .exp-claims-note { display: flex; align-items: flex-start; gap: 8px; margin: 21px 0 0; padding: 12px; background: #e6ecdf; color: #2d5142; font-size: 10px; line-height: 1.6; }
 .exp-claims-note svg { width: 17px; height: 17px; }
-.exp-receipt { background: var(--exp-petrol); color: #f5f2e9; padding: 18px 20px 14px; border-radius: 4px; margin-top: 21px; }
-.exp-receipt-top { display: flex; gap: 7px; align-items: center; font-size: 10px; font-weight: 750; color: #d0e1d7; }
-.exp-receipt-top > svg { width: 16px; height: 16px; }
-.exp-receipt-top > span:last-child { margin-left: auto; font-weight: 500; }
-.exp-receipt-title { font-family: var(--font-display, 'Barlow Condensed', sans-serif); font-size: 37px; font-weight: 700; line-height: .96; color: var(--exp-yellow); margin: 18px 0; }
-.exp-receipt dl { margin: 0; padding-top: 9px; border-top: 1px solid #47716c; }
-.exp-receipt dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; }
-.exp-receipt dt { font-size: 9px; color: #d0e1d7; }
-.exp-receipt dd { font-size: 10px; font-weight: 800; margin: 0; text-align: right; }
-.exp-receipt dd small { display: block; font-size: 8px; color: #d0e1d7; font-weight: 500; margin-top: 2px; }
 .exp-agency-option { margin-top: 17px; }
 .exp-agency-option > .exp-button { width: 100%; font-size: 11px; gap: 7px; min-height: 45px; padding: 11px; }
 .exp-agency-option > p { margin: 8px 0 0; font-size: 10px; line-height: 1.6; color: var(--exp-muted); }
@@ -191,12 +181,6 @@
   .exp-money-kind { min-height: 28px; font-size: 9px; }
   .exp-money-status { font-size: 8px; }
   .exp-money-header h2 { font-size: 14px; }
-  .exp-receipt { display: grid; grid-template-columns: 1fr 1.2fr; gap: 5px 16px; padding: 16px; }
-  .exp-receipt-top { grid-column: 1 / -1; }
-  .exp-receipt-title { font-size: 33px; margin: 16px 0 4px; }
-  .exp-receipt dl { border-top: 0; padding-top: 10px; }
-  .exp-receipt dl > div { flex-direction: column; gap: 2px; padding: 5px 0; }
-  .exp-receipt dd { text-align: left; font-size: 10px; }
   .exp-agency-option > .exp-button { justify-content: flex-start; }
   .exp-proof { grid-template-columns: 1fr; gap: 19px; margin-top: 31px; padding-top: 23px; }
   .exp-proof h2 { font-size: 27px; }
