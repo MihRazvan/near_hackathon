@@ -1,13 +1,17 @@
-import { live,sale,snapshot,usdc,dateTime,byNs } from './runtime.mjs';
-import { esc,link,badge,card,empty,heading,act,select,input,submit,scene,scheduleSummary,unavailable,notice } from './ui.mjs';
+import {listingView} from './listing-view.mjs';
+import {listingPlacements,groupedListings} from './listing-groups.mjs';
+import { live,sale,snapshot,usdc } from './runtime.mjs';
+import { esc,link,badge,card,empty,heading,select,input,submit,scene,unavailable } from './ui.mjs';
 import {listingAvailability,micro} from './buyer-state.mjs';
 import { homeView, categoryLinks } from './marketing.mjs';
 import { outwardArrow } from '../brand.mjs';
-import {isTeamTest,deliveryLabel,campaignNotice} from './campaign-kind.mjs';
+import {isTeamTest,deliveryLabel} from './campaign-kind.mjs';
 const clock=()=>Date.parse(live.catalog?.time)||Date.now();
 const assetFor=offer=>offer.publication?.manifest.asset;
 const stateFor=(offer,spot)=>listingAvailability(spot,snapshot(spot.contractId),clock());
-const availableSpots=offer=>offer.spots.filter(p=>stateFor(offer,p).available);
+const placements=offer=>listingPlacements(offer,live.catalog?.sales??[]);
+const availablePlacements=offer=>placements(offer).filter(e=>stateFor(e.sale,e.spot).available);
+const availableSpots=offer=>availablePlacements(offer).map(e=>e.spot);
 const campaignQuery=()=>new URLSearchParams(location.search).get('campaign');
 const campaignInput=()=>campaignQuery()?`<input type="hidden" name="campaign" value="${esc(campaignQuery())}">`:'';
 const spaceUrl=(offer,spot)=>'/spaces/'+encodeURIComponent(offer.assetId)+'?sale='+encodeURIComponent(offer.id)+(spot?'&spot='+encodeURIComponent(spot.id):'')+(campaignQuery()?'&campaign='+encodeURIComponent(campaignQuery()):'');
@@ -15,17 +19,17 @@ function offerCards(offers){
  if(!offers.length)return '';
  return `<div class="asset-grid ${offers.length===4?'asset-grid-four':''}">${offers.map(offer=>{
   const asset=assetFor(offer);if(!asset)return '';
-  const available=availableSpots(offer),prices=available.map(p=>stateFor(offer,p).price),price=prices.reduce((a,b)=>micro(a)<micro(b)?a:b,prices[0]);
-  const completed=offer.spots.every(p=>snapshot(p.contractId)?.state.outcome==='success'),minted=offer.spots.some(p=>snapshot(p.contractId)?.state.nft_minted),delivered=offer.spots.some(p=>snapshot(p.contractId)?.campaign.delivery_proof);
+  const available=availablePlacements(offer),prices=available.map(e=>stateFor(e.sale,e.spot).price),price=prices.reduce((a,b)=>micro(a)<micro(b)?a:b,prices[0]);
+  const members=placements(offer),completed=members.every(e=>snapshot(e.spot.contractId)?.state.outcome==='success'),minted=members.some(e=>snapshot(e.spot.contractId)?.state.nft_minted),delivered=members.some(e=>snapshot(e.spot.contractId)?.campaign.delivery_proof);
   const closedStatus=completed?'Campaign complete':delivered?'Delivery recorded':minted?'Placement NFT issued':'Booking closed';
-  return `<article class="asset-card"><a class="card-visual" href="${esc(spaceUrl(offer))}">${scene(asset,'',false,{spots:false})}</a><div class="asset-card-body"><div class="listing-location"><span>${esc(asset.city)}</span><span>${esc(asset.assetType)}</span></div><h3>${link(spaceUrl(offer),esc(asset.title),'text-link')}</h3><p>${esc(offer.title)}</p><div class="card-tags">${isTeamTest(offer)?badge('Team test · AI-generated vehicle'):''}${badge(available.length?available.length+' '+(available.length===1?'spot':'spots')+' available':closedStatus)}${available.length?badge(available.some(p=>p.takeoverEnabled)?'Takeovers enabled':'Fixed booking'):''}</div><div class="card-price"><div><strong>${price?usdc(price):'View campaign'}</strong><small>${price?'from · '+deliveryLabel(offer):deliveryLabel(offer)}</small></div><a href="${esc(spaceUrl(offer))}" class="listing-open" aria-label="View ${esc(asset.title)}">${outwardArrow}</a></div></div></article>`;
+  return `<article class="asset-card"><a class="card-visual" href="${esc(spaceUrl(offer))}">${scene(asset,'',false,{spots:false})}</a><div class="asset-card-body"><div class="listing-location"><span>${esc(asset.city)}</span><span>${esc(asset.assetType)}</span></div><h3>${link(spaceUrl(offer),esc(asset.title),'text-link')}</h3><p>${esc(offer.title)}</p><div class="card-tags">${isTeamTest(offer)?badge('Team test · AI-generated vehicle'):''}${badge(available.length?available.length+' '+(available.length===1?'spot':'spots')+' available':closedStatus)}${available.length?badge(available.some(e=>e.spot.takeoverEnabled)?'Takeovers enabled':'Fixed booking'):''}${minted&&available.length?badge('Placement NFT issued'):''}</div><div class="card-price"><div><strong>${price?usdc(price):'View campaign'}</strong><small>${price?'from · '+deliveryLabel(offer):deliveryLabel(offer)}</small></div><a href="${esc(spaceUrl(offer))}" class="listing-open" aria-label="View ${esc(asset.title)}">${outwardArrow}</a></div></div></article>`;
  }).join('')}</div>`;
 }
 function searchForm(q=new URLSearchParams()){
  return `<form action="/explore" method="get" class="search-bar">${campaignInput()}${input('q','Where do you want to show up?',q.get('q')??'','search','placeholder="City, vehicle or owner"')}${select('type','Space type',[['','All spaces'],['car','Cars'],['van','Vans'],['bike','Bikes'],['motorcycle','Motorcycles'],['truck','Trucks'],['other','Other surfaces']],q.get('type')??'')}${submit('Find spaces')}</form>`;
 }
 export function publicView(r){
- const q=new URLSearchParams(location.search),sales=live.catalog?.sales??[];
+ const q=new URLSearchParams(location.search),all=live.catalog?.sales??[],sales=groupedListings(all,s=>s.spots.some(p=>stateFor(s,p).available));
  if(r.id==='P01'){
   const rank=s=>availableSpots(s).length?(s.spots.some(p=>snapshot(p.contractId)?.state.holder)?1:0):s.spots.every(p=>snapshot(p.contractId)?.state.outcome==='success')?3:2;
   const available=sales.filter(s=>availableSpots(s).length),teamTests=sales.filter(isTeamTest).sort((a,b)=>rank(a)-rank(b));
@@ -42,11 +46,7 @@ export function publicView(r){
  }
  if(r.id==='P03'){
   const offer=sale(q.get('sale'))??sales.find(s=>s.assetId===r.params.slug&&availableSpots(s).length)??sales.find(s=>s.assetId===r.params.slug);if(!offer||offer.status!=='published')return unavailable('This campaign is unavailable.');
-  const asset=assetFor(offer),spot=offer.spots.find(p=>p.id===q.get('spot'))??availableSpots(offer)[0]??offer.spots[0],info=stateFor(offer,spot),chain=snapshot(spot.contractId),geometry=asset.spots.find(p=>p.id===spot.id),owner=live.catalog?.owners?.find(o=>o.wallet===offer.owner),saved=live.data?.saved?.some(x=>x.saleId===offer.id&&x.saved);
-  const label={available:'Available to book',takeover:'Available for takeover',checking:'Checking availability',closed:'Booking closed',completed:'Campaign complete',cancelled:'Campaign cancelled',booked:'Already booked'}[info.kind];
-  const next=info.available?link(`/checkout/${offer.id}?spot=${spot.id}${q.get('campaign')?'&campaign='+encodeURIComponent(q.get('campaign')):''}`,info.kind==='takeover'?'Take over this spot':'Book this spot','button primary'):info.kind==='checking'?act('refresh','Check availability','','button primary'):link('/explore','Find another campaign','button primary');
-  return heading(asset.city,asset.title,offer.title,act('save-sale',saved?'♥ Saved':'♡ Save space',`data-id="${offer.id}"`)+' '+link('/records/'+encodeURIComponent(offer.id),'Campaign record','button'))+
-   campaignNotice(offer)+`<div class="asset-detail"><div>${scene(asset,spot.id)}<p class="tiny muted">Surface previews are approximate. The owner confirms measurements before production.</p><div class="spot-options">${offer.spots.map(p=>{const state=stateFor(offer,p);return link(spaceUrl(offer,p),`<strong>${esc(asset.spots.find(x=>x.id===p.id)?.name??p.id)}</strong><small>${state.kind==='takeover'?'Takeover available':state.available?'Available':'Booking closed'}</small><strong>${state.price?usdc(state.price):'View'}</strong>`,'spot-option '+(p.id===spot.id?'active':''));}).join('')}</div>${card('About this space',`<p>${esc(asset.description)}</p><p>${esc(asset.city)} · location supplied by the owner</p>${link('/owners/'+encodeURIComponent(offer.owner),'Listed by '+esc(owner?.name??'an independent space owner'),'text-link')}`)}${card('Your campaign dates',scheduleSummary(offer))}${card('Advertising guidelines',`<p>${esc(offer.rules)}</p><p>${isTeamTest(offer)?'Artwork and delivery evidence are synthetic in this team test.':'The owner reviews your artwork after booking and arranges printing and installation.'}</p>`)}</div><aside class="spot-panel"><div class="eyebrow">YOUR PLACE ON THIS SPACE</div><h2>${esc(geometry?.name??spot.id)}</h2>${badge(label)}${info.price?`<div class="price">${usdc(info.price)}</div><p>${isTeamTest(offer)?'Real USDC · team test':'For the full campaign · printing & installation included'}</p>`:''}<p>Campaign: ${esc(dateTime(offer.schedule.serviceStart))} to ${esc(dateTime(offer.schedule.serviceEnd))}</p><p>Booking closes ${esc(dateTime(offer.schedule.biddingClose))}.</p>${info.kind==='takeover'?notice('This spot has an advertiser.','A successful takeover replaces the current booking before production. The previous advertiser keeps their refund and any eligible reward.'):info.available&&spot.takeoverEnabled?notice('Takeovers are enabled.','Another advertiser can replace this booking until booking closes. If that happens, your payment becomes refundable.'):''}${next}${info.kind==='checking'?'<p class="tiny muted">We are waiting for the latest payment state before offering this spot.</p>':''}<p class="tiny muted">Pay in USDC. Your wallet shows the exact payment before you approve.</p>${chain?.campaign.delivery_proof?(isTeamTest(offer)?'<p>Synthetic delivery evidence is recorded. No physical ad was installed.</p>':'<p>Installation evidence has been submitted for this campaign.</p>'):''}</aside></div>`;
+  return listingView(offer,all,q);
  }
  if(r.id==='P04'){
   const values=sales.filter(s=>s.owner===r.params.slug),owner=live.catalog?.owners?.find(o=>o.wallet===r.params.slug);

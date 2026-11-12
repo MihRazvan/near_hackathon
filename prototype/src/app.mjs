@@ -4,6 +4,7 @@ import './workspace-identity.css';
 import './experience.css';
 import './record.css';
 import './placement-nft.css';
+import './listing.css';
 import { handleExperienceAction } from './integration/experience.mjs';
 import { handleRecordAction } from './integration/record.mjs';
 import { wordmark, outwardArrow } from './brand.mjs';
@@ -77,6 +78,10 @@ document.addEventListener('click',async event=>{
   if(!a||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||a.hasAttribute('download')||a.target&&a.target!=='_self')return;
   const url=new URL(a.href,location.href);
   if(url.origin!==location.origin||!/^https?:$/.test(url.protocol)||(url.hash&&url.pathname===location.pathname&&url.search===location.search))return;
+  if(a.hasAttribute('data-placement-select')&&url.pathname===location.pathname){
+    event.preventDefault();const position=window.scrollY;history.pushState(null,'',url.pathname+url.search);render();window.scrollTo(0,position);
+    document.querySelector('.placement-choice[aria-current="true"]')?.focus({preventScroll:true});return;
+  }
   event.preventDefault();navigate(url.pathname+url.search+url.hash);
 });
 document.addEventListener('submit',async event=>{
