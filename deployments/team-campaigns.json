@@ -1,0 +1,311 @@
+{
+  "schema": "everywhere-team-campaigns/v1",
+  "network": "mainnet",
+  "recordedAt": "2026-11-12T18:26:24.703Z",
+  "scope": "Team-run mainnet integration campaigns with AI-generated reference vehicles and synthetic artwork/delivery. No physical advertising inventory or installation is established. Setup transactions below exclude automatic keeper mint/finalization/reclaim transactions.",
+  "hub": {
+    "accountId": "8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20",
+    "codeHash": "5i3hw9oXjH6Ri3fGGZ177U7ckk87oeqtUUVxtYMgPsiS",
+    "wasmSha256": "45f29ecac83ae3c31c7e8f300d314484d82184f40f35c4bb92c319f298b5240b",
+    "deploymentTransaction": "C1DjahbpDmGwrBGKgoFcdgmQM4KFPwkHMhEu3nLJ1xRm"
+  },
+  "relayerId": "3663308c46719d78ead0a0ee2bbbb09952a402222a80d57a31e7bdbbf3e6f323",
+  "actors": {
+    "studio": "0xddd17afb03c8def215857ec92e62ae7a35ce824f",
+    "owner": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+    "a": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+    "b": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4"
+  },
+  "campaigns": [
+    {
+      "vehicle": "motorcycle",
+      "role": "available-booking",
+      "saleId": "2c541941-6d2f-4cf2-8cad-375cf4ad43ff",
+      "assetId": "0627cf2a-28ad-4952-a16f-6b9fdfdbbe87",
+      "offerId": "offer-a71f435dd28dcff1ed497d0c6db2b489",
+      "title": "Bucharest sport motorcycle",
+      "illustrativeCity": "Bucharest",
+      "campaignType": "team-test",
+      "imageProvenance": "ai-generated",
+      "physicalDelivery": false,
+      "initialPriceUsdc": "0.01",
+      "publishedTermsSha256": "6vQpjw7zKy5GeiBWoptenXnnsvXHYxcOvkTyz63e8ro=",
+      "referenceImage": {
+        "uri": "ipfs://bafybeidyr42vk2tcz7w4qgeiho5a2fqhpqjdihlrci47zxzv5cjeorl6t4",
+        "sha256": "f62b7dc4411ce3e1b385bff1dea0dbd339a33e77da727c171591be8b83457cd5"
+      },
+      "schedule": {
+        "artworkDue": "2026-11-20T12:00:00.000Z",
+        "biddingClose": "2026-11-19T12:00:00.000Z",
+        "installationDue": "2026-11-21T12:00:00.000Z",
+        "reviewEnd": "2026-11-23T13:00:00.000Z",
+        "serviceEnd": "2026-11-22T13:00:00.000Z",
+        "serviceStart": "2026-11-21T13:00:00.000Z"
+      },
+      "listingUrl": "https://everywhere-near.vercel.app/spaces/0627cf2a-28ad-4952-a16f-6b9fdfdbbe87?sale=2c541941-6d2f-4cf2-8cad-375cf4ad43ff",
+      "recordUrl": "https://everywhere-near.vercel.app/records/2c541941-6d2f-4cf2-8cad-375cf4ad43ff"
+    },
+    {
+      "vehicle": "car",
+      "role": "available-takeover",
+      "saleId": "59fca18a-6594-4591-a241-593c2604d76e",
+      "assetId": "7aec3544-317c-494c-adc2-cab5d510aa17",
+      "offerId": "offer-9a366da0da7fcd58a33385bc5ccecddf",
+      "title": "Lisbon blue hatchback",
+      "illustrativeCity": "Lisbon",
+      "campaignType": "team-test",
+      "imageProvenance": "ai-generated",
+      "physicalDelivery": false,
+      "initialPriceUsdc": "0.01",
+      "publishedTermsSha256": "qWDbSUli9Xs1FE1HkaUAdXTEv2+vyCZuioeCupLcAVU=",
+      "referenceImage": {
+        "uri": "ipfs://bafybeia7ypecmc6ds6jnmmjhv3lp4pqwbsmw3tcr7f33lq3zeo7ltk3q6q",
+        "sha256": "5ef44a386faecdaa96181084e4882e31a18da27de73cd42cfd11e9dbcefa0929"
+      },
+      "schedule": {
+        "artworkDue": "2026-11-20T12:00:00.000Z",
+        "biddingClose": "2026-11-19T12:00:00.000Z",
+        "installationDue": "2026-11-21T12:00:00.000Z",
+        "reviewEnd": "2026-11-23T13:00:00.000Z",
+        "serviceEnd": "2026-11-22T13:00:00.000Z",
+        "serviceStart": "2026-11-21T13:00:00.000Z"
+      },
+      "listingUrl": "https://everywhere-near.vercel.app/spaces/7aec3544-317c-494c-adc2-cab5d510aa17?sale=59fca18a-6594-4591-a241-593c2604d76e",
+      "recordUrl": "https://everywhere-near.vercel.app/records/59fca18a-6594-4591-a241-593c2604d76e"
+    },
+    {
+      "vehicle": "van",
+      "role": "creative-control",
+      "saleId": "aa80efd3-472d-4e64-b8f8-fec738d2d3e2",
+      "assetId": "3918c8f2-3263-4dfa-971e-02d6d13a6af3",
+      "offerId": "offer-ef92de690a0d24fe72daa561dfbae2ed",
+      "title": "Berlin workshop van",
+      "illustrativeCity": "Berlin",
+      "campaignType": "team-test",
+      "imageProvenance": "ai-generated",
+      "physicalDelivery": false,
+      "initialPriceUsdc": "0.01",
+      "publishedTermsSha256": "NyMG5nBzYdmdsiiWpEZ22q+SW9P2ia3rTXsczP9cJ5g=",
+      "referenceImage": {
+        "uri": "ipfs://bafybeibuys3rlwfwuww4n2qjomrrzzjce7dyiixnysymoo2mfl5vkwtwlq",
+        "sha256": "02b14b8517f46590e761d63301e5362e37021cb488be5d03408a6f4b4f452df8"
+      },
+      "schedule": {
+        "artworkDue": "2026-11-20T12:00:00.000Z",
+        "biddingClose": "2026-11-12T18:05:08.989Z",
+        "installationDue": "2026-11-21T12:00:00.000Z",
+        "reviewEnd": "2026-11-23T13:00:00.000Z",
+        "serviceEnd": "2026-11-22T13:00:00.000Z",
+        "serviceStart": "2026-11-21T13:00:00.000Z"
+      },
+      "listingUrl": "https://everywhere-near.vercel.app/spaces/3918c8f2-3263-4dfa-971e-02d6d13a6af3?sale=aa80efd3-472d-4e64-b8f8-fec738d2d3e2",
+      "recordUrl": "https://everywhere-near.vercel.app/records/aa80efd3-472d-4e64-b8f8-fec738d2d3e2"
+    },
+    {
+      "vehicle": "cargo-bike",
+      "role": "completed-payout",
+      "saleId": "fbc318d7-414a-4a2f-ab26-5270c4d7f905",
+      "assetId": "a285ca06-e47e-4190-bdc6-59d7925d55ef",
+      "offerId": "offer-6401f8255505d31c3a2e57a07f04cdcf",
+      "title": "Amsterdam cargo bicycle",
+      "illustrativeCity": "Amsterdam",
+      "campaignType": "team-test",
+      "imageProvenance": "ai-generated",
+      "physicalDelivery": false,
+      "initialPriceUsdc": "0.01",
+      "publishedTermsSha256": "4LipihVYoylmIkEZ+VziTg5sbIWVefEZe0puCEGqihs=",
+      "referenceImage": {
+        "uri": "ipfs://bafybeieelkz5ll6w4tl3z3kfj2ys4fehbuvaz2o3budq4ppruqo2p4kayi",
+        "sha256": "3216864334b53f02a221dd64afbe8e5edf8a2509b3bb84325abbce4569a29b4c"
+      },
+      "schedule": {
+        "artworkDue": "2026-11-12T18:09:08.989Z",
+        "biddingClose": "2026-11-12T18:05:08.989Z",
+        "installationDue": "2026-11-12T18:11:08.989Z",
+        "reviewEnd": "2026-11-12T18:15:08.989Z",
+        "serviceEnd": "2026-11-12T18:13:08.989Z",
+        "serviceStart": "2026-11-12T18:11:08.989Z"
+      },
+      "listingUrl": "https://everywhere-near.vercel.app/spaces/a285ca06-e47e-4190-bdc6-59d7925d55ef?sale=fbc318d7-414a-4a2f-ab26-5270c4d7f905",
+      "recordUrl": "https://everywhere-near.vercel.app/records/fbc318d7-414a-4a2f-ab26-5270c4d7f905"
+    }
+  ],
+  "nftHandoff": {
+    "offerId": "offer-ef92de690a0d24fe72daa561dfbae2ed",
+    "from": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4",
+    "to": "0xddd17afb03c8def215857ec92e62ae7a35ce824f",
+    "transactionHash": "DbHN9bSg6J2Q72ocWBUjMnEsk7VSTy5btqm7W63crMdB",
+    "artworkTransactionHash": "2BPheU9LkNYmym4upMyyHnDWqEN7JVRoWDYyMFc4MwE2",
+    "sampledCreditsBefore": {
+      "owner": {
+        "available": "0",
+        "conditional_bonus": "0"
+      },
+      "a": {
+        "available": "10000",
+        "conditional_bonus": "10000"
+      },
+      "b": {
+        "available": "0",
+        "conditional_bonus": "0"
+      },
+      "studio": {
+        "available": "0",
+        "conditional_bonus": "0"
+      }
+    },
+    "sampledCreditsAfter": {
+      "owner": {
+        "available": "0",
+        "conditional_bonus": "0"
+      },
+      "a": {
+        "available": "10000",
+        "conditional_bonus": "10000"
+      },
+      "b": {
+        "available": "0",
+        "conditional_bonus": "0"
+      },
+      "studio": {
+        "available": "0",
+        "conditional_bonus": "0"
+      }
+    },
+    "formerControllerArtworkRequest": "rejected before signing by the production API",
+    "newControllerArtworkRequest": "submitted and confirmed on mainnet"
+  },
+  "completedPayout": {
+    "offerId": "offer-6401f8255505d31c3a2e57a07f04cdcf",
+    "received": "30000",
+    "withdrawn": "30000",
+    "pending": "0",
+    "decimals": 6,
+    "ownerEarnings": "10000",
+    "buyerARefundAndReward": "20000",
+    "artwork": {
+      "uri": "ipfs://bafkreidt2yuimdxsiejbvumoadrc5dvcxsqysguwxr6t4r6gffktbffnya",
+      "sha256": "73d628860ef241121ad18e00e22e8ea2bca1891a96bc7d3e47c629553094adc0"
+    },
+    "syntheticDelivery": {
+      "uri": "ipfs://bafkreidtr4fmlxntvzuimhjfaoqjnig63l4zrc5shc6wwogdhocunyycfm",
+      "sha256": "738f0ac5ddb3ae68861d2503a096a0dedaf9988bb238bd6b38c33b8546e3022b"
+    }
+  },
+  "transactions": [
+    {
+      "action": "publish-motorcycle",
+      "actorRole": "owner",
+      "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "transactionHash": "5aYkJFE782utmAHB3JnPi4h9Vc4XS3nntUBBbWthETbA",
+      "explorerUrl": "https://nearblocks.io/txns/5aYkJFE782utmAHB3JnPi4h9Vc4XS3nntUBBbWthETbA"
+    },
+    {
+      "action": "publish-car",
+      "actorRole": "owner",
+      "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "transactionHash": "WM8gDe1xfzZjpVNaFPZXM55Voefn7WCo6dsyoNkMDkf",
+      "explorerUrl": "https://nearblocks.io/txns/WM8gDe1xfzZjpVNaFPZXM55Voefn7WCo6dsyoNkMDkf"
+    },
+    {
+      "action": "publish-van",
+      "actorRole": "owner",
+      "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "transactionHash": "7yX6MJ9jJZcLmrvqerKdj19d78L8VmpBKCWqwaLQi5xr",
+      "explorerUrl": "https://nearblocks.io/txns/7yX6MJ9jJZcLmrvqerKdj19d78L8VmpBKCWqwaLQi5xr"
+    },
+    {
+      "action": "publish-cargo-bike",
+      "actorRole": "owner",
+      "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "transactionHash": "FSA6CTsnPyv13FrGfLmb6RZJ1mhctao1df7jMNJ18udi",
+      "explorerUrl": "https://nearblocks.io/txns/FSA6CTsnPyv13FrGfLmb6RZJ1mhctao1df7jMNJ18udi"
+    },
+    {
+      "action": "purchase-car-a",
+      "actorRole": "a",
+      "actorId": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+      "transactionHash": "4z2uUojzqQWYcR65GcHakCxppA17ZUuHYE6eqRCC1r4D",
+      "explorerUrl": "https://nearblocks.io/txns/4z2uUojzqQWYcR65GcHakCxppA17ZUuHYE6eqRCC1r4D"
+    },
+    {
+      "action": "purchase-van-a",
+      "actorRole": "a",
+      "actorId": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+      "transactionHash": "CSLCEyrx4vC1JiYZNzY6Nzn6X2HmQTMinZwpEBHmqCyV",
+      "explorerUrl": "https://nearblocks.io/txns/CSLCEyrx4vC1JiYZNzY6Nzn6X2HmQTMinZwpEBHmqCyV"
+    },
+    {
+      "action": "purchase-van-b",
+      "actorRole": "b",
+      "actorId": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4",
+      "transactionHash": "8mdVyENfbY4McAYvYuEtJBDD3y2e3GW3YpKWf1KWWsXk",
+      "explorerUrl": "https://nearblocks.io/txns/8mdVyENfbY4McAYvYuEtJBDD3y2e3GW3YpKWf1KWWsXk"
+    },
+    {
+      "action": "purchase-cargo-bike-a",
+      "actorRole": "a",
+      "actorId": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+      "transactionHash": "3VyphKzcujkKU4oRs53ecwyaMgQE8nz4FkBxukmS74yP",
+      "explorerUrl": "https://nearblocks.io/txns/3VyphKzcujkKU4oRs53ecwyaMgQE8nz4FkBxukmS74yP"
+    },
+    {
+      "action": "purchase-cargo-bike-b",
+      "actorRole": "b",
+      "actorId": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4",
+      "transactionHash": "8zcDa21TmJC5jvmcEtEbCZWvN7nh5bEXY5i3Lpm64VHD",
+      "explorerUrl": "https://nearblocks.io/txns/8zcDa21TmJC5jvmcEtEbCZWvN7nh5bEXY5i3Lpm64VHD"
+    },
+    {
+      "action": "artwork-cargo-bike",
+      "actorRole": "b",
+      "actorId": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4",
+      "transactionHash": "BQ1PTbXg7AvrQB6Uqtzggvfzk7eQxfr9qCYxMkd49qff",
+      "explorerUrl": "https://nearblocks.io/txns/BQ1PTbXg7AvrQB6Uqtzggvfzk7eQxfr9qCYxMkd49qff"
+    },
+    {
+      "action": "lock-artwork-cargo-bike",
+      "actorRole": "owner",
+      "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "transactionHash": "6NF2Ek5Ln82zVHFvLYohZ652Qe54SHLnNKccYetVWe7b",
+      "explorerUrl": "https://nearblocks.io/txns/6NF2Ek5Ln82zVHFvLYohZ652Qe54SHLnNKccYetVWe7b"
+    },
+    {
+      "action": "delivery-proof-cargo-bike",
+      "actorRole": "owner",
+      "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "transactionHash": "P1717MY2ycbHaTgY7ziRoraUt8KxVttzStGy15qHCXY",
+      "explorerUrl": "https://nearblocks.io/txns/P1717MY2ycbHaTgY7ziRoraUt8KxVttzStGy15qHCXY"
+    },
+    {
+      "action": "transfer-van",
+      "actorRole": "b",
+      "actorId": "0x19fc7bb39a0b40d0cffea6603c5cc99b8889eab4",
+      "transactionHash": "DbHN9bSg6J2Q72ocWBUjMnEsk7VSTy5btqm7W63crMdB",
+      "explorerUrl": "https://nearblocks.io/txns/DbHN9bSg6J2Q72ocWBUjMnEsk7VSTy5btqm7W63crMdB"
+    },
+    {
+      "action": "artwork-van",
+      "actorRole": "studio",
+      "actorId": "0xddd17afb03c8def215857ec92e62ae7a35ce824f",
+      "transactionHash": "2BPheU9LkNYmym4upMyyHnDWqEN7JVRoWDYyMFc4MwE2",
+      "explorerUrl": "https://nearblocks.io/txns/2BPheU9LkNYmym4upMyyHnDWqEN7JVRoWDYyMFc4MwE2"
+    },
+    {
+      "action": "claim-cargo-bike-owner",
+      "actorRole": "owner",
+      "actorId": "0xc1b921adc227a9ce2c962ae7a1e67317156e58b8",
+      "amount": "10000",
+      "transactionHash": "5HHqsWcjTKc9W6sGz9AXSQJsU37LnkPr98gHQAdVWHsP",
+      "explorerUrl": "https://nearblocks.io/txns/5HHqsWcjTKc9W6sGz9AXSQJsU37LnkPr98gHQAdVWHsP"
+    },
+    {
+      "action": "claim-cargo-bike-a",
+      "actorRole": "a",
+      "actorId": "0x8b6be37c5f2ffbc0f383b5045759c806cc547f4e",
+      "amount": "20000",
+      "transactionHash": "DyPZ1FJtme32Y69hUvjhE3Uf4GQDpaPvJHQnqTiXQLyU",
+      "explorerUrl": "https://nearblocks.io/txns/DyPZ1FJtme32Y69hUvjhE3Uf4GQDpaPvJHQnqTiXQLyU"
+    }
+  ]
+}

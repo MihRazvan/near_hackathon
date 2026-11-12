@@ -30,7 +30,7 @@ A placement NFT is a transferable, time-bounded right to manage the creative for
 
 Submitting a new artwork revision updates the NFT metadata's IPFS reference and content hash. The space owner approves that exact revision before printing. Approval or the artwork deadline closes editing, and the NFT remains a campaign record afterward. A later archival transfer cannot reopen the creative window. Artwork submission and transfers use the existing marketplace contract.
 
-The short interactive experience puts the NFT handoff in its main path. The public mainnet record shows the actual minted NFT and artwork commitments; the real Sandbox qualification proves transfer, former-controller rejection, new-controller artwork submission and unchanged payout ownership. The physical motorcycle pilot remains pending real installation and evidence.
+The short interactive experience puts the NFT handoff in its main path. The public mainnet records show minted NFTs and artwork commitments. The Berlin van also records a real mainnet NFT handoff to a studio; the setup verified former-controller rejection, new-controller artwork submission and unchanged financial credits. The real Sandbox qualification covers the same authority boundary. The physical motorcycle pilot remains pending real installation and evidence.
 
 ## Hackathon tracks
 
@@ -114,3 +114,23 @@ The team has selected its Pitboard motorcycle and Everywhere branding for a genu
 ## Team-run vehicle campaigns
 
 Team-test listings use AI-generated vehicle references and nominal real USDC payments on the shared mainnet hub. The listing purpose and image provenance are committed in the published terms. Cards, checkout and public records label these campaigns; checkout requires acknowledgement that no physical advertising will be delivered. Synthetic delivery evidence stays separate from a genuine installation. The four generated reference covers and their prompts are credited in [ASSETS.md](prototype/public/ASSETS.md).
+
+
+| Vehicle | Current setup | Open |
+| --- | --- | --- |
+| Bucharest sport motorcycle | Available booking, 1¢ USDC | [Listing](https://everywhere-near.vercel.app/spaces/0627cf2a-28ad-4952-a16f-6b9fdfdbbe87?sale=2c541941-6d2f-4cf2-8cad-375cf4ad43ff) |
+| Lisbon blue hatchback | Booked for 1¢; available takeover starts at 2¢ | [Listing](https://everywhere-near.vercel.app/spaces/7aec3544-317c-494c-adc2-cab5d510aa17?sale=59fca18a-6594-4591-a241-593c2604d76e) |
+| Berlin workshop van | 1¢ purchase, 2¢ takeover, NFT transferred to studio, studio artwork submitted | [Public record](https://everywhere-near.vercel.app/records/aa80efd3-472d-4e64-b8f8-fec738d2d3e2) |
+| Amsterdam cargo bicycle | Successful synthetic delivery: 3¢ received, 3¢ paid out, zero pending | [Public record](https://everywhere-near.vercel.app/records/fbc318d7-414a-4a2f-ab26-5270c4d7f905) |
+
+Booking remains open for the motorcycle and hatchback until **November 19, 2026, 12:00 UTC**, subject to their live on-chain state. Their service and review dates are published on each listing. The van's artwork window remains open until approval or its published deadline. The cargo bicycle's short campaign has completed. All four listings belong to dedicated team test wallets; the physical motorcycle pilot above is separate.
+
+The [team campaign manifest](deployments/team-campaigns.json) records the four published offers, generated-image digests, setup transaction hashes, van NFT transfer and cargo-bike payouts. It excludes automatic keeper mint, finalization and reserve-reclaim transaction hashes that were not captured in that setup journal. The [NFT handoff transaction](https://nearblocks.io/txns/DbHN9bSg6J2Q72ocWBUjMnEsk7VSTy5btqm7W63crMdB) is separately verifiable from its signed action and NEP-171 transfer event. Historical before/after financial-credit samples are recorded observations.
+
+Run the read-only verifier without keys or funds:
+
+```sh
+node backend/bin/verify-team-campaigns.mjs
+```
+
+It checks the pinned mainnet hub, published terms, current NFT ownership and artwork reference, the historical van handoff, the completed cargo-bike accounting, and both original-creditor payout transactions. Listing availability and NFT ownership can change after this setup as participants use the platform. These campaigns used existing Intents USDC balances; they did not require a new Base bridge or deploy another contract.
