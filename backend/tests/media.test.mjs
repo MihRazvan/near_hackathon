@@ -22,7 +22,7 @@ test('public IPFS artifacts require consent and verified retrieval; duplicate co
 });
 test('unknown uploads remain reserved; failed content verification never silently reuploads',async()=>{
  const store=new Store();let writes=0;
- try{const media=new Media({store,token:'test',fetchImpl:async()=>{writes++;throw Error('timeout');}}),args={owner,bytes,mime:'text/plain',publicContentAcknowledged:true};
+ try{const media=new Media({store,token:'test',fetchImpl:async(url,options)=>{if(options?.method==='POST')writes++;throw Error('timeout');}}),args={owner,bytes,mime:'text/plain',publicContentAcknowledged:true};
   await assert.rejects(media.upload(args),/unknown/);await assert.rejects(media.upload(args),/needs reconciliation/);assert.equal(writes,1);
  }finally{store.close();}
  const other=new Store();writes=0;
@@ -49,6 +49,32 @@ function pngWithComment(size){
  const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(1,0);ihdr.writeUInt32BE(1,4);ihdr[8]=8;ihdr[9]=6;
  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('tEXt',Buffer.concat([Buffer.from('Comment\0'),Buffer.alloc(size,65)])),chunk('IDAT',deflateSync(Buffer.alloc(5))),chunk('IEND',Buffer.alloc(0))]);
 }
+test('multi-block IPFS storage size is separate from the exact downloaded file bytes',async()=>{
+ const store=new Store(),data=pngWithComment(300000),providerBytes=data.length+108;let uploads=0,corrupt=false;
+ const media=new Media({store,token:'test',fetchImpl:async url=>{
+  if(url.includes('uploads.')){uploads++;return Response.json({data:{id:'blocks',cid,size:providerBytes}});}
+  if(url.includes('api.'))return Response.json({data:{id:'blocks',cid,size:providerBytes}});
+  return new Response(corrupt?Buffer.alloc(data.length):data);
+ }});
+ try{
+  const record=await media.upload({owner,bytes:data,mime:'image/png',publicContentAcknowledged:true});assert.equal(record.bytes,data.length);assert.equal(record.providerBytes,providerBytes);assert.equal(record.sha256,sha256(data));
+  const alias=await media.reuseVerified({owner:'another.near',uri:record.uri,publicContentAcknowledged:true});assert.equal(alias.providerBytes,providerBytes);assert.equal(alias.status,'verified');assert.equal(uploads,1);
+  corrupt=true;await assert.rejects(media.verify({...record,status:'uploaded'}),/hash differs/);
+ }finally{store.close();}
+});
+test('an uncertain upload recovers its provider record by exact upload identity without another upload',async()=>{
+ const store=new Store();let uploads=0,metadata,wrong=true;
+ const media=new Media({store,token:'test',fetchImpl:async(url,options)=>{
+  if(url.includes('uploads.')){uploads++;metadata={id:'recovered',cid,size:bytes.length+108,name:options.body.get('name'),mime_type:'text/plain',keyvalues:JSON.parse(options.body.get('keyvalues'))};throw Error('response lost');}
+  if(url.includes('?name='))return Response.json({data:{files:[{...metadata,keyvalues:{...metadata.keyvalues,sha256:wrong?'0'.repeat(64):metadata.keyvalues.sha256}}]}});
+  if(url.includes('api.'))return Response.json({data:metadata});return new Response(bytes);
+ }});
+ try{
+  const args={owner,bytes,mime:'text/plain',publicContentAcknowledged:true};await assert.rejects(media.upload(args),{code:'UPLOAD_UNKNOWN'});
+  await assert.rejects(media.upload(args),{code:'UPLOAD_UNKNOWN'});assert.equal(store.list('media')[0].status,'upload-unknown');assert.equal(uploads,1);
+  wrong=false;const recovered=await media.upload(args);assert.equal(recovered.status,'verified');assert.equal(recovered.providerBytes,bytes.length+108);assert.equal(uploads,1);
+ }finally{store.close();}
+});
 function pinningStub(){
  const files=new Map(),uploaded=[];
  const fetchImpl=async(url,options)=>{

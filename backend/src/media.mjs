@@ -2,6 +2,7 @@ import { assert, sha256, walletId, AppError } from './core.mjs';
 
 const PNG_MAGIC=Buffer.from([137,80,78,71,13,10,26,10]);
 const CID=/^baf[a-z2-7]{30,120}$/;
+const validPinnedSize=(size,bytes,max)=>Number.isSafeInteger(size)&&size>=bytes&&size<=max*2;
 function validateBytes(bytes,mime,maxBytes){
  assert(Buffer.isBuffer(bytes)&&bytes.length>0&&bytes.length<=maxBytes,'MEDIA_LIMIT',`Public artifact must be between 1 byte and ${maxBytes} bytes`,400);
  if(mime==='image/png')assert(bytes.subarray(0,8).equals(PNG_MAGIC),'INVALID_IMAGE','Image content does not match PNG',400);
@@ -40,12 +41,13 @@ export class Media {
    const source=matching.find(m=>m.status==='verified')??matching.find(m=>m.status==='uploaded');
    assert(source||!matching.length,'UPLOAD_UNKNOWN','Earlier upload of these bytes needs reconciliation before another upload');
    this.reserveQuota(records,digest,bytes.length);
-   if(source){assert(source.bytes===bytes.length,'MEDIA_CHANGED','Artifact reservation differs');return this.store.insert('media',id,wallet,{sha256:digest,bytes:source.bytes,mime,status:'uploaded',public:true,fileId:source.fileId,cid:source.cid,uri:source.uri});}
+   if(source){assert(source.bytes===bytes.length,'MEDIA_CHANGED','Artifact reservation differs');return this.store.insert('media',id,wallet,{sha256:digest,bytes:source.bytes,...(source.providerBytes!==undefined?{providerBytes:source.providerBytes}:{}),mime,status:'uploaded',public:true,fileId:source.fileId,cid:source.cid,uri:source.uri});}
    assert(this.token,'MEDIA_NOT_CONFIGURED','Connect the Pinata integration first',503);
    shouldUpload=true;return this.store.insert('media',id,wallet,{sha256:digest,bytes:bytes.length,mime,status:'upload-unknown',public:true});
   });
   if(!shouldUpload){
    if(record.status==='verified')return record;
+   if(record.status==='upload-unknown')return this.recoverUnknown(record);
    assert(record.status==='uploaded','UPLOAD_UNKNOWN','Earlier upload needs reconciliation before another upload');return this.verify(record);
   }
   const form=new FormData();form.set('network','public');form.set('file',new Blob([bytes],{type:mime}),'artifact');
@@ -54,9 +56,29 @@ export class Media {
   catch{throw new AppError('UPLOAD_UNKNOWN','Public upload outcome is unknown; no automatic upload retry was made',503);}
   assert(response.ok,'UPLOAD_UNKNOWN',`Public upload needs reconciliation (HTTP ${response.status})`,502);
   const result=(await response.json()).data;
-  assert(result&&typeof result.id==='string'&&CID.test(result.cid)&&result.size===bytes.length,'INVALID_UPLOAD','Pinning provider returned invalid artifact metadata',502);
-  record=this.store.update('media',id,wallet,record.version,{...record,status:'uploaded',fileId:result.id,cid:result.cid,uri:'ipfs://'+result.cid});
+  // Pinata's size includes UnixFS block overhead for multi-block files.
+  // Keep that provider value separate from the original bytes checked below.
+  assert(result&&typeof result.id==='string'&&CID.test(result.cid)&&validPinnedSize(result.size,bytes.length,this.maxBytes),'INVALID_UPLOAD','Pinning provider returned invalid artifact metadata',502);
+  record=this.store.update('media',id,wallet,record.version,{...record,status:'uploaded',providerBytes:result.size,fileId:result.id,cid:result.cid,uri:'ipfs://'+result.cid});
   return this.verify(record);
+ }
+ async recoverUnknown(record){
+  assert(record?.status==='upload-unknown'&&record.public===true,'UPLOAD_UNKNOWN','Earlier upload needs reconciliation before another upload',503);
+  const url='https://api.pinata.cloud/v3/files/public?'+new URLSearchParams({name:'everywhere-'+record.id,limit:'100'});
+  let response;try{response=await this.fetch(url,{headers:{Authorization:'Bearer '+this.token},signal:AbortSignal.timeout(15000)});}
+  catch{throw new AppError('UPLOAD_UNKNOWN','Earlier upload needs reconciliation before another upload',503);}
+  assert(response.ok,'UPLOAD_UNKNOWN','Earlier upload needs reconciliation before another upload',503);
+  const files=(await response.json()).data?.files;
+  assert(Array.isArray(files),'UPLOAD_UNKNOWN','Pinning lookup is incomplete; the original upload remains reserved',503);
+  const matches=files.filter(file=>file.name==='everywhere-'+record.id&&file.keyvalues?.upload_id===record.id&&file.keyvalues?.sha256===record.sha256&&file.mime_type===record.mime);
+  assert(matches.length>0&&matches.every(file=>typeof file.id==='string'&&CID.test(file.cid)&&validPinnedSize(file.size,record.bytes,this.maxBytes)&&file.cid===matches[0].cid&&file.size===matches[0].size),'UPLOAD_UNKNOWN','Earlier upload needs reconciliation before another upload',503);
+  const file=matches[0],recovered=this.store.transaction(()=>{
+   const current=this.store.get('media',record.id);
+   assert(current?.owner===record.owner&&current.sha256===record.sha256&&current.bytes===record.bytes,'MEDIA_CHANGED','Original upload reservation changed');
+   if(current.status!=='upload-unknown')return current;
+   return this.store.update('media',current.id,current.owner,current.version,{...current,status:'uploaded',providerBytes:file.size,fileId:file.id,cid:file.cid,uri:'ipfs://'+file.cid});
+  });
+  return recovered.status==='verified'?recovered:this.verify(recovered);
  }
  async reuseVerified({owner,uri,publicContentAcknowledged=false}){
   assert(publicContentAcknowledged===true,'PUBLIC_CONTENT_REQUIRED','Confirm that this artifact is intended for public use');
@@ -67,7 +89,7 @@ export class Media {
    const id=sha256(wallet+'\0'+source.sha256),prior=this.store.get('media',id);
    if(prior){assert(prior.sha256===source.sha256&&prior.uri===uri&&prior.mime===source.mime,'MEDIA_CHANGED','Existing artifact metadata differs');return prior;}
    this.reserveQuota(records,source.sha256,source.bytes);
-   return this.store.insert('media',id,wallet,{sha256:source.sha256,bytes:source.bytes,mime:source.mime,public:true,status:'uploaded',fileId:source.fileId,cid:source.cid,uri});
+   return this.store.insert('media',id,wallet,{sha256:source.sha256,bytes:source.bytes,...(source.providerBytes!==undefined?{providerBytes:source.providerBytes}:{}),mime:source.mime,public:true,status:'uploaded',fileId:source.fileId,cid:source.cid,uri});
   });
   return record.status==='verified'?record:this.verify(record);
  }
@@ -80,7 +102,7 @@ export class Media {
   catch{throw new AppError('MEDIA_UNAVAILABLE','Pinning metadata is temporarily unavailable',503);}
   assert(response.ok,'MEDIA_UNAVAILABLE','Pinning metadata is unavailable',503);
   const metadata=(await response.json()).data;
-  assert(metadata?.id===record.fileId&&metadata.cid===record.cid&&metadata.size===record.bytes,'MEDIA_CHANGED','Pinned metadata differs from the uploaded artifact');
+  assert(metadata?.id===record.fileId&&metadata.cid===record.cid&&metadata.size===(record.providerBytes??record.bytes),'MEDIA_CHANGED','Pinned metadata differs from the uploaded artifact');
   let gateway;try{gateway=await this.fetch('https://gateway.pinata.cloud/ipfs/'+record.cid,{redirect:'error',signal:AbortSignal.timeout(20000)});}
   catch{throw new AppError('MEDIA_UNAVAILABLE','Public artifact retrieval is temporarily unavailable',503);}
   assert(gateway.ok,'MEDIA_UNAVAILABLE','Public artifact is not yet retrievable',503);
