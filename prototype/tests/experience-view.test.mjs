@@ -14,7 +14,7 @@ test('a full visitor-controlled journey changes creative and ledger while never 
  storage.clear();let calls=0;const oldFetch=globalThis.fetch;globalThis.fetch=()=>{calls++;throw Error('No API calls are allowed.');};
  try{const account=live();let html=renderExperience(account);assert.match(html,/van-dublin.webp/);assert.match(html,/Book for 1¢/);
  for(const action of ['book','takeover','close','transfer','fulfill','settle','claim'])assert.equal(handleExperienceAction(target(action),account),true);
- html=renderExperience(account);assert.match(html,/THREE CENTS IN/);assert.match(html,/Creative studio/);assert.match(html,/payment destinations stayed the same/);assert.match(html,/Recorded mainnet proof/);assert.match(html,/\/records\/e22dd301-786f-476c-af74-0df7cd2e6168/);assert.match(html,/machine-readable evidence/);assert.match(html,/Your wallet only signed you in/);assert.equal(JSON.parse(storage.get(experienceStorageKey(wallet))).step,6);assert.equal(calls,0);assert.ok(changed>=7);
+ html=renderExperience(account);assert.match(html,/Three cents in/i);assert.match(html,/Creative studio/);assert.match(html,/payment destinations stayed the same/);assert.match(html,/Recorded mainnet proof/);assert.match(html,/\/records\/e22dd301-786f-476c-af74-0df7cd2e6168/);assert.match(html,/machine-readable evidence/);assert.match(html,/Your wallet only signed you in/);assert.equal(JSON.parse(storage.get(experienceStorageKey(wallet))).step,6);assert.equal(calls,0);assert.ok(changed>=7);
  }finally{globalThis.fetch=oldFetch;}
 });
 test('wallet switching and stale buttons cannot overwrite another person’s saved example',()=>{
