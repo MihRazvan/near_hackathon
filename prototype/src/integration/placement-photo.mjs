@@ -2,11 +2,13 @@ import {esc} from '../ui.mjs';
 import {referenceImage} from './reference-images.mjs';
 // These contours belong only to the exact, verified reference photograph.
 const expectedBoxes={
+ '3216864334b53f02a221dd64afbe8e5edf8a2509b3bb84325abbce4569a29b4c':{'spot-1':[.49,.35,.29,.21]},
  '5ef44a386faecdaa96181084e4882e31a18da27de73cd42cfd11e9dbcefa0929':{'spot-1':[.49,.44,.17,.2],'spot-2':[.25,.49,.19,.17]},
  'f62b7dc4411ce3e1b385bff1dea0dbd339a33e77da727c171591be8b83457cd5':{'spot-1':[.44,.52,.18,.14],'spot-2':[.11,.35,.2,.12]},
  '02b14b8517f46590e761d63301e5362e37021cb488be5d03408a6f4b4f452df8':{'spot-1':[.16,.29,.45,.22],'spot-2':[.685,.55,.12,.06]}
 };
 const profiles={
+ '3216864334b53f02a221dd64afbe8e5edf8a2509b3bb84325abbce4569a29b4c':{'spot-1':{path:'M734 437 L1229 437 L1172 603 Q1170 611 1154 612 L774 615 Q762 615 760 602 Z',pin:[985,524]}},
  '5ef44a386faecdaa96181084e4882e31a18da27de73cd42cfd11e9dbcefa0929':{
   'spot-1':{path:'M715 515 L1042 526 Q1055 600 1026 678 L725 672 Z',pin:[875,599]},
   'spot-2':{path:'M369 500 L666 513 L671 675 L482 662 Q430 585 369 500 Z',pin:[550,590]}},
