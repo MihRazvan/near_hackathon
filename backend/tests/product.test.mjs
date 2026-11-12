@@ -19,10 +19,10 @@ test('concurrent public reads coalesce, but a confirmed mutation cannot reuse an
  pending[1]({state:{next_price:'20000'},credits:{}});assert.equal((await current).state.next_price,'20000');
  pending[0]({state:{next_price:'10000'},credits:{}});await Promise.all([old,same]);assert.equal((await p.publicSnapshot('offer')).state.next_price,'20000');
 });
-test('public display cache expires after fifteen seconds and invalidation refreshes it immediately',async()=>{
+test('public display cache expires after five seconds and invalidation refreshes it immediately',async()=>{
  let time=0,calls=0;const p=new Product({now:()=>time,chain:{snapshot:async()=>({state:{round:String(++calls)}})}});
- assert.equal((await p.publicSnapshot('offer')).state.round,'1');time=14999;assert.equal((await p.publicSnapshot('offer')).state.round,'1');
- time=15000;assert.equal((await p.publicSnapshot('offer')).state.round,'2');p.invalidate();assert.equal((await p.publicSnapshot('offer')).state.round,'3');
+ assert.equal((await p.publicSnapshot('offer')).state.round,'1');time=4999;assert.equal((await p.publicSnapshot('offer')).state.round,'1');
+ time=5000;assert.equal((await p.publicSnapshot('offer')).state.round,'2');p.invalidate();assert.equal((await p.publicSnapshot('offer')).state.round,'3');
 });
 test('cached public state binds private credits to the same complete finalized block without sharing another wallet’s credit',async()=>{
  const store=new Store(),s={accountId:'offer',receiverId:'hub.near',offerId:'offer',blockHash:'final-block',blockHeight:17,credits:{}},p=new Product({store,marketplace:{browse:()=>[{owner:'owner.near',spots:[{contractId:'offer'}]}]},chain:{snapshot:async()=>s},reads:{view:async(id,method,args,block)=>{

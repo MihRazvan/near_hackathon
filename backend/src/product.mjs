@@ -17,7 +17,7 @@ export function productAssetName(pathname){
 export class Product {
  constructor({store,chain,marketplace,config,reads,walletRequests,personalAI,supportService,now=Date.now}){Object.assign(this,{store,chain,marketplace,config,reads,walletRequests,personalAI,supportService,now});this.publicSnapshots=new Map();this.snapshotLoads=new Map();this.snapshotGeneration=0;}
  async publicSnapshot(contractId){
-  const prior=this.publicSnapshots.get(contractId);if(prior&&this.now()-prior.loadedAt<15000)return structuredClone(prior.snapshot);
+  const prior=this.publicSnapshots.get(contractId);if(prior&&this.now()-prior.loadedAt<5000)return structuredClone(prior.snapshot);
   const generation=this.snapshotGeneration;let load=this.snapshotLoads.get(contractId);
   if(!load||load.generation!==generation){load={generation};load.promise=(async()=>{
    try{const snapshot=await this.chain.snapshot(contractId,[]);
