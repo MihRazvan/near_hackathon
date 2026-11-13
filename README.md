@@ -8,15 +8,59 @@ The application uses persisted inventory, wallet authentication and real NEAR co
 
 Open the [live application](https://everywhere-near.vercel.app). The [public deployment manifest](deployments/mainnet.json) identifies the mainnet contract, pinned code and completed synthetic qualification campaign. That campaign exercised real payments and on-chain fulfillment records; no physical advertisement was installed.
 
-## Use the marketplace
+## Verify in 5 minutes
 
-Open the [marketplace](https://everywhere-near.vercel.app/explore) to inspect live listings and campaign records. To create a listing, connect a wallet, open Dashboard and add a vehicle photo or description. Review its spots directly on the photo, then set dates and prices. Bookings, placement NFTs and refunds live in Profile.
+Use **Node.js 22.23+** and npm. Node 22.23 and 24.12 pass the tests and application builds; the production Docker image stays pinned to 24.12. These checks need no wallet keys or funds. Run from the repository root:
+
+```sh
+# Works without npm installation or network access.
+node backend/bin/verify-evidence.mjs --offline
+# Expected: "status": "offline-verified", three files, "chainVerification": "not-performed".
+
+npm ci --prefix backend --ignore-scripts
+npm ci --prefix prototype --ignore-scripts
+npm test --prefix backend
+# Expected: 248 tests pass, 0 fail.
+npm test --prefix prototype
+# Expected: 90 tests pass, 0 fail.
+
+npm run build:lab --prefix backend
+npm run build --prefix prototype
+npm start --prefix backend
+# Expected: Everywhere API listening on port 4318.
+```
+
+Open **http://127.0.0.1:4318**. A fresh checkout serves the application with execution disabled and an empty local workspace. Live inventory is on the [hosted marketplace](https://everywhere-near.vercel.app/explore); publication, payments and AI need configured services. Dependency installation and public-provider checks depend on your connection.
+
+For a short product review on the live site:
+
+1. Open a vehicle in **Marketplace**, select its placements, and inspect dates, prices and booking/takeover status without paying.
+2. Connect a wallet, open **Dashboard**, and add a vehicle photo or description. Review proposed spots, drag or resize them, select an outline, and try Delete and Undo. Saving a vehicle draft allocates no NEAR; AI suggestions require an available provider.
+3. Open the [completed mainnet record](https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168) to inspect the NFT, artwork, fulfillment commitments and original-wallet payouts. Its payments are real; its artwork and installation evidence are synthetic.
+
+The simulated takeover demo has been removed. An actual takeover uses the live listing's **Take over this spot** action, a distinct buyer wallet and a real USDC payment before booking closes. To exercise the entire lifecycle without public funds, use the [production-interface Sandbox qualification](backend/README.md#production-interface-on-near-sandbox).
+
+For independent blockchain verification, run in a second terminal:
+
+```sh
+node backend/bin/verify-evidence.mjs
+# Expected when RPCs are available: "status": "verified", mainnet, 11 verified steps.
+
+# Optional: use one specific HTTPS NEAR mainnet RPC, exclusively.
+node backend/bin/verify-evidence.mjs https://archival-rpc.mainnet.near.org
+```
+
+The verifier automatically falls back across `https://near.drpc.org`, `https://free.rpc.fastnear.com` and `https://archival-rpc.mainnet.near.org`, with bounded timeouts and read-only requests. Historical transaction availability varies; an archival endpoint may be needed. If all endpoints fail, it exits unsuccessfully with: `Network access to a NEAR mainnet RPC is required. Retry with: node backend/bin/verify-evidence.mjs <rpc-url>`. A custom URL disables public fallback and its secret path/query is omitted from diagnostics. Verification never loads local credentials or signs transactions.
+
+Offline verification checks the committed deployed WASM, artwork and delivery bytes against SHA-256 hashes, the NEAR code hash, raw IPFS CIDs and matching deployment-manifest fields. It fails on missing or changed files. It does **not** fetch transaction receipts, establish current chain state, prove a physical installation or attest that the current source reproduces the deployed binary. See [evidence provenance](deployments/evidence/README.md).
 
 ## The NFT thesis
 
 A placement NFT is a transferable, time-bounded right to manage the creative for a specific physical advertising surface and campaign. The owner can submit or replace artwork before approval and the artwork deadline. Transfer the NFT to a creative agency and that agency gains the authority; the former owner loses it. Original-payer refunds, takeover rewards and owner earnings retain their original creditors.
 
-Submitting a new artwork revision updates the NFT metadata's IPFS reference and content hash. The space owner approves that exact revision before printing. Approval or the artwork deadline closes editing, and the NFT remains a campaign record afterward. A later archival transfer cannot reopen the creative window. Artwork submission and transfers use the existing marketplace contract.
+**Dynamic NFTs:** submitting a new artwork revision updates the NFT metadata's IPFS reference and content hash. The space owner approves that exact revision before printing. Approval or the artwork deadline closes editing, and the NFT remains a campaign record afterward. A later archival transfer cannot reopen the creative window. Artwork submission and transfers use the existing marketplace contract.
+
+The [NFT track brief](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/10-nfts.md) names **dynamic NFTs**, **NEP-171** and **sub-accounts**, and describes assets carrying **access rights**. Everywhere implements NEP-171 ownership and transfers, dynamic metadata, and creative access rights enforced against the current holder. Each offer lives in a shared NEAR hub rather than a separate NFT sub-account, keeping deployment and storage costs lower. Money deliberately stays owed to the original wallets: sending the creative right to an agency must not also give that agency the advertiser's refund or the space owner's earnings. We do not claim that each NFT is a NEAR account or owns those funds.
 
 The public mainnet records show minted NFTs and artwork commitments. The Berlin van also records a real mainnet NFT handoff to a studio; the setup verified former-controller rejection, new-controller artwork submission and unchanged financial credits. The real Sandbox qualification covers the same authority boundary. The physical motorcycle pilot remains pending real installation and evidence.
 
@@ -24,7 +68,7 @@ The public mainnet records show minted NFTs and artwork commitments. The Berlin 
 
 | Track | What the implementation demonstrates |
 | --- | --- |
-| **NFTs That Do Something** (`nfts`) | A NEP-171 placement NFT controls who can submit artwork during the permitted window. Transfer changes that authority while financial creditors stay fixed. Artwork revisions update its reference; approval locks the creative before printing. |
+| **NFTs That Do Something** (`nfts`) | A NEP-171 NFT carries creative access rights. Dynamic NFT metadata tracks artwork revisions. Transfer changes creative authority while financial creditors stay fixed; approval locks the creative before printing. |
 | **Open Innovation** (`open`) | Physical advertising rights with pre-production takeovers, original-payer refunds, completion rewards and independently inspectable settlement. |
 | **Real-World Money** (`realworld`) | USDC payments and recoverable claims for advertising services, EVM signing through NEAR Intents, native withdrawals and quoted Base funding routes. |
 
@@ -55,21 +99,9 @@ Customers approve signatures and transfers in their own wallets. Wallet sign-in 
 
 The hub currently retains an upgrade key. Keep hub administration and that key local, separate from the hosted relayer account. Backend code-hash pinning detects a changed deployment; it does not make the contract immutable.
 
-## Run locally
+## Local development
 
-Requires **Node.js 24.12 or newer** and npm. From the repository root:
-
-```sh
-npm ci --prefix backend --ignore-scripts
-npm ci --prefix prototype --ignore-scripts
-npm run build:lab --prefix backend
-npm run build --prefix prototype
-npm start --prefix backend
-```
-
-Open **http://127.0.0.1:4318**. The backend serves the compiled frontend, wallet adapter and `/api` together. Startup without execution credentials provides a read-only marketplace. Publication, payments, public artifact storage and optional AI require their configured services; the isolated Sandbox browser suite below provides a complete local execution environment without public funds.
-
-See [backend setup](backend/README.md), [frontend development](prototype/README.md), [hub contract](contracts/marketplace-hub/README.md) and [local-chain proofs](proofs/sandbox/README.md).
+The commands in [Verify in 5 minutes](#verify-in-5-minutes) build and serve the frontend, wallet adapter and `/api` together on port 4318. See [backend setup](backend/README.md), [frontend development](prototype/README.md), [hub contract](contracts/marketplace-hub/README.md) and [local-chain proofs](proofs/sandbox/README.md).
 
 ## Verify
 
@@ -108,7 +140,7 @@ The private personal AI companion connects only its owner's allowlisted wallets 
 
 Production uses the [Docker image](Dockerfile) and [Railway configuration](.railway/railway.ts), one application instance and a persistent SQLite volume. Configure HTTPS origins and server secrets explicitly. A static frontend deployment also needs the API and wallet-adapter routes; the frontend build alone does not provide the application backend. Deployment configuration is described in the [backend README](backend/README.md#production-hosting).
 
-Personal wallet keys, local credentials, state databases and generated qualification evidence are excluded from the repository.
+Personal wallet keys, local credentials, state databases and private test-run reports are excluded from the repository. The public qualification manifest and its three hash-bound evidence files are committed for independent checks.
 
 ## Physical motorcycle pilot
 

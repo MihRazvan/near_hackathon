@@ -4,7 +4,7 @@ This directory contains the connected Everywhere application. The `prototype` na
 
 ## Run with the API
 
-Requires **Node.js 24.12 or newer**. From the repository root:
+Requires **Node.js 22.23 or newer**. Tests and application builds pass on Node 22.23 and 24.12; production uses the pinned Node 24.12 Docker image. From the repository root:
 
 ```sh
 npm ci --prefix backend --ignore-scripts

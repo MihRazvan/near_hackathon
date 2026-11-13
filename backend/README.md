@@ -4,7 +4,7 @@ The API connects physical advertising inventory to the shared NEAR marketplace h
 
 ## Run
 
-Requires **Node.js 24.12 or newer**. Run from the repository root:
+Requires **Node.js 22.23 or newer**. Tests and application builds pass on Node 22.23 and 24.12; production uses the pinned Node 24.12 Docker image. Run from the repository root:
 
 ```sh
 npm ci --prefix backend --ignore-scripts
