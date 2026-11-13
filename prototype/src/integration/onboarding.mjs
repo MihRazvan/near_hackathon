@@ -1,4 +1,4 @@
-import {live,api,refresh,rawAsset,rerender,setProgress} from './runtime.mjs';
+import {live,api,refresh,rawAsset,rerender,setProgress,noteWorkspaceMutation} from './runtime.mjs';
 import {navigate,toast} from '../store.mjs';
 import {esc,heading,act,form,input,textArea,submit,link,check,hidden,notice} from './ui.mjs';
 import {photoData} from './photos.mjs';
@@ -9,7 +9,7 @@ const key=(id,kind='draft')=>'everywhere-vehicle-'+kind+':'+live.session?.wallet
 function readLocal(id,kind){try{return JSON.parse(localStorage.getItem(key(id,kind)));}catch{return null;}}
 function writeLocal(id,value,kind){try{const saved=value.asset?{...value,asset:Object.fromEntries(Object.entries(value.asset).filter(([k])=>k!=='photoDataUrl'))}:value;localStorage.setItem(key(id,kind),JSON.stringify(saved));}catch{}}
 const same=wallet=>{if(live.session?.wallet!==wallet)throw new Error('The connected account changed. Return to this draft with its original wallet.');};
-function updateAsset(asset){const d=live.data?.dashboard;if(d){const i=d.assets.findIndex(a=>a.id===asset.id);if(i>=0)d.assets[i]=asset;else d.assets.push(asset);}live.assetEdit=asset;}
+function updateAsset(asset){noteWorkspaceMutation();const d=live.data?.dashboard;if(d){const i=d.assets.findIndex(a=>a.id===asset.id);if(i>=0)d.assets[i]=asset;else d.assets.push(asset);}live.assetEdit=asset;}
 export function restoredAsset(a){const cached=readLocal(a.id);return cached?.version===a.version?{...a,...cached.asset}:a;}
 export function rememberEditor(form){const a=rawAsset(form.elements.namedItem('id').value),base=live.assetEdit?.id===a.id?live.assetEdit:a;const data=assetFields(new FormData(form),base);revisions.set(a.id,(revisions.get(a.id)??0)+1);writeLocal(a.id,{version:a.version,asset:data});return {...a,...data};}
 export function rememberUndo(asset){const history=histories.get(asset.id)??[];history.push(structuredClone(asset));if(history.length>12)history.shift();histories.set(asset.id,history);}
@@ -17,7 +17,7 @@ export async function saveEditor(data){
  const id=String(data.get('id')),wallet=live.session.wallet,revision=revisions.get(id)??0,original=rawAsset(id),base=live.assetEdit?.id===id?live.assetEdit:original,payload=assetFields(data,base);
  const task=(saves.get(id)??Promise.resolve()).catch(()=>{}).then(async()=>{
   same(wallet);const version=Math.max(Number(data.get('version')),acknowledged.get(id)??0),asset=await api('assets/'+id,{version,asset:payload},{method:'PATCH'});same(wallet);acknowledged.set(id,asset.version);
-  const latest=live.assetEdit,changed=(revisions.get(id)??0)!==revision;updateAsset(asset);
+  const latest=live.assetEdit,changed=(revisions.get(id)??0)!==revision||document.querySelector('form[data-live-form="asset-edit"]')?.dataset.editingGeometry==='true';updateAsset(asset);
   if(changed&&latest?.id===id){live.assetEdit={...latest,version:asset.version};const cached=readLocal(id);if(cached)writeLocal(id,{...cached,version:asset.version});}
   else try{localStorage.removeItem(key(id));}catch{}
   const f=document.querySelector('form[data-live-form="asset-edit"]');if(f?.elements.namedItem('id').value===id){f.elements.namedItem('version').value=asset.version;if(!changed){f.dataset.dirty='false';f.querySelector('[data-draft-status]')?.replaceChildren(document.createTextNode('Saved to your workspace'));}}
@@ -86,5 +86,5 @@ export function mountOnboarding(r){
   const form=document.querySelector('form[data-live-form="vehicle-start"]'),drop=form?.querySelector('.vehicle-photo-input');drop?.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('is-dragging');});drop?.addEventListener('dragleave',()=>drop.classList.remove('is-dragging'));drop?.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('is-dragging');const file=e.dataTransfer.files[0];if(!file)return;const transfer=new DataTransfer();transfer.items.add(file);form.elements.namedItem('photo').files=transfer.files;form.requestSubmit();});for(const name of ['photo','camera'])form?.elements.namedItem(name)?.addEventListener('change',()=>{if(form.elements.namedItem(name).files.length)form.requestSubmit();});
  }
  const form=document.querySelector('form[data-live-form="asset-edit"]');if(!form)return;form.elements.namedItem('instruction')?.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();void import('./runtime.mjs').then(({run})=>run(()=>onboardingActions['refine-panels']()));}});form.elements.namedItem('replacementPhoto')?.addEventListener('change',()=>{if(form.elements.namedItem('replacementPhoto').files.length)void import('./runtime.mjs').then(({run})=>run(()=>onboardingActions['replace-vehicle-photo']()));});let timer;
- form.addEventListener('input',event=>{if(event.target?.name==='instruction')return;clearTimeout(timer);try{const a=rememberEditor(form);live.assetEdit=a;form.querySelector('[data-draft-status]').textContent='Saving...';timer=setTimeout(()=>{if(!form.isConnected||!form.checkValidity())return;void saveEditor(new FormData(form)).catch(e=>{const status=form.querySelector('[data-draft-status]');if(status)status.textContent='Edits are saved on this device. '+e.message;});},900);}catch{const status=form.querySelector('[data-draft-status]');if(status)status.textContent='Finish this field to save.';}});
+ form.addEventListener('input',event=>{if(event.target?.name==='instruction')return;clearTimeout(timer);try{const a=rememberEditor(form);live.assetEdit=a;form.querySelector('[data-draft-status]').textContent='Saving...';timer=setTimeout(()=>{if(!form.isConnected||form.dataset.editingGeometry==='true'||!form.checkValidity())return;void saveEditor(new FormData(form)).catch(e=>{const status=form.querySelector('[data-draft-status]');if(status)status.textContent='Edits are saved on this device. '+e.message;});},900);}catch{const status=form.querySelector('[data-draft-status]');if(status)status.textContent='Finish this field to save.';}});
 }
