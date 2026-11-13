@@ -9,7 +9,7 @@ import { buyerView } from './buyer.mjs';
 import { accountView,sharedView,opsView,testingView } from './shared.mjs';
 import { actions,forms,assetFields } from './actions.mjs';
 import { esc,link,act,notice,heading,empty } from './ui.mjs';
-import { captureView } from './capture.mjs';
+import { captureView,mountCapture } from './capture.mjs';
 import { renderExperience,mountExperience } from './experience.mjs';
 import { campaignRecordView,mountCampaignRecord } from './record.mjs';
 
@@ -60,7 +60,7 @@ export function legacyAction(target,r){
  toast('This action is unavailable. Refresh the page and try again.');
 }
 export function mountConnected(r){
- mountOnboarding(r);
+ mountOnboarding(r);mountCapture(r);
  if(r.id==='X01')mountExperience();
  if(r.id==='P10')mountCampaignRecord(r.params.id);
  const providers=document.querySelector('form[data-live-form="connect-evm"] select');

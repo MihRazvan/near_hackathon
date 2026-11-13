@@ -13,3 +13,10 @@ test('camera handoff grants only a single photo upload, remains owner-private, a
   now+=1800001;assert.throws(()=>c.upload(created.id,{token,imageDataUrl:photo}),{code:'CAPTURE_EXPIRED'});
  }finally{store.close();}
 });
+test('a captured photo creates one owner draft across retries and cannot be consumed by another wallet',async()=>{
+ const {Marketplace}=await import('../src/marketplace.mjs');const store=new Store(),c=new Capture({store,config:{origin:'http://localhost:4318'}}),marketplace=new Marketplace({store,chain:{}});
+ try{const created=c.create('owner.near'),token=new URL(created.uploadUrl).searchParams.get('token');c.upload(created.id,{token,imageDataUrl:photo});
+  assert.throws(()=>c.consume('other.near',created.id,marketplace),{code:'NOT_FOUND'});
+  const a=c.consume('owner.near',created.id,marketplace),again=c.consume('owner.near',created.id,marketplace);assert.equal(a.id,again.id);assert.equal(store.list('asset').length,1);assert.equal(a.photoDataUrl,photo);assert.equal(c.read('owner.near',created.id).imageDataUrl,null);assert.equal(c.upload(created.id,{token,imageDataUrl:photo}).saved,true);
+ }finally{store.close();}
+});

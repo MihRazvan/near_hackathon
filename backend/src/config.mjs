@@ -165,6 +165,10 @@ export async function loadConfig(path,environment=process.env) {
   const file=path??environment.APP_ENV_FILE??(!production?resolve(ROOT,'.local/integration.env'):null);
   let values={};
   if(file)try{values=parseEnv(await readPrivateFile(file));}catch(error){if(error.code!=='ENOENT')throw error;if(path||environment.APP_ENV_FILE)throw error;}
+  if(!production&&!path&&!environment.APP_ENV_FILE){
+    try{const local=parseEnv(await readPrivateFile(resolve(ROOT,'.env.local')));for(const key of ['NEAR_AI_API_KEY','NEAR_AI_MODEL','NEAR_AI_IMAGE_MODEL'])if(local[key])values[key]=local[key];}
+    catch(error){if(error.code!=='ENOENT')throw error;}
+  }
   // Hosted process secrets override files; production never discovers a developer's local credentials.
   return configFromEnv({...values,...environment});
 }

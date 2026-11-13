@@ -39,15 +39,15 @@ export class Marketplace {
   return data;
  }
 
- createAsset(owner,input){
+ createAsset(owner,input,{id=randomUUID()}={}){
   return this.store.transaction(()=>{
-   const actor=walletId(owner);pruneCaptureStorage(this.store,this.now());
+   const actor=walletId(owner);const prior=this.store.get('asset',id);if(prior){assert(prior.owner===actor,'NOT_FOUND','Asset not found',404);return prior;}pruneCaptureStorage(this.store,this.now());
    assert(this.store.db.prepare("SELECT COUNT(*) count FROM objects WHERE kind='asset' AND owner=?").get(actor).count<OWNER_ASSET_MAX,'ASSET_LIMIT','This wallet has reached its 20-space limit.',429);
    assert(this.store.db.prepare("SELECT COUNT(*) count FROM objects WHERE kind='asset'").get().count<GLOBAL_ASSET_MAX,'ASSET_LIMIT','The platform is at its current space capacity.',429);
    const draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
    const data={...draft,...this.assetMedia(owner,input),...assetProvenance(input),city:text(input.city,'city',100),source:input.source==='ai'?'ai':'manual',status:'draft'};
    assertLocalPhotoQuota(this.store,{kind:'asset',value:data.photoDataUrl,config:this.chain?.config});
-   return this.store.insert('asset',randomUUID(),actor,data);
+   return this.store.insert('asset',id,actor,data);
   });
  }
  updateAsset(owner,id,version,input){

@@ -94,6 +94,7 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    else if(method==='POST'&&path[1]==='support'&&path.length===2&&product)result=product.support(wallet,body);
    else if(method==='POST'&&path[1]==='captures'&&path.length===2&&capture)result=capture.create(wallet);
    else if(method==='GET'&&path[1]==='captures'&&path.length===3&&capture)result=capture.read(wallet,path[2]);
+   else if(method==='POST'&&path[1]==='captures'&&path[3]==='use'&&capture)result=capture.consume(wallet,path[2],marketplace);
    else if(method==='GET'&&path[1]==='lab-state'&&lab)result=await lab.state(wallet);
    else if(method==='POST'&&path[1]==='lab-wallet'&&lab?.sandbox)result=await lab.wallet(wallet,path[2],body);
    else if(method==='POST'&&path[1]==='lab-clock'&&lab?.sandbox)result=await lab.advance(wallet,body);

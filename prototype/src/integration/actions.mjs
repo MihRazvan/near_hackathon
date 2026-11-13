@@ -1,5 +1,6 @@
 import {onboardingActions,onboardingForms,saveEditor,rememberUndo,useCapturedPhoto} from './onboarding.mjs';
-import {reboxPanel} from './panel-geometry.mjs';
+import {assetFields} from './asset-fields.mjs';
+export {assetFields} from './asset-fields.mjs';
 import {isTeamTest} from './campaign-kind.mjs';
 import { navigate,toast } from '../store.mjs';
 import { live,api,refresh,connect,disconnect,review,nativePlan,intentPlan,nativeAction,poll,sale,snapshot,allSales,booking,rawAsset,amount,fileData,upload,rerender,nativeUnits,ensureSigningWallet } from './runtime.mjs';
@@ -10,12 +11,7 @@ import { workspaceForms } from './workspace-actions.mjs';
 
 const cents=value=>{const n=BigInt(amount(String(value)));if(n%10000n)throw new Error('Spot prices must use whole USDC cents.');return (n/10000n).toString();};
 const currentForm=()=>document.querySelector('form[data-live-form="asset-edit"]');
-export function assetFields(data,base){
- return {title:String(data.get('title')),description:String(data.get('description')),city:String(data.get('city')),assetType:String(data.get('assetType')),
-  assumptions:base.assumptions??[],source:base.source??'manual',...(base.photoDataUrl?{photoDataUrl:base.photoDataUrl}:{}),...(base.coverMediaId?{coverMediaId:base.coverMediaId}:{}),
-  spots:base.spots.map(p=>({...reboxPanel(p,Object.fromEntries(['x','y','width','height'].map(k=>[k,Number(data.get(k+':'+p.id)??p.box[k]*100)/100]))),name:String(data.get('name:'+p.id)??p.name),side:String(data.get('side:'+p.id)??p.side),
-   suggestedPriceCents:cents(data.get('price:'+p.id)??(Number(p.suggestedPriceCents)/100).toFixed(2))}))};
-}
+
 async function artifact(data){const selected=data.get('mediaId'),uri=String(data.get('artifactUri')??'').trim();
  if(uri&&(selected||data.get('file')?.size))throw new Error('Use one artifact source at a time. Remove the IPFS link to select or upload a file.');
  if(selected)return selected;if(uri)return (await api('media/import',{uri,publicContentAcknowledged:data.has('public')})).id;
@@ -91,7 +87,7 @@ export const actions={
   await prepareBooking(data,{pay:true});
  },
  'start-capture':async()=>{const r=await api('captures',{});sessionStorage.setItem('everywhere-capture-link:'+r.id,r.uploadUrl);await refresh({render:false});navigate('/host/capture/'+r.id);},
- 'use-capture':async el=>{const r=await api('captures/'+el.dataset.id);if(r.status!=='received')throw new Error('Wait for the captured photo first.');live.capturePhoto=r.imageDataUrl;navigate('/host/assets/new');},
+ 'use-capture':async el=>useCapturedPhoto(el.dataset.id),
  'save-sale':async el=>{if(!live.session){navigate('/sign-in?next='+encodeURIComponent(location.pathname+location.search));return;}
   const old=live.data.saved.find(s=>s.saleId===el.dataset.id);await api('saved',{saleId:el.dataset.id,saved:!old?.saved});await refresh();toast(old?.saved?'Space removed from shortlist.':'Space saved.');},
  'add-spot':()=>{

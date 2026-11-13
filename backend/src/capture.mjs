@@ -18,12 +18,18 @@ export class Capture {
   });
  }
  read(wallet,id){this.prune();const r=this.store.get('capture',id);assert(r?.owner===walletId(wallet),'NOT_FOUND','Capture session not found',404);const {tokenHash,...publicRecord}=r;return publicRecord;}
+ consume(wallet,id,marketplace){
+  const r=this.read(wallet,id);if(r.assetId){const a=this.store.get('asset',r.assetId);assert(a?.owner===walletId(wallet),'NOT_FOUND','Captured draft not found',404);return a;}
+  assert(r.status==='received'&&r.imageDataUrl&&r.expiresAt>this.now(),'CAPTURE_NOT_READY','Take a photo using this link before continuing.');
+  const asset=marketplace.createAsset(wallet,{title:'My vehicle',description:'Advertising panels on my vehicle. Confirm the visible surfaces and physical measurements.',assetType:'van',city:'Location to confirm',source:'manual',photoDataUrl:r.imageDataUrl,imageProvenance:'owner-photo',campaignType:'physical',assumptions:['Review visible panels and confirm measurements.'],spots:[{id:'spot-1',name:'Advertising panel',side:'left',box:{x:.3,y:.4,width:.3,height:.2},suggestedPriceCents:'100',confidence:'low'}]},{id:'capture-'+id});
+  const original=this.store.get('capture',id);this.store.update('capture',id,original.owner,original.version,{...original,status:'used',assetId:asset.id,imageDataUrl:null,photoSha256:sha256(r.imageDataUrl)});return asset;
+ }
  upload(id,{token,imageDataUrl}){
   this.prune();
   return this.store.transaction(()=>{
    const r=this.store.get('capture',id);
    assert(r&&typeof token==='string'&&token.length<=100&&sha256(token)===r.tokenHash&&r.expiresAt>this.now(),'CAPTURE_EXPIRED','This capture link expired or is invalid',403);
-   if(r.status==='received'&&r.imageDataUrl===imageDataUrl)return {saved:true,id};
+   if((r.status==='received'&&r.imageDataUrl===imageDataUrl)||(r.status==='used'&&r.photoSha256===sha256(imageDataUrl??'')))return {saved:true,id};
    assert(r.status==='waiting','CAPTURE_ALREADY_SAVED','This link already saved a photo. Continue from the owner workspace.');
    imageInput(imageDataUrl);assertLocalPhotoQuota(this.store,{kind:'capture',id,value:imageDataUrl,config:this.config});
    this.store.update('capture',id,r.owner,r.version,{...r,status:'received',imageDataUrl});return {saved:true,id};

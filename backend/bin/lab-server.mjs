@@ -34,7 +34,7 @@ if(!status.chain_id.startsWith('test-chain-'))throw new Error('The lab cannot si
 const clock={offset:0,now(){return Date.now()+this.offset;},async refresh(){const b=await rpc.call('block',{finality:'final'});this.offset=Number(BigInt(b.header.timestamp_nanosec)/1000000n)-Date.now();}};
 await clock.refresh();
 const port=Number(process.env.LAB_PORT??4320);
-const config={network:'sandbox',enabled:true,host:'127.0.0.1',port,origin:'http://127.0.0.1:'+port,stateDir:run,
+const config={network:'sandbox',aiAvailable:false,enabled:true,host:'127.0.0.1',port,origin:'http://127.0.0.1:'+port,stateDir:run,
  treasury:'treasury.sandbox',treasuryFloor:'0',artifact:join(ROOT,'target/proof-artifacts/campaign-marketplace.wasm'),
  limits:{sourceUsdc:'0',baseGas:'0',nearFees:'100000000000000000000000000',nearAllocation:'100000000000000000000000000',nearAllocationGross:'100000000000000000000000000'},
  assets:{intentsId:'verifier.sandbox',intentsCodeHash:f.intentsCodeHash,nearUsdc:'usdc.sandbox',nearAsset:'nep141:usdc.sandbox',usdcCodeHash:f.usdcCodeHash},
