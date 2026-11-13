@@ -150,7 +150,7 @@ export async function connect(kind,value){
  live.session={...await api('auth/verify',signed),kind,providerId:provider?.id??null,providerName:provider?.name??null,providerRdns:provider?.rdns??null};sessionStorage.setItem(KEY,JSON.stringify(live.session));
  if(previous?.token&&previous.wallet!==wallet){/* Existing original-wallet requests remain in the server journal. */}
  await refresh({local:true,render:false,force:true});toast('Connected '+short(live.session.wallet));
- const next=new URLSearchParams(location.search).get('next');navigate(next?.startsWith('/')&&!next.startsWith('//')?next:live.data?.profile?.defaultWorkspace==='owner'?'/host':'/buy');hydrate();
+ const next=new URLSearchParams(location.search).get('next');navigate(next?.startsWith('/')&&!next.startsWith('//')?next:live.data?.profile?.defaultWorkspace==='owner'?'/host':'/profile');hydrate();
 }
 export async function disconnect(){if(live.session)await api('auth/logout',{});live.session=null;clearWorkspace();sessionStorage.removeItem(KEY);navigate('/');hydrate();}
 export async function run(callback){

@@ -33,6 +33,6 @@ export function evidence(s){return card('Verified campaign state',`<dl class="da
 export function bookingTable(rows,{owner=false}={}){return table(['Placement','Status','Principal','Campaign',''],rows.map(b=>{
  const s=sale(b.saleId),snap=snapshot(b.contractId);let status=b.status;
  if(b.accepted&&snap){if(snap.state.outcome==='failure')status='cancelled';else if(snap.state.holder?.account_id!==b.owner)status='outbid';else if(snap.state.outcome==='success')status='completed';}
- return [esc(s?.title??b.contractId),badge(status),usdc(b.amount),esc(live.data?.dashboard.campaigns.find(c=>c.id===b.campaignId)?.name??short(b.owner)),link((owner?'/host/bookings/':'/buy/placements/')+b.id,'Open ↗','text-link')];}));}
+ return [esc(s?.title??b.contractId),badge(status),usdc(b.amount),esc(live.data?.dashboard.campaigns.find(c=>c.id===b.campaignId)?.name??short(b.owner)),link((owner?'/host/bookings/':'/profile/placements/')+b.id,'Open ↗','text-link')];}));}
 
 export function artifactLink(uri){return typeof uri==='string'&&/^ipfs:\/\/baf[a-z2-7]+$/.test(uri)?`<a href="${esc(uri.replace('ipfs://','https://gateway.pinata.cloud/ipfs/'))}" target="_blank" rel="noopener noreferrer" class="text-link">Open verified artifact ↗</a>`:esc(uri??'');}

@@ -18,10 +18,11 @@ Open **http://127.0.0.1:4318**. The backend serves `prototype/dist`, `/wallets.j
 
 ## User journeys
 
+- **Navigation:** Marketplace handles discovery and checkout. Dashboard is for listing owners, starting with a first-campaign prompt; existing campaigns, saved vehicles and earnings stay on that page. Profile holds bookings, placement NFTs, saved spaces, balance/wallet access and account details. Messages remain inside the relevant booking. Legacy aggregate URLs redirect to these consolidated pages.
 - **Marketplace:** browse published vehicles, filter spaces, select surfaces, review campaign dates/rules and book available spots.
-- **Advertiser workspace:** create campaigns across owners, approve USDC purchases or takeovers, submit artwork, follow fulfillment, message owners, raise issues and manage refunds/withdrawals.
+- **Advertiser workspace:** group marketplace bookings across owners, approve USDC purchases or takeovers, submit artwork, follow fulfillment, message owners, raise issues and manage refunds/withdrawals.
 - **Owner workspace:** describe or photograph a vehicle, review/edit surfaces, publish priced campaign periods, approve artwork, provide installation evidence and manage earnings.
-- **Account and operations:** connect/switch wallets, edit profiles, review notifications, reconcile original payment requests, and resolve cases as the campaign's authorized arbiter.
+- **Account and operations:** connect/switch wallets, edit profiles, reconcile original payment requests, and resolve cases as the campaign's authorized arbiter.
 
 Wallets sign actual authentication and transaction requests. EVM wallets use Intents for hub actions; native NEAR wallets use the NEAR connector. Production hides development identities and local test controls. The final NEP-171 placement right belongs directly to the final payer after booking closes, including an EVM payer; the normal flow needs no separate NFT-recipient nomination.
 

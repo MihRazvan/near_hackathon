@@ -1,3 +1,4 @@
+import {ownerDashboard} from './dashboard.mjs';
 import {vehicleEditor} from './vehicle-editor.mjs';
 import {startVehicleView,editorTools,restoredAsset} from './onboarding.mjs';
 import {compactOffer} from './offer-setup.mjs';
@@ -15,7 +16,7 @@ const snapshots=()=>live.catalog?.snapshots??[];
 function steps(current){return `<div class="card-tags" aria-label="Listing progress">${['Describe your space','Review surfaces','Publish a campaign'].map((name,i)=>badge((i<current?'✓ ':i+1+'. ')+name)).join('')}</div>`;}
 function stageAction(offer,contract,stage){
  if(stage.action==='listing')return link(publicUrl(offer),'View listing','button primary');
- if(stage.action==='earnings')return link('/host/earnings','View earnings','button primary');
+ if(stage.action==='earnings')return link('/host#earnings','View earnings','button primary');
  if(stage.action==='new-sale')return link('/host/sales/new?asset='+offer.assetId,'Create another campaign','button primary');
  if(stage.action==='support')return link('/support/new?contract='+encodeURIComponent(contract),'Request a review','button primary');
  if(stage.action==='message')return link('/inbox/'+encodeURIComponent(contract),'Message advertiser','button primary');
@@ -54,7 +55,7 @@ export function saleEditor(existing){
  ${card('Campaign period',`<dl class="data-list">${[['Bookings close',schedule.biddingClose],['Advertising starts',schedule.serviceStart],['Advertising ends',schedule.serviceEnd]].map(([label,value])=>`<div><dt>${label}</dt><dd>${esc(dateTime(value))}</dd></div>`).join('')}</dl><details ${expired?'open':''}><summary>Change dates and production deadlines</summary><p class="tiny muted">Leave enough time after bookings close to review artwork, print, and install the final advertisement.</p><div class="grid two">${Object.entries({biddingClose:'Bookings close',artworkDue:'Advertiser artwork due',installationDue:'Installation target',serviceStart:'Advertising starts',serviceEnd:'Advertising ends',reviewEnd:'Issue review ends'}).map(([key,label])=>input(key,label,localTime(schedule[key]),'datetime-local','required')).join('')}</div>${check('customMilestones','Keep my custom artwork, installation and review deadlines',!!existing)}</details>${live.config.sandbox?act('quick-dates','Use quick test dates')+' '+act('relaxed-dates','Use relaxed test dates'):development()?act('mainnet-test-dates','Use 35-minute test dates'):''}`)}</div>`+
  card('Your prices',`<p>${isTeamTest(a)?'Use a nominal USDC price for this team test. Physical printing and installation are excluded.':'Include printing and installation in the price for the full campaign period.'}</p>${selected.map(p=>{const spot=a.spots.find(x=>x.id===p.id);return `<div class="grid three"><strong>${esc(spot?.name??p.id)}</strong>${input('price:'+p.id,'All-in price · USDC',(Number(p.priceCents)/100).toFixed(2),'number','min="0.01" step="0.01" required')}${select('rule:'+p.id,'Takeover rule',[['inherit','Use campaign setting'],['on','Allow takeovers'],['off','Fixed booking']],p.takeoverEnabled===undefined?'inherit':p.takeoverEnabled?'on':'off')}</div>`;}).join('')}`)+
  card('Advertising rules',textArea('rules','What advertising can this space accept?',existing?.rules??(isTeamTest(a)?'Team-run mainnet test with real USDC and an AI-generated reference vehicle. Artwork and delivery evidence are synthetic. No physical advertising will be delivered. Refunds and payouts follow the published on-chain rules.':'No misleading or unsafe advertising. Keep windows, lights, number plates and sensors clear. Printing and installation are included. Artwork is reviewed before production.'),'required maxlength="3000"'))+
- (arbiter||development()?submit('Save sale draft'):'<button type="submit" class="button primary" disabled>Listing setup unavailable</button>'));
+ (arbiter||development()?submit('Save campaign draft'):'<button type="submit" class="button primary" disabled>Listing setup unavailable</button>'));
 }
 
 export function ownerView(r){
@@ -62,22 +63,13 @@ export function ownerView(r){
  if(live.session.wallet===live.config?.defaultArbiter)return heading('CAMPAIGN REVIEW ACCOUNT','Use a separate listing wallet.','This account reviews campaign issues. Connect another wallet to publish your own advertising spaces.',link('/settings/wallets?next='+encodeURIComponent(location.pathname),'Choose a listing wallet','button primary'));
  if(live.session.wallet.startsWith('0x')&&live.config?.publicationMode!=='hub')return heading('LIST YOUR SPACE','Connect your listing wallet.','Owners currently use a NEAR wallet to approve listings and manage delivery.',link('/settings/wallets?next='+encodeURIComponent(location.pathname),'Connect owner wallet','button primary'));
  const totals=ownerTotals(snapshots(),live.session.wallet);
- if(r.id==='O01')return heading('OWNER WORKSPACE','Your owner workspace.','Manage your vehicle listings and campaign earnings.',link('/host/assets/new','List a space','button primary'))+
- `<div class="stats">${[['Your spaces',d.assets.length],['Booked campaigns',totals.booked],['Available earnings',usdc(totals.available)]].map(([label,value])=>`<div class="stat"><span>${label}</span><strong>${value}</strong></div>`).join('')}</div>`+unavailableUpdates()+
- (d.sales.length?card('Keep things moving',salesTable(d.sales)):empty('Your first listing starts here.','Describe a car, bike, van or another advertising surface. You can adjust every panel before publishing.',link('/host/assets/new','Add your first space','button primary')))+
- (d.incomingBookings.length?card('Recent bookings',bookingTable(d.incomingBookings,{owner:true})):'');
- if(r.id==='O02')return heading('YOUR SPACES','Your advertising inventory.','Reuse the same space for different campaign periods.',link('/host/assets/new','Add a space','button primary'))+
- (d.assets.length?`<div class="asset-grid">${d.assets.map(a=>card(esc(a.title),scene(a)+`<p>${esc(a.city)} · ${a.spots.length} advertising ${a.spots.length===1?'surface':'surfaces'}</p><div class="actions">${link('/host/assets/'+a.id,'Edit space','button primary')}${link('/host/sales/new?asset='+a.id,'Create campaign','button')}</div>`)).join('')}</div>`:empty('What space could you offer?','Add a photo or describe your vehicle to start shaping its advertising surfaces.',link('/host/assets/new','Add a space','button primary')));
+ if(r.id==='O01')return ownerDashboard({nextAction:stageAction,earnings});
  if(r.id==='O03')return startVehicleView();
  if(['O06','O07','O08'].includes(r.id)){const a=rawAsset(r.params.id);return a&&own(a)?assetEditor(live.assetEdit?.id===a.id?live.assetEdit:a):unavailable('This space is not in your workspace.');}
- if(['O09','O17'].includes(r.id))return heading('YOUR CAMPAIGNS',r.id==='O17'?'Your campaign calendar.':'Your campaigns.','Published dates reserve your surfaces for the agreed campaign period.',link('/host/sales/new','Create campaign','button primary'))+card('Campaigns',salesTable(d.sales));
  if(r.id==='O10')return saleEditor();
  if(r.id==='O11'){const s=sale(r.params.id);if(s?.owner!==live.session.wallet)return unavailable();return s.status==='draft'?saleEditor(s):heading('PUBLISHED CAMPAIGN','Your campaign terms are confirmed.','Create a new campaign period to offer different dates or prices.',link('/host/sales/new?asset='+s.assetId,'Create another campaign','button primary'));}
  if(r.id==='O12')return saleWorkspace(sale(r.params.id),d);
  if(['O14','O15','O16'].includes(r.id))return fulfillment(r);
- if(r.id==='O13')return heading('YOUR BOOKINGS','Your advertiser bookings.','Each booking remains linked to the advertiser who paid for it.')+card('Bookings',bookingTable(d.incomingBookings,{owner:true}));
- if(r.id==='O18')return heading('YOUR PERFORMANCE','Your campaign performance.','Campaign earnings and bookings come from confirmed records.')+`<div class="stats">${[['Completed campaigns',totals.completed],['Earned to date',usdc(totals.earned)],['Upcoming earnings',usdc(totals.held)]].map(([label,value])=>`<div class="stat"><span>${label}</span><strong>${value}</strong></div>`).join('')}</div>`+notice('Exposure reporting is coming later.','Distance, views and impressions are not currently measured.')+card('Campaign activity',salesTable(d.sales));
- if(['O19','O20'].includes(r.id))return earnings();
  return null;
 }
 
@@ -118,12 +110,12 @@ export function artifactFields(media,placeholder='Describe this public artifact.
  `<details><summary>Use an existing public link</summary>${input('artifactUri','Verified IPFS link','','text','placeholder="ipfs://baf…"')}</details>`+
  check('public','I agree to make this evidence publicly available.');
 }
-function salesTable(values){return values.length?table(['Campaign','Status','Bookings close','Campaign period',''],values.map(s=>{const stages=s.spots.filter(p=>p.contractId).map(p=>ownerCampaignStage(snapshot(p.contractId),now()).title),status=s.status==='draft'?'Draft':stages[0]??'Updating';return [esc(s.title),badge(status),esc(dateTime(s.schedule.biddingClose)),esc(dateTime(s.schedule.serviceStart))+' – '+esc(dateTime(s.schedule.serviceEnd)),link('/host/sales/'+s.id,'Open campaign','button small')];})):empty('No campaigns yet.','Choose a space and offer your first advertising period.',link('/host/sales/new','Create campaign','button primary'));}
-export function earnings(){
+export function earnings({embedded=false}={}){
  const values=snapshots().filter(s=>s.state.seller_id===live.session.wallet),totals=ownerTotals(values,live.session.wallet);
- return heading('YOUR EARNINGS','Your campaign earnings.','Campaign earnings become available after service, issue review and confirmed settlement.',BigInt(totals.available)>0n?act('owner-payout','Collect & withdraw earnings','','button primary'):link('/buy/money','Withdraw funds','button primary'))+
+ const payout=BigInt(totals.available)>0n?act('owner-payout','Collect & withdraw earnings','','button primary'):link('/profile/balance','Withdraw funds','button');
+ return (embedded?`<p>Available after service, issue review and settlement.</p><div class="actions">${payout}</div>`:heading('','Your campaign earnings.','Campaign earnings become available after service, issue review and confirmed settlement.',payout))+
  `<div class="stats">${[['Available to claim',usdc(totals.available)],['Upcoming earnings',usdc(totals.held)],['Earned to date',usdc(totals.earned)]].map(([label,value])=>`<div class="stat"><span>${label}</span><strong>${value}</strong></div>`).join('')}</div>`+unavailableUpdates()+
- (values.length?card('Campaign earnings',table(['Campaign','Status','Available','Upcoming',''],values.map(s=>{const c=s.credits?.[live.session.wallet],available=BigInt(c?.available??'0'),stage=ownerCampaignStage(s,now());return [esc(sale(s.campaign.terms.sale_id)?.title??'Campaign'),badge(stage.title),usdc(c?.available),s.state.outcome==='open'?usdc(s.state.potential_seller_revenue):usdc('0'),available>0n?act('claim','Claim earnings',`data-contract="${s.accountId}"`,'button small'):s.state.outcome==='success'?'Paid to your balance':s.state.outcome==='failure'?'Campaign cancelled':'Available after settlement'];}))) :empty('Your earnings will appear here.','Publish your first campaign to start accepting bookings.',link('/host/assets','View your spaces','button primary')))+
- card('Withdraw your available funds',`<p>Claimed earnings move to your account balance. Withdraw them to your connected wallet from Money & credits.</p>${link('/buy/money','Open Money & credits','button primary')}`)+
+ (values.length?card('Campaign earnings',table(['Campaign','Status','Available','Upcoming',''],values.map(s=>{const c=s.credits?.[live.session.wallet],available=BigInt(c?.available??'0'),stage=ownerCampaignStage(s,now());return [esc(sale(s.campaign.terms.sale_id)?.title??'Campaign'),badge(stage.title),usdc(c?.available),s.state.outcome==='open'?usdc(s.state.potential_seller_revenue):usdc('0'),available>0n?act('claim','Claim earnings',`data-contract="${s.accountId}"`,'button small'):s.state.outcome==='success'?'Paid to your balance':s.state.outcome==='failure'?'Campaign cancelled':'Available after settlement'];}))) :empty('Your earnings will appear here.','Publish your first campaign to start accepting bookings.',link('/host#vehicles','View your spaces','button primary')))+
+ card('Withdraw your available funds',`<p>Claimed earnings move to your account balance. Withdraw them to your connected wallet from your profile balance.</p>${link('/profile/balance','Balance & refunds','button primary')}`)+
  `<details><summary>Payment history</summary>${live.data.operations.filter(o=>o.id.startsWith('wallet-claim-')).map(o=>`<p>${badge(o.phase==='confirmed'?'Paid':o.phase==='failed'?'Needs attention':'Processing')} <code>${esc(o.transaction_hash??o.id)}</code></p>`).join('')||'<p>No payout requests yet.</p>'}</details>`;
 }

@@ -33,7 +33,7 @@ async function setup(options={}){
  const context=await browser.newContext({viewport:{width:390,height:844},...options}),page=await context.newPage();
  page.on('pageerror',e=>errors.push(e.message));
  await context.route('**/*',async route=>{
-  const r=route.request(),url=new URL(r.url());
+  const r=route.request(),url=new URL(r.url()),accountWorkspace=options.workspace??workspace;
   if(url.origin!==origin){await route.abort();throw Error('Unexpected external request');}
   if(r.method()!=='GET'){writes.push(r.url());await route.abort();return;}
   if(url.pathname==='/wallets.js'){await options.walletGate?.promise;return route.fulfill({contentType:'text/javascript',body:walletSource});}
@@ -43,8 +43,8 @@ async function setup(options={}){
   if(url.pathname==='/api/auth/session'){await options.sessionGate?.promise;return route.fulfill({status:options.signedIn?200:401,json:options.signedIn?{wallet:'owner.near',expiresAt:new Date(now+3600000).toISOString()}:{error:{message:'Signed out'}}});}
   if(url.pathname==='/api/catalog'){await options.catalogGate?.promise;return route.fulfill({status:options.failCatalog?503:200,json:options.failCatalog?{error:{message:'Availability check is temporarily unavailable.'}}:catalog});}
   if(url.pathname==='/api/workspace'){
-   if(url.searchParams.get('local')==='1'&&options.localWorkspace)return route.fulfill({json:{...workspace,snapshots:[],chainPending:true}});
-   await options.workspaceGate?.promise;return route.fulfill({status:options.localWorkspace?200:503,json:options.localWorkspace?workspace:{error:{message:'Workspace temporarily unavailable.'}}});
+   if(url.searchParams.get('local')==='1'&&options.localWorkspace)return route.fulfill({json:{...accountWorkspace,snapshots:[],chainPending:true}});
+   await options.workspaceGate?.promise;return route.fulfill({status:options.localWorkspace?200:503,json:options.localWorkspace?accountWorkspace:{error:{message:'Workspace temporarily unavailable.'}}});
   }
   if(url.pathname==='/api/wallet/balances'){await options.balanceGate?.promise;return route.fulfill({json:{wallet:'owner.near',intentsUsdc:'10000',nearUsdc:'10000',near:'1000000000000000000000000',tokenStorageRegistered:true}});}
   throw Error('Unexpected fixture API '+url.pathname);
@@ -133,17 +133,60 @@ try{
   const workspaceGate=deferred(),balanceGate=deferred(),test=await setup({signedIn:true,localWorkspace:true,workspaceGate,balanceGate,viewport:{width:1440,height:1000}});
   await test.page.goto(origin+'/settings/wallets');await test.page.locator('[data-live-action="disconnect"]').waitFor();
   assert.match(await test.page.locator('#main').innerText(),/Available balance: Checking/);
-  await test.page.locator('.sidebar a[href="/settings/profile"]').click();
+  await test.page.locator('.site-header a[href="/profile"]').click();
+  await test.page.locator('#details summary').click();
   await test.page.locator('[name="displayName"]').fill('Keep this unsaved edit');
   workspaceGate.resolve();await test.page.evaluate(()=>window.dispatchEvent(new Event('app:walletproviders')));
   assert.equal(await test.page.locator('[name="displayName"]').inputValue(),'Keep this unsaved edit');
-  await test.page.locator('.sidebar a[href="/buy/money"]').click();
+  await test.page.locator('a[href="/profile/balance"]').click();
   assert.match(await test.page.locator('#main').innerText(),/Checking your live campaign status/);
   assert.equal(await test.page.locator('form[data-live-form="withdraw-native"]').count(),0);
   balanceGate.resolve();await test.page.locator('form[data-live-form="withdraw-native"]').waitFor();
   assert.match(await test.page.locator('#main').innerText(),/0\.01 USDC/);
   report.push('Account controls and draft editing work before live checks; delayed balances cannot appear as spendable zero or erase edits');await test.context.close();
  }
+ for(const width of [320,390,768,1440]){
+  const test=await setup({signedIn:true,localWorkspace:true,viewport:{width,height:1000}});
+  await test.page.goto(origin+'/host');await test.page.locator('#first-campaign-title').waitFor();
+  assert.equal(await test.page.locator('.sidebar,.workspace-switch,.mobile-workspace-nav').count(),0);
+  assert.equal(await test.page.locator('.site-nav a').count(),3);
+  assert.match(await test.page.locator('#main').innerText(),/Create your\s*first campaign/);
+  assert.doesNotMatch(await test.page.locator('#main').innerText(),/Your earnings|Recent bookings|0 USDC|Calendar|Performance/);
+  assert.equal(await test.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  if(process.env.ACCOUNT_SCREENSHOT_DIR){await mkdir(process.env.ACCOUNT_SCREENSHOT_DIR,{recursive:true});await test.page.screenshot({path:resolve(process.env.ACCOUNT_SCREENSHOT_DIR,'first-campaign-'+width+'.png'),fullPage:true});}
+  await test.page.goto(origin+'/profile');await test.page.locator('#orders').waitFor();
+  assert.equal(await test.page.locator('h1').count(),1);
+  assert.match(await test.page.locator('#main').innerText(),/Your first booking starts in the marketplace/);
+  assert.equal(await test.page.locator('.site-nav a[aria-current=page]').innerText(),'Profile');
+  assert.equal(await test.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await test.page.locator('#details summary').click();await test.page.locator('[name=displayName]').fill('New account name');
+  if(process.env.ACCOUNT_SCREENSHOT_DIR)await test.page.screenshot({path:resolve(process.env.ACCOUNT_SCREENSHOT_DIR,'profile-'+width+'.png'),fullPage:true});
+  await test.page.goto(origin+'/settings/profile');await test.page.locator('#details[open]').waitFor();
+  assert.equal(new URL(test.page.url()).pathname,'/profile');assert.equal(new URL(test.page.url()).hash,'#details');
+  await test.page.goto(origin+'/buy/money?next=%2Fcheckout%2Fsale');await test.page.locator('form[data-live-form=withdraw-native]').waitFor();
+  assert.equal(new URL(test.page.url()).pathname,'/profile/balance');assert.equal(new URL(test.page.url()).search,'?next=%2Fcheckout%2Fsale');
+  await test.context.close();
+ }
+ report.push('First-time dashboard, profile and legacy account links work without sidebars at 320, 390, 768 and 1440 pixels');
+ for(const width of [390,1440]){
+  const a={...asset,owner:'owner.near',photoUrl:'/images/van-side.webp'},s={...sale,spots:[{id:'side',contractId:'offer',priceCents:'1',takeoverEnabled:true},{id:'rear',contractId:'rear',priceCents:'1',takeoverEnabled:false}],publication:{manifest:{asset:a}}};
+  const terms={sale_id:s.id,artwork_due_ns:ns(now+600000),service_end_ns:ns(now+1800000)};
+  const snapshots=['offer','rear'].map((accountId,i)=>({accountId,mode:'hub',state:{outcome:'open',seller_id:'owner.near',holder:{account_id:'buyer.near'},cutoff_ns:ns(now-60000),refund_end_ns:ns(now+2400000),next_price:'20000',potential_seller_revenue:'10000',artwork_locked:i===1,nft_minted:true},rights:{active:true,bidding_closed:true,current_owner_id:'owner.near',proposal:i===0?{revision:'1'}:null},campaign:{terms,delivery_proof:null,open_issues:0},credits:{}}));
+  const values={...workspace,sales:[s],snapshots,placements:snapshots,saved:[{saleId:s.id,saved:true}],dashboard:{...workspace.dashboard,assets:[a],sales:[s],bookings:[{id:'prior-booking',saleId:s.id,contractId:'offer',owner:'owner.near',accepted:true,amount:'10000',status:'outbid'}]}};
+  const test=await setup({signedIn:true,localWorkspace:true,workspace:values,viewport:{width,height:1000}});
+  await test.page.goto(origin+'/host');await test.page.locator('.dashboard-attention').first().waitFor();
+  assert.equal(await test.page.locator('.dashboard-campaign').count(),1);assert.match(await test.page.locator('#main').innerText(),/Review artwork/);assert.match(await test.page.locator('#main').innerText(),/Add installation evidence/);
+  await test.page.locator('#earnings > summary').click();assert.equal(await test.page.locator('h1').count(),1);
+  assert.equal(await test.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  if(process.env.ACCOUNT_SCREENSHOT_DIR)await test.page.screenshot({path:resolve(process.env.ACCOUNT_SCREENSHOT_DIR,'owner-active-'+width+'.png'),fullPage:true});
+  await test.page.locator((width<800?'.mobile-nav-links':'.site-nav')+' a[href="/profile"]').click();await test.page.locator('#rights').waitFor();
+  assert.match(await test.page.locator('#orders').innerText(),/Taken Over/);assert.match(await test.page.locator('#saved').innerText(),/City van/);
+  await test.page.locator('#brand > summary').click();assert.equal(await test.page.locator('h1').count(),1);assert.equal(await test.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  if(process.env.ACCOUNT_SCREENSHOT_DIR)await test.page.screenshot({path:resolve(process.env.ACCOUNT_SCREENSHOT_DIR,'profile-active-'+width+'.png'),fullPage:true});
+  await test.context.close();
+ }
+ report.push('Active owner dashboard retains two independent placement actions and earnings, while profile shows bookings, NFTs and saved spaces at phone and desktop widths');
+
  const noJs=await browser.newContext({javaScriptEnabled:false,viewport:{width:320,height:640}}),fallback=await noJs.newPage();await fallback.goto(origin);
  assert.equal(await fallback.locator('#startup').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(26, 26, 26)');
  assert.match(await fallback.locator('noscript').innerText(),/Enable JavaScript/);

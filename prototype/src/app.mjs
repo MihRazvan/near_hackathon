@@ -11,37 +11,23 @@ import { handleRecordAction } from './integration/record.mjs';
 import { wordmark, outwardArrow } from './brand.mjs';
 import { live, currentPerson, initializeConnected, renderConnected, topbar, handleAction, handleForm, legacyAction, mountConnected } from './integration/index.mjs';
 import { run } from './integration/runtime.mjs';
-import { state, person, navigate, toast } from './store.mjs';
-import { matchRoute } from './routes.mjs';
-import { icon, esc, short, link, closeModal } from './ui.mjs';
+import { state, navigate } from './store.mjs';
+import { matchRoute, canonicalDestination } from './routes.mjs';
+import { siteHeader, accountContext, accountArea } from './shell.mjs';
+import './marketplace-account.css';
+import { closeModal } from './ui.mjs';
 
 const app = document.querySelector('#app');
-let currentRoute, toastTimer, startupFailed=false;
-const navs = {
-  buyer: [['/buy','Overview','grid'],['/buy/campaigns','Campaigns','file'],['/buy/saved','Saved spaces','heart'],['/settings/workspace?tab=brand','Brand assets','upload'],['/buy/money','Money & credits','wallet']],
-  owner: [['/host','Overview','grid'],['/host/assets','My spaces','car'],['/host/sales','Campaigns','file'],['/host/bookings','Bookings','shield'],['/host/calendar','Calendar','calendar'],['/host/analytics','Performance','chart'],['/host/earnings','Earnings','wallet']],
-  ops: [['/ops','Review queue','grid'],['/ops/audit','Campaign history','clock']],
-};
-function active(path) {
-  const base = path.split('?')[0];
-  return location.pathname === base || (!['/buy','/host','/ops'].includes(base) && location.pathname.startsWith(base + '/'));
-}
-function navLink([url,title,i]) {
-  return `<a href="${esc(url)}" class="${active(url)?'active':''}" ${active(url)?'aria-current="page"':''}>${icon(i)}${esc(title)}</a>`;
-}
+let currentRoute, toastTimer, startupFailed=false,renderedViewKey=null;
 function publicShell(body) {
-  const p=person(),account=live.session?link('/'+(live.data?.profile?.defaultWorkspace==='owner'?'host':'buy'),esc(p.name)+' ↗','text-link public-account-link'):link('/sign-in','Sign in','text-link');
-  return `${topbar()}<header class="site-header"><a class="brand" href="/">${wordmark}</a><nav class="site-nav" aria-label="Main navigation"><a href="/explore">Find a space</a><a href="/experience">Try a takeover</a><a href="/host">For space owners</a></nav><div class="header-end">${link('/host/assets/new',`List a space ${icon('plus')}`,'button small')}${account}</div></header><nav class="mobile-nav-links" aria-label="Mobile navigation"><a href="/explore">Explore</a><a href="/experience">Try a takeover</a><a href="/host">List space</a></nav><main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Book space on a vehicle.</span><span>Built on NEAR</span></div></footer>`;
+  return `${topbar()}${siteHeader({session:live.session,area:accountArea(currentRoute??{scope:'public'}),publicPage:location.pathname==='/'})}<main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/experience">Try a takeover</a><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Book space on a vehicle.</span><span>Built on NEAR</span></div></footer>`;
 }
-function workspaceShell(body, scope) {
-  const role=scope==='owner'?'owner':scope==='ops'?'ops':scope==='shared'&&live.data?.profile?.defaultWorkspace==='owner'?'owner':'buyer';
-  const nav=navs[role],p=person(),name=p.name||'Your account',initials=name.split(' ').map(x=>x[0]).slice(0,2).join('');
-  const accountNav=[['/inbox','Inbox','mail'],['/notifications','Notifications','bell'],['/settings/profile','Settings','settings']];
-  if((live.data?.arbiterSales?.length||live.data?.supportAdmin)&&role!=='ops')accountNav.push(['/ops','Campaign review','shield']);
-  const label=role==='owner'?'Owner':role==='ops'?'Campaign review':'Buyer';
-  return `${topbar()}<div class="workspace"><aside class="sidebar"><a class="brand" href="/">${wordmark}</a><div class="workspace-switch"><a href="/buy" class="${role==='buyer'?'active':''}">Buy space</a><a href="/host" class="${role==='owner'?'active':''}">List space</a></div><div><div class="nav-section-label">${role==='ops'?'CAMPAIGN OPERATIONS':label.toUpperCase()+' WORKSPACE'}</div><nav aria-label="${label} navigation">${nav.map(navLink).join('')}</nav></div><div><div class="nav-section-label">YOUR ACCOUNT</div><nav aria-label="Account navigation">${accountNav.map(navLink).join('')}</nav></div><div class="sidebar-bottom"><nav><a href="/explore">${icon('arrow')}Explore marketplace</a><a href="/help">${icon('file')}Help & support</a></nav><div class="sidebar-person"><span class="avatar">${esc(initials)}</span><div><strong>${esc(name)}</strong><small>${esc(p.brand||'Your workspace')}</small></div></div></div></aside><div class="workspace-main"><header class="workspace-topbar"><div class="workspace-breadcrumb"><a href="${role==='owner'?'/host':role==='ops'?'/ops':'/buy'}">${label}</a><span>/</span><strong>${esc(currentRoute.title)}</strong></div><div class="actions"><a class="wallet-label" href="/settings/wallets">${icon('wallet')}${esc(short(p.wallet)||'Connect wallet')}</a>${link('/notifications',icon('bell')+'<span class="sr-only">Notifications</span>','icon-button')}${link('/settings/profile','<span class="avatar">'+esc(initials)+'</span><span class="sr-only">Your profile</span>','')}</div></header><nav class="mobile-workspace-nav" aria-label="Workspace navigation">${[...nav,['/buy','Buy','grid'],['/host','List','car'],['/settings/wallets','Wallet','wallet']].map(navLink).join('')}</nav><main class="workspace-content" id="main">${body}</main></div></div>`;
+function workspaceShell(body) {
+  return `${topbar()}${siteHeader({session:live.session,area:accountArea(currentRoute)})}<div class="workspace marketplace-workspace"><div class="workspace-main">${accountContext(currentRoute)}<main class="workspace-content" id="main">${body}</main></div></div>`;
 }
 function render() {
+  const canonical=canonicalDestination(location.pathname+location.search+location.hash);
+  if(canonical!==location.pathname+location.search+location.hash)history.replaceState(null,'',canonical);
   currentRoute=location.pathname==='/_testing'&&live.config&&!live.config.production?{id:'T01',title:'Local testing',scope:'shared',params:{}}:matchRoute(location.pathname);
   state.connectedPerson=currentPerson();
   // Render public content as soon as configuration is available. Private views
@@ -66,7 +52,12 @@ function render() {
   document.body.dataset.scope=currentRoute.scope;
   document.title=`${currentRoute.title} · Everywhere`;
   // Public and authentication pages remain useful without a signed-in account.
+  const viewKey=location.pathname+location.search+location.hash+'|'+(live.session?.wallet??'');
+  const disclosures=renderedViewKey===viewKey?[...app.querySelectorAll('details[id]')].map(el=>[el.id,el.open]):[];
   app.innerHTML=['public','account','global'].includes(currentRoute.scope)||currentRoute.id==='O05'||!live.session?publicShell(body):workspaceShell(body,currentRoute.scope);
+  for(const [id,open]of disclosures){const detail=document.getElementById(id);if(detail?.tagName==='DETAILS')detail.open=open;}
+  if(renderedViewKey!==viewKey&&location.hash){try{const detail=document.getElementById(decodeURIComponent(location.hash.slice(1)));if(detail?.tagName==='DETAILS')detail.open=true;}catch{}}
+  renderedViewKey=viewKey;
   mountConnected(currentRoute);
 }
 document.addEventListener('click',async event=>{
@@ -111,10 +102,17 @@ function renderUpdate(){
   render();
 }
 window.addEventListener('app:changed',renderUpdate);
-window.addEventListener('app:navigate',()=>{closeModal();render();window.scrollTo(0,0);document.querySelector('h1')?.focus({preventScroll:true});});
+function focusDestination(){
+  let target;try{target=location.hash&&document.getElementById(decodeURIComponent(location.hash.slice(1)));}catch{}
+  if(target){if(target.tagName==='DETAILS')target.open=true;target.scrollIntoView();}
+  else window.scrollTo(0,0);
+  document.querySelector('h1')?.focus({preventScroll:true});
+}
+window.addEventListener('app:navigate',()=>{closeModal();render();focusDestination();});
 window.addEventListener('app:toast',event=>{
   const t=document.querySelector('#toast');t.textContent=event.detail;t.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('visible'),5000);
 });
 render();
 try{await initializeConnected();if(!live.catalog||live.session&&!live.data&&!live.busy)throw new Error('Marketplace could not be loaded');}catch(error){live.error=error.message;startupFailed=true;}
 renderUpdate();
+if(location.hash&&!document.activeElement?.matches('input,textarea,select'))focusDestination();

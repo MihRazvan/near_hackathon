@@ -30,7 +30,7 @@ test('connect and disconnect complete while public, balance and previous-account
   throw Error('Unexpected request '+path);
  };
  const original=refresh({render:false});await promptly(connect('evm','injected'));
- assert.equal(live.session.wallet,wallet);assert.equal(live.data.wallet,wallet);assert.equal(live.data.chainPending,true);assert.equal(location.pathname,'/buy');
+ assert.equal(live.session.wallet,wallet);assert.equal(live.data.wallet,wallet);assert.equal(live.data.chainPending,true);assert.equal(location.pathname,'/profile');
  assert(calls.includes('/api/workspace'));assert(calls.includes('/api/wallet/balances'));
  publicGate.resolve({sales:[],snapshots:[],owners:[]});await original;
  assert.equal(live.data.wallet,wallet,'anonymous response must not overwrite the authenticated workspace');

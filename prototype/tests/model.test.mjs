@@ -7,7 +7,7 @@ import { vehicle } from '../src/ui.mjs';
 test('static create destinations precede dynamic records and real record IDs remain intact', () => {
   assert.equal(matchRoute('/host/assets/new').id, 'O03');
   assert.equal(matchRoute('/host/sales/new').id, 'O10');
-  assert.equal(matchRoute('/buy/campaigns/new').id, 'B03');
+  assert.equal(matchRoute('/buy/campaigns/new').id, 'P02');
   assert.equal(matchRoute('/owners/alice.near').params.slug, 'alice.near');
   assert.equal(matchRoute('/host/sales/3bfb8cae-5e62-4ad2-86d4-46a90940b1e0').params.id, '3bfb8cae-5e62-4ad2-86d4-46a90940b1e0');
   assert.equal(new Set(routes.map(r => r.id)).size, routes.length);

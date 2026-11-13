@@ -1,3 +1,4 @@
+import { canonicalDestination } from './routes.mjs';
 // UI state is session-only. Account data and saved drafts come from the server.
 export const state = { connectedPerson: null };
 export const person = () => state.connectedPerson ?? {
@@ -8,7 +9,7 @@ export function navigate(path) {
   if (url.origin !== location.origin || !/^https?:$/.test(url.protocol)) {
     throw new Error('Choose a page on this website.');
   }
-  window.history.pushState({}, '', url.pathname + url.search + url.hash);
+  window.history.pushState({}, '', canonicalDestination(url.pathname + url.search + url.hash));
   window.dispatchEvent(new Event('app:navigate'));
 }
 export const toast = text => window.dispatchEvent(new window.CustomEvent('app:toast', { detail: text }));

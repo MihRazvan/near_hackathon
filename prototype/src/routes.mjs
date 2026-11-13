@@ -14,54 +14,38 @@ export const routes = [
   ...group("account", [
     ["A01","/sign-in","Wallet sign-in"],
     ["A02","/welcome","Create your profile"],
-    ["A03","/account/recovery","Account recovery"],
+    ["A03","/account/recovery","Payment help"],
   ]),
   ...group("buyer", [
-    ["B01","/buy","Buyer overview"],
-    ["B02","/buy/campaigns","Campaigns"],
-    ["B03","/buy/campaigns/new","New campaign"],
-    ["B04","/buy/campaigns/:id","Campaign workspace"],
-    ["B05","/buy/saved","Saved spaces"],
+    ["B01","/profile","Your profile"],
+    ["B04","/profile/campaigns/:id","Campaign bookings"],
     ["B06","/checkout/:intentId","Checkout"],
     ["B07","/payments/:id","Payment progress"],
-    ["B08","/buy/placements/:id","Placement workspace"],
-    ["B09","/buy/placements/:id/artwork","Creative editor"],
-    ["B10","/buy/campaigns/:id/report","Campaign report"],
-    ["B11","/buy/money","Money & credits"],
-    ["B12","/buy/withdrawals/:id","Credit withdrawal"],
+    ["B08","/profile/placements/:id","Placement details"],
+    ["B09","/profile/placements/:id/artwork","Creative editor"],
+    ["B10","/profile/campaigns/:id/report","Campaign report"],
+    ["B11","/profile/balance","Balance & refunds"],
+    ["B12","/profile/withdrawals/:id","Credit withdrawal"],
     ["B13","/receipts/:id","Receipt"],
   ]),
   ...group("owner", [
-    ["O01","/host","Owner overview"],
-    ["O02","/host/assets","My assets"],
-    ["O03","/host/assets/new","Create asset"],
+    ["O01","/host","Dashboard"],
+    ["O03","/host/assets/new","Add your vehicle"],
     ["O04","/host/capture/:session","Desktop capture handoff"],
     ["O05","/capture/:session","Phone capture"],
-    ["O06","/host/assets/:id/review","Review generated asset"],
-    ["O07","/host/assets/:id","Asset workspace"],
-    ["O08","/host/assets/:id/spots","Surface editor"],
-    ["O09","/host/sales","Sales"],
-    ["O10","/host/sales/new","Create sale"],
-    ["O11","/host/sales/:id/edit","Edit sale"],
-    ["O12","/host/sales/:id","Sale workspace"],
-    ["O13","/host/bookings","Owner bookings"],
-    ["O14","/host/bookings/:id","Owner booking"],
+    ["O06","/host/assets/:id/review","Review your panels"],
+    ["O07","/host/assets/:id","Edit vehicle"],
+    ["O08","/host/assets/:id/spots","Edit panels"],
+    ["O10","/host/sales/new","Campaign details"],
+    ["O11","/host/sales/:id/edit","Edit campaign"],
+    ["O12","/host/sales/:id","Manage campaign"],
+    ["O14","/host/bookings/:id","Advertiser booking"],
     ["O15","/host/bookings/:id/artwork","Artwork review"],
     ["O16","/host/sales/:id/fulfillment","Production & installation"],
-    ["O17","/host/calendar","Availability calendar"],
-    ["O18","/host/analytics","Owner analytics"],
-    ["O19","/host/earnings","Earnings"],
-    ["O20","/host/payouts/:id","Payout"],
   ]),
   ...group("shared", [
-    ["S01","/inbox","Inbox"],
     ["S02","/inbox/:threadId","Conversation"],
-    ["S03","/notifications","Notifications"],
-    ["S04","/settings/profile","Profile"],
-    ["S05","/settings/workspace","Workspace & brand"],
     ["S06","/settings/wallets","Wallets"],
-    ["S07","/settings/notifications","Notification settings"],
-    ["S08","/settings/billing","Billing & documents"],
     ["S09","/support/new","Contact support"],
     ["S10","/support/cases/:id","Support case"],
   ]),
@@ -78,8 +62,35 @@ export const routes = [
     ["G03","/_maintenance","Temporarily unavailable"],
   ]),
 ];
+const mergedPages = new Map([
+ ['/profile/campaigns', ['/profile', 'orders']],
+ ['/profile/campaigns/new', ['/explore', '']],
+ ['/profile/saved', ['/profile', 'saved']],
+ ['/profile/money', ['/profile/balance', '']],
+ ['/host/assets', ['/host', 'vehicles']],
+ ['/host/sales', ['/host', 'campaigns']],
+ ['/host/bookings', ['/host', 'campaigns']],
+ ['/host/calendar', ['/host', 'campaigns']],
+ ['/host/analytics', ['/host', 'earnings']],
+ ['/host/earnings', ['/host', 'earnings']],
+ ['/settings/profile', ['/profile', 'details']],
+ ['/settings/workspace', ['/profile', 'brand']],
+ ['/settings/notifications', ['/profile', 'details']],
+ ['/settings/billing', ['/profile', 'orders']],
+ ['/notifications', ['/profile', '']],
+ ['/inbox', ['/profile', 'orders']],
+]);
+export function canonicalDestination(path) {
+ const url=new URL(path,'https://everywhere.invalid');
+ let pathname=url.pathname.replace(/\/$/,'')||'/';
+ if(pathname==='/buy'||pathname.startsWith('/buy/'))pathname='/profile'+pathname.slice(4);
+ const merged=mergedPages.get(pathname)??(/^\/host\/payouts\/[^/]+$/.test(pathname)?['/host','earnings']:null);
+ if(merged){pathname=merged[0];if(!url.hash&&merged[1])url.hash=merged[1];}
+ return pathname+url.search+url.hash;
+}
 const notFound=()=>({...routes.find(r=>r.id==='G01'),params:{}});
 export function matchRoute(path) {
+  path=new URL(canonicalDestination(path),'https://everywhere.invalid').pathname;
   for (const r of routes) {
     const names=[];
     const pattern=r.path.split('/').map(part=>part.startsWith(':')?(names.push(part.slice(1)),'([^/]+)'):part.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('/');

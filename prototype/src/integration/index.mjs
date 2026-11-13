@@ -51,7 +51,7 @@ export function renderConnected(r){
 function globalView(r){
  if(r.id==='G02')return empty('This page belongs to another account.','Connect an authorized wallet or return to your workspace.',link('/settings/wallets','Choose a wallet','button primary'));
  if(r.id==='G03')return empty('We could not load this page.','Your saved listings and payment records are retained. Try again in a moment.',act('reload-workspace','Try again','','button primary')+' '+link('/help','Get help'));
- return empty('This page could not be found.','The link may have changed. Find a space or return to your existing campaigns.',link('/explore','Explore spaces','button primary')+' '+link('/buy','Your campaigns'));
+ return empty('This page could not be found.','The link may have changed. Find a space or return to your existing campaigns.',link('/explore','Explore spaces','button primary')+' '+link('/profile','Your campaigns'));
 }
 export async function handleAction(target,event){
  const action=actions[target.dataset.liveAction];if(!action)throw new Error('This action is unavailable.');return action(target,event);

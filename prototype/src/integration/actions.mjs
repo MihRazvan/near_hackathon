@@ -93,10 +93,10 @@ export const actions={
     // Review the exact route cost before the Base wallet opens. Continue from the balance page.
     const next='/checkout/'+offer.id+'?spot='+spot.id+(data.get('campaignId')?'&campaign='+encodeURIComponent(data.get('campaignId')):'');
     sessionStorage.setItem('everywhere-checkout-draft',JSON.stringify({wallet,saleId:offer.id,spotId:spot.id,name:data.get('name'),budget:data.get('budget'),campaignId:data.get('campaignId')}));
-    navigate('/buy/money?next='+encodeURIComponent(next));toast('Your funding quote is ready. Approve the exact cost, then return to your booking.');return;
+    navigate('/profile/balance?next='+encodeURIComponent(next));toast('Your funding quote is ready. Approve the exact cost, then return to your booking.');return;
    }
    const needed=(BigInt(price)-available).toString();
-   if(BigInt(live.balances.nearUsdc??0)<BigInt(needed)){navigate('/buy/money?next='+encodeURIComponent(location.pathname+location.search));throw new Error('Add USDC to your connected wallet before booking.');}
+   if(BigInt(live.balances.nearUsdc??0)<BigInt(needed)){navigate('/profile/balance?next='+encodeURIComponent(location.pathname+location.search));throw new Error('Add USDC to your connected wallet before booking.');}
    await nativePlan(await api('token-actions',{kind:'deposit-intents',amount:needed}),'Add the USDC needed for this booking');
    if(!await poll(()=>BigInt(live.balances?.intentsUsdc??0)>=BigInt(price)))throw new Error('Your funding is still being confirmed. Return to this booking when your balance updates.');
   }
@@ -148,7 +148,7 @@ export const actions={
   if(!total)throw new Error('There are no new campaign earnings to withdraw.');
   for(const id of contracts)await claimCredit(id);
   if(live.session?.wallet!==wallet)throw new Error('Reconnect the original wallet to finish withdrawing.');
-  if(wallet.startsWith('0x')){navigate('/buy/money');if(total<150000n){toast('Your earnings are in your balance. You can withdraw to Base when the current routing minimum is met.');return;}live.exitQuote=await api('routes',{direction:'exit',amount:total.toString(),dry:false});rerender();toast('Your withdrawal quote is ready. Confirm delivery to your Base wallet.');return;}
+  if(wallet.startsWith('0x')){navigate('/profile/balance');if(total<150000n){toast('Your earnings are in your balance. You can withdraw to Base when the current routing minimum is met.');return;}live.exitQuote=await api('routes',{direction:'exit',amount:total.toString(),dry:false});rerender();toast('Your withdrawal quote is ready. Confirm delivery to your Base wallet.');return;}
   await ensureUsdcStorage();await nativePlan(await api('token-actions',{kind:'withdraw-native',amount:total.toString()}),'Withdraw your campaign earnings');await refreshBalances();toast('Your earnings withdrawal is recorded.');
  },
  'register-storage':async()=>{await nativePlan(await api('token-actions',{kind:'token-storage'}),'Register this wallet for native USDC');await refreshBalances();toast('Native USDC storage registration recorded.');},
@@ -191,7 +191,7 @@ export const forms={
  'connect-funded':data=>connect('funded',String(data.get('wallet'))),
  'connect-test':data=>connect('test',String(data.get('wallet'))),'connect-evm':data=>connect('evm',String(data.get('provider'))),
  search:data=>navigate('/explore?'+new URLSearchParams({city:data.get('city'),type:data.get('type')})),
- profile:async data=>{await api('profile',{displayName:String(data.get('displayName')),brand:String(data.get('brand')),city:String(data.get('city')),notifications:data.has('notifications'),defaultWorkspace:data.get('defaultWorkspace')},{method:'PATCH'});await refresh({local:true});toast('Profile saved to this wallet.');},
+ profile:async data=>{await api('profile',{displayName:String(data.get('displayName')),brand:String(data.get('brand')),city:String(data.get('city')),notifications:live.data?.profile?.notifications!==false,defaultWorkspace:live.data?.profile?.defaultWorkspace==='owner'?'owner':'buyer'},{method:'PATCH'});await refresh({local:true});toast('Profile saved to this wallet.');},
  'asset-create':async data=>{
   const photo=data.get('photo'),photoDataUrl=await photoData(photo)??live.capturePhoto;let draft;
   if(data.get('method')==='ai'){const r=await api('ai/draft',{prompt:String(data.get('title'))+'. '+String(data.get('description')),...(photoDataUrl?{imageDataUrl:photoDataUrl}:{})});draft=r.draft;}
@@ -210,9 +210,8 @@ export const forms={
   const payload={assetId:a.id,title:String(data.get('title')),arbiterId:String(data.get('arbiterId')),takeoverDefault:data.has('takeoverDefault'),rules:String(data.get('rules')),spots,
    schedule:campaignSchedule(Object.fromEntries(['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'].map(key=>[key,String(data.get(key))])),{custom:data.has('customMilestones')})};
   const result=existing?await api('sales/'+existing.id,{version:Number(data.get('version')),sale:payload},{method:'PATCH'}):await api('sales',payload);
-  await refresh({local:true,render:false});navigate('/host/sales/'+result.id);toast('Sale draft saved. Review & publish when ready.');
+  await refresh({local:true,render:false});navigate('/host/sales/'+result.id);toast('Campaign draft saved. Publish when ready.');
  },
- 'campaign-create':async data=>{const c=await api('campaigns',{name:String(data.get('name')),budgetMicroUsdc:amount(data.get('budget'))});await refresh({local:true,render:false});navigate('/buy/campaigns/'+c.id);},
  'prepare-booking':data=>prepareBooking(data),
  nomination:async data=>{const plan=await api('nomination',{contractId:String(data.get('contractId')),recipientId:String(data.get('recipientId'))});const r=await intentPlan(plan,'Nominate your final placement NFT recipient');
   for(let i=0;i<20;i++){await api('wallet-requests/'+r.id+'/reconcile',{});await refresh({contracts:[String(data.get('contractId'))],render:false});if(snapshot(data.get('contractId'))?.state.nominated_recipient===data.get('recipientId'))break;await new Promise(r=>setTimeout(r,300));}rerender();},
