@@ -3,7 +3,7 @@ import { icon } from "../ui.mjs";
 import { outwardArrow } from "../brand.mjs";
 import {entryHref} from './entry-context.mjs';
 import {recordedProof} from './recorded-proof.mjs';
-import { placementNft } from "./placement-nft.mjs";
+import {setupPreview} from "./setup-preview.mjs";
 
 // Both images are illustrative. Blank mode displays the untouched source photo.
 export function streetPreview() {
@@ -53,17 +53,17 @@ export function homeView({
   return `<section class="street-hero" aria-labelledby="home-title">
     <div class="hero-copy">
       <h1 id="home-title" tabindex="-1">advertise on<br>everything.</h1>
-      <p class="hero-description">Book advertising space on someone else's vehicle. Or turn yours into bookable spots with a photo or a prompt.</p>
+      <p class="hero-description">Book ad space on a vehicle. Have your own? Start with a photo or a prompt, then edit the spots AI suggests.</p>
       <div class="actions">${link("/explore", "Find ad space " + outwardArrow, "button primary")}${link(entryHref("/host/assets/new?mode=photo",session), "List my vehicle " + outwardArrow, "button signal")}</div>
       <p class="hero-entry">Start with a photo. Prefer words? ${link(entryHref("/host/assets/new?mode=describe",session),"Describe your vehicle","text-link")}</p>
       <p class="hero-footnote">Starting with vehicles. Going everywhere.</p>
-    </div>${streetPreview()}
+    </div>${setupPreview()}
   </section>
   <div class="street-assurances"><span>${icon("check")} Printing & installation included</span><span>${icon("calendar")} Clear dates. One campaign price.</span><span>${icon("shield")} Your placement NFT controls the artwork</span></div>
   <section class="market-section" aria-labelledby="market-title"><div class="section-top"><div><h2 id="market-title">Find your next spot.</h2><p>Choose a vehicle. Pick a panel. Make it yours.</p></div>${link("/explore", "Explore the marketplace " + outwardArrow, "editorial-link")}</div>
     ${inventory || `<div class="market-invitation"><div><h3>List the first space.</h3><p>Add your vehicle and choose which panels advertisers can book.</p></div>${link("/host/assets/new", "List your space " + outwardArrow, "button primary")}</div>`}
     ${!availableCount && publishedCount ? `<p class="inventory-note">Looking for a previous campaign? ${link("/explore?availability=all", "Browse past campaign records", "text-link")}</p>` : ""}
   </section>
-  <section class="owner-feature" aria-labelledby="owner-title"><div class="owner-photo">${streetPreview()}</div><div class="owner-copy"><h2 id="owner-title">your vehicle.<br>your next listing.</h2><p>A photo or a description becomes editable spots. You choose the outline, campaign dates, prices and takeover rules.</p><div class="actions">${link(entryHref('/host/assets/new?mode=photo',session),'Scan a vehicle '+outwardArrow,'button signal')}${link(entryHref('/host/assets/new?mode=describe',session),'Describe a vehicle','editorial-link')}</div><p class="owner-draft-note">Start with a private draft. Publish when you are ready.</p></div></section>
+  <section class="owner-feature" aria-labelledby="owner-title"><div class="owner-photo">${streetPreview()}</div><div class="owner-copy"><h2 id="owner-title">your vehicle.<br>your next listing.</h2><p>AI suggests editable spots from a photo or description. You choose the outline, campaign dates, prices and takeover rules.</p><div class="actions">${link(entryHref('/host/assets/new?mode=photo',session),'Scan a vehicle '+outwardArrow,'button signal')}${link(entryHref('/host/assets/new?mode=describe',session),'Describe a vehicle','editorial-link')}</div><p class="owner-draft-note">Start with a private draft. Publish when you are ready.</p></div></section>
   ${recordedProof()}`;
 }

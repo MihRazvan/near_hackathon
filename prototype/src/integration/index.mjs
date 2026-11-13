@@ -1,4 +1,5 @@
 import './style.css';
+import {mountSetupPreview} from './setup-preview.mjs';
 import {mountCreationHints} from './listing-progress.mjs';
 import {mountOffer} from './offer-setup.mjs';
 import {mountSpotWorkspace,unmountSpotWorkspace} from './spot-workspace.mjs';
@@ -65,7 +66,7 @@ export function legacyAction(target,r){
  toast('This action is unavailable. Refresh the page and try again.');
 }
 export function mountConnected(r){
- unmountSpotWorkspace();
+ unmountSpotWorkspace();mountSetupPreview();
  mountOnboarding(r);mountCapture(r);mountOffer();mountCreationHints();
  if(r.id==='P10')mountCampaignRecord(r.params.id);
  const providers=document.querySelector('form[data-live-form="connect-evm"] select');

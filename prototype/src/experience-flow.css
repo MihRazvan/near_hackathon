@@ -66,3 +66,13 @@
 .recorded-proof .proof-pass { grid-area:pass; display:block; }
 .proof-pass > p { max-width:none; margin:12px 0 0; font-size:12px; }
 @media(max-width:560px) { .nft-feature.recorded-proof { grid-template-areas:'intro' 'history' 'pass'; } .owner-feature .street-picture { min-height:220px; } }
+
+.setup-preview { min-width:0; margin:0; transform:rotate(.7deg); }
+.setup-preview-frame { overflow:hidden; border:1px solid var(--ink); background:var(--paper); }
+.setup-preview video { display:block; width:100%; height:auto; aspect-ratio:1000/742; object-fit:contain; }
+.setup-preview figcaption { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 0; font-size:13px; font-weight:700; }
+.setup-preview button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:8px 0 8px 12px; border:0; background:transparent; color:var(--blue); font:inherit; cursor:pointer; }
+.setup-preview button svg { width:16px; height:16px; }
+.setup-preview > p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
+@media(max-width:560px) { .setup-preview { transform:none; } .setup-preview figcaption { font-size:12px; gap:8px; } }
+@media(prefers-reduced-motion:reduce) { .setup-preview { transform:none; } }
