@@ -86,7 +86,7 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
     else if(path[2]==='send-base')result=await fundedWallets.sendBase(wallet,body);
     else assert(false,'NOT_FOUND','Development wallet action not found',404);
    }
-   else if(method==='GET'&&path[1]==='workspace'&&product)result=await product.workspace(wallet);
+   else if(method==='GET'&&path[1]==='workspace'&&product)result=await product.workspace(wallet,{local:url.searchParams.get('local')==='1'});
    else if(method==='PATCH'&&path[1]==='profile'&&product)result=product.profile(wallet,body);
    else if(method==='POST'&&path[1]==='saved'&&product)result=product.save(wallet,body);
    else if(method==='GET'&&path[1]==='support'&&path.length===3&&supportService)result=supportService.read(wallet,path[2]);
@@ -147,9 +147,14 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    else if(method==='POST'&&path[1]==='withdrawal-intent')result=await chain.prepareWithdrawal({buyerId:wallet,recipientId:body.recipientId,amount:body.amount});
    else if(method==='POST'&&path[1]==='claims')result=await chain.claimForWallet({contractId:body.contractId,creditorId:wallet});
    else if(method==='GET'&&path[1]==='wallet'&&path[2]==='balances'){
-    result={wallet,intentsUsdc:await reads.view(config.assets.intentsId,'mt_balance_of',{account_id:wallet,token_id:config.assets.nearAsset})};
-    if(wallet.startsWith('0x')&&config.network==='mainnet')Object.assign(result,{baseUsdc:(await client.readContract({address:config.assets.baseUsdc,abi:USDC_ABI,functionName:'balanceOf',args:[wallet]})).toString(),baseEth:(await client.getBalance({address:wallet})).toString()});
-    else if(!wallet.startsWith('0x'))Object.assign(result,{near:(await reads.account(wallet)).amount,nearUsdc:await reads.view(config.assets.nearUsdc,'ft_balance_of',{account_id:wallet}),tokenStorageRegistered:!!await reads.view(config.assets.nearUsdc,'storage_balance_of',{account_id:wallet})});
+    const intents=reads.view(config.assets.intentsId,'mt_balance_of',{account_id:wallet,token_id:config.assets.nearAsset});
+    if(wallet.startsWith('0x')&&config.network==='mainnet'){
+     const [intentsUsdc,baseUsdc,baseEth]=await Promise.all([intents,client.readContract({address:config.assets.baseUsdc,abi:USDC_ABI,functionName:'balanceOf',args:[wallet]}),client.getBalance({address:wallet})]);
+     result={wallet,intentsUsdc,baseUsdc:baseUsdc.toString(),baseEth:baseEth.toString()};
+    }else if(!wallet.startsWith('0x')){
+     const [intentsUsdc,account,nearUsdc,storage]=await Promise.all([intents,reads.account(wallet),reads.view(config.assets.nearUsdc,'ft_balance_of',{account_id:wallet}),reads.view(config.assets.nearUsdc,'storage_balance_of',{account_id:wallet})]);
+     result={wallet,intentsUsdc,near:account.amount,nearUsdc,tokenStorageRegistered:!!storage};
+    }else result={wallet,intentsUsdc:await intents};
    }
    else if(method==='POST'&&path[1]==='nomination')result=await chain.prepareNomination({buyerId:wallet,contractId:body.contractId,recipientId:body.recipientId});
    else if(method==='POST'&&path[1]==='native-actions'&&path.length===2)result=wallet.startsWith('0x')?{...await chain.prepareAction(wallet,body),type:'intent'}:await nativeActions.prepare(wallet,body);

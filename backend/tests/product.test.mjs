@@ -19,6 +19,22 @@ test('concurrent public reads coalesce, but a confirmed mutation cannot reuse an
  pending[1]({state:{next_price:'20000'},credits:{}});assert.equal((await current).state.next_price,'20000');
  pending[0]({state:{next_price:'10000'},credits:{}});await Promise.all([old,same]);assert.equal((await p.publicSnapshot('offer')).state.next_price,'20000');
 });
+test('uncached offers share one pinned finalized block, while a warm catalog needs no new block',async()=>{
+ let blocks=0;const seen=[],block={header:{hash:'one-finalized-block',height:17}},store=new Store();
+ const p=new Product({store,marketplace:{browse:()=>[{owner,spots:[{contractId:'a'},{contractId:'b'},{contractId:'c'}]}]},reads:{block:async()=>{blocks++;return block;}},chain:{snapshot:async(id,wallets,options)=>{seen.push(options.block);return {accountId:id,credits:{}};}},now:()=>now});
+ try{await p.catalog();assert.equal(blocks,1);assert.equal(seen.length,3);assert(seen.every(b=>b===block));await p.catalog();assert.equal(blocks,1);p.invalidate();await p.catalog();assert.equal(blocks,2);}finally{store.close();}
+});
+test('local workspace reads never use RPC, never invent verified chain state and stay wallet scoped',async()=>{
+ const store=new Store(),marketplace=new Marketplace({store,chain:{}}),product=new Product({store,marketplace,chain:{snapshot:()=>{throw Error('RPC must not run');}},reads:{block:()=>{throw Error('RPC must not run');}},config:{production:true},walletRequests:{list:()=>[]}});
+ try{
+  marketplace.createAsset(owner,input);store.insert('placement-message','private','controller.near',{contractId:'offer',text:'NFT controller private message'});
+  store.insert('issue','mine',owner,{contractId:'offer'});store.insert('issue','theirs','controller.near',{contractId:'offer'});
+  const own=await product.workspace(owner,{local:true}),other=await product.workspace('other.near',{local:true});
+  assert.equal(own.chainPending,true);assert.equal(own.dashboard.assets.length,1);assert.equal(other.dashboard.assets.length,0);
+  assert.deepEqual(own.snapshots,[]);assert.deepEqual(own.placements,[]);assert.deepEqual(own.placementMessages,[]);
+  assert.deepEqual(own.issues.map(i=>i.id),['mine']);assert.deepEqual(other.issues,[]);
+ }finally{store.close();}
+});
 test('public display cache expires after five seconds and invalidation refreshes it immediately',async()=>{
  let time=0,calls=0;const p=new Product({now:()=>time,chain:{snapshot:async()=>({state:{round:String(++calls)}})}});
  assert.equal((await p.publicSnapshot('offer')).state.round,'1');time=4999;assert.equal((await p.publicSnapshot('offer')).state.round,'1');
@@ -26,7 +42,7 @@ test('public display cache expires after five seconds and invalidation refreshes
 });
 test('cached public state binds private credits to the same complete finalized block without sharing another wallet’s credit',async()=>{
  const store=new Store(),s={accountId:'offer',receiverId:'hub.near',offerId:'offer',blockHash:'final-block',blockHeight:17,credits:{}},p=new Product({store,marketplace:{browse:()=>[{owner:'owner.near',spots:[{contractId:'offer'}]}]},chain:{snapshot:async()=>s},reads:{view:async(id,method,args,block)=>{
-  assert.equal(id,'hub.near');assert.equal(method,'get_credit');assert.deepEqual(block,{header:{hash:'final-block',height:17}});return {available:args.account_id==='a.near'?'10000':'20000'};
+  assert.equal(id,'hub.near');assert.equal(method,'get_credit');assert.deepEqual(block.header,{hash:'final-block',height:17});assert.equal(block.readPriority,'background');return {available:args.account_id==='a.near'?'10000':'20000'};
  }}});
  try{const a=await p.catalog('a.near'),b=await p.catalog('b.near');assert.deepEqual(a.snapshots[0].credits,{'a.near':{available:'10000'}});assert.deepEqual(b.snapshots[0].credits,{'b.near':{available:'20000'}});assert.deepEqual(s.credits,{});}finally{store.close();}
 });

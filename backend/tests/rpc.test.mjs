@@ -7,6 +7,18 @@ function fixture(fetchImpl,{intervalMs=0}={}){
  const rpc=new Rpc('https://rpc.invalid',{fetchImpl:async(url,options)=>{calls.push({url,body:options.body,signal:options.signal});return fetchImpl(calls.length,options);},intervalMs,now:()=>time,sleep:async ms=>{waits.push(ms);time+=ms;}});
  return {rpc,calls,waits,advance:ms=>time+=ms,time:()=>time};
 }
+test('wallet reads pass queued background work without increasing the global request rate',async()=>{
+ let time=1000;const sleeps=[],sent=[];
+ const rpc=new Rpc('https://rpc.invalid',{intervalMs:100,now:()=>time,sleep:ms=>new Promise(resolve=>sleeps.push(()=>{time+=ms;resolve();})),fetchImpl:async(_url,options)=>{const {params}=JSON.parse(options.body);sent.push({id:params.id,time});return Response.json({result:params.id});}});
+ assert.equal(await rpc.call('query',{id:'warm'}),'warm');
+ const a=rpc.call('query',{id:'browse-a'},{priority:'background'}),b=rpc.call('query',{id:'browse-b'},{priority:'background'});
+ const wallet=rpc.call('query',{id:'wallet-key'});assert.equal(sleeps.length,1);
+ sleeps.shift()();assert.equal(await wallet,'wallet-key');
+ assert.deepEqual(sent.map(s=>s.id),['warm','wallet-key']);
+ sleeps.shift()();await a;sleeps.shift()();await b;
+ assert.deepEqual(sent.map(s=>s.id),['warm','wallet-key','browse-a','browse-b']);
+ assert(sent.slice(1).every((s,i)=>s.time-sent[i].time>=100));
+});
 test('concurrent identical reads share one request, return separate values and expire on completion',async()=>{
  let release;const gate=new Promise(resolve=>release=resolve),f=fixture(async()=>{await gate;return Response.json({result:{amount:'1'}});});
  const a=f.rpc.call('query',{block_id:'final',account_id:'hub.near'}),b=f.rpc.call('query',{block_id:'final',account_id:'hub.near'});

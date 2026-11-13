@@ -13,10 +13,10 @@ export async function qualifyHub(reads,config,block){
  assert(value.ft_contract_id===config.assets.nearUsdc&&value.intents_contract_id===config.assets.intentsId,'ASSET_CHANGED','Marketplace settlement assets changed');
  return value;
 }
-export async function hubSnapshot(reads,config,deployment,wallets=[]){
+export async function hubSnapshot(reads,config,deployment,wallets=[],{block:pinnedBlock}={}){
  const accountId=deployment.id,offerId=deployment.offerId,hubId=deployment.hubId;
  assert(isOfferId(accountId)&&accountId===offerId&&hubId===config.hub?.accountId&&deployment.codeHash===config.hub?.codeHash,'HUB_CHANGED','Offer registration differs from the qualified marketplace');
- const block=await reads.block(),age=BigInt(reads.now())*1000000n-uint(block.header.timestamp_nanosec);
+ const block=pinnedBlock??await reads.block(),age=BigInt(reads.now())*1000000n-uint(block.header.timestamp_nanosec);
  assert(age>=-5000000000n&&age<=60000000000n,'STALE_BLOCK','Finalized chain state must be recent before preparing an action');
  const hub=await qualifyHub(reads,config,block),args={offer_id:offerId};
  const [state,campaign,rights,totals,verifier,token,balance,fee,paused]=await Promise.all([

@@ -16,11 +16,11 @@ export function productAssetName(pathname){
 }
 export class Product {
  constructor({store,chain,marketplace,config,reads,walletRequests,personalAI,supportService,now=Date.now}){Object.assign(this,{store,chain,marketplace,config,reads,walletRequests,personalAI,supportService,now});this.publicSnapshots=new Map();this.snapshotLoads=new Map();this.snapshotGeneration=0;}
- async publicSnapshot(contractId){
+ async publicSnapshot(contractId,getBlock){
   const prior=this.publicSnapshots.get(contractId);if(prior&&this.now()-prior.loadedAt<5000)return structuredClone(prior.snapshot);
   const generation=this.snapshotGeneration;let load=this.snapshotLoads.get(contractId);
   if(!load||load.generation!==generation){load={generation};load.promise=(async()=>{
-   try{const snapshot=await this.chain.snapshot(contractId,[]);
+   try{const block=getBlock?await getBlock():undefined,snapshot=await this.chain.snapshot(contractId,[],block?{block}:undefined);
     if(this.snapshotGeneration===generation){this.publicSnapshots.delete(contractId);this.publicSnapshots.set(contractId,{snapshot,loadedAt:this.now()});
      if(this.publicSnapshots.size>500)this.publicSnapshots.delete(this.publicSnapshots.keys().next().value);}
     return snapshot;
@@ -39,24 +39,30 @@ export class Product {
    'Content-Security-Policy':walletCsp(nonce)});
   response.end(request.method==='HEAD'?undefined:bytes);return true;
  }
+ catalogMetadata(){
+  const sales=this.marketplace.browse(),owners=[...new Set(sales.map(s=>s.owner))].map(wallet=>{const profile=this.store.get('profile',wallet);return {wallet,name:profile?.displayName??wallet,brand:profile?.brand??''};});
+  return {sales,owners,snapshots:[],unavailable:[],time:new Date(this.now()).toISOString()};
+ }
  async catalog(actor){
-  const sales=this.marketplace.browse(),snapshots=[],unavailable=[],ids=[...new Set(sales.flatMap(s=>s.spots.map(p=>p.contractId)))];
+  const {sales,owners}=this.catalogMetadata(),snapshots=[],unavailable=[],ids=[...new Set(sales.flatMap(s=>s.spots.map(p=>p.contractId)))];
+  // Missing snapshots share one finalized block. Immutable hub/token queries
+  // then coalesce across offers instead of repeating at slightly different heads.
+  let block;const getBlock=this.reads?.block?()=>block??=(this.reads.block({priority:'background'})):undefined;
   // Coalesce public reads across visitors. Transaction preparation always uses fresh chain reads.
   const queue=[...ids];await Promise.all(Array.from({length:Math.min(8,queue.length)},async()=>{while(queue.length){const contractId=queue.shift();try{
-   const s=await this.publicSnapshot(contractId);
+   const s=await this.publicSnapshot(contractId,getBlock);
    if(actor){
     // Read only this visitor's credit at the same finalized block as the public state.
-    if(this.reads?.view&&s.blockHash)s.credits={[actor]:await this.reads.view(s.receiverId??s.accountId,'get_credit',{...(s.offerId?{offer_id:s.offerId}:{}),account_id:actor},{header:{hash:s.blockHash,height:s.blockHeight}})};
+    if(this.reads?.view&&s.blockHash)s.credits={[actor]:await this.reads.view(s.receiverId??s.accountId,'get_credit',{...(s.offerId?{offer_id:s.offerId}:{}),account_id:actor},{header:{hash:s.blockHash,height:s.blockHeight},readPriority:'background'})};
     else s.credits=(await this.chain.snapshot(contractId,[actor])).credits;
    }
    snapshots.push(s);
   }catch(error){if(['UNKNOWN_ACCOUNT','PENDING_WITHDRAWAL','RPC_UNAVAILABLE','STALE_BLOCK'].includes(error.code))unavailable.push({contractId,code:error.code});else throw error;}
   }}));
-  const owners=[...new Set(sales.map(s=>s.owner))].map(wallet=>{const profile=this.store.get('profile',wallet);return {wallet,name:profile?.displayName??wallet,brand:profile?.brand??''};});
   return {sales,snapshots,owners,unavailable,time:new Date(this.now()).toISOString()};
  }
- async workspace(wallet){
-  const actor=walletId(wallet),catalog=await this.catalog(actor);
+ async workspace(wallet,{local=false}={}){
+  const actor=walletId(wallet),catalog=local?this.catalogMetadata():await this.catalog(actor);
   // Listing snapshots are public; private messages, drafts and financial plans remain wallet-scoped.
   const dashboard=this.marketplace.dashboard(actor),arbiterSales=catalog.sales.filter(s=>s.arbiterId===actor);
   if(this.config.production)dashboard.assets=dashboard.assets.map(({photoDataUrl,...asset})=>({...asset,...(photoDataUrl?{photoUrl:'/api/assets/'+encodeURIComponent(asset.id)+'/photo?version='+asset.version}:{})}));
@@ -65,7 +71,7 @@ export class Product {
   for(const s of catalog.snapshots)if(s.rights.current_owner_id===actor||s.state.nominated_recipient===actor||s.state.holder?.account_id===actor)contracts.add(s.accountId);
   const bookings=[...dashboard.bookings,...dashboard.incomingBookings];
   const relatedBookings=new Set(bookings.map(b=>b.id));
-  return {...catalog,wallet:actor,profile:this.store.get('profile',actor),dashboard,arbiterSales,ai:{available:this.personalAI?.availability(actor)??false},
+  return {...catalog,chainPending:local,wallet:actor,profile:this.store.get('profile',actor),dashboard,arbiterSales,ai:{available:this.personalAI?.availability(actor)??false},
    placements:catalog.snapshots.filter(s=>s.rights.current_owner_id===actor||s.state.nominated_recipient===actor||s.mode==='hub'&&s.state.holder?.account_id===actor),
    media:this.store.list('media',actor),requests:this.walletRequests.list(actor),
    intents:this.store.list('intent',actor).map(({plan,...r})=>({...r,context:plan.context,expiresAt:plan.expiresAt})),

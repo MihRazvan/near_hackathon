@@ -74,9 +74,10 @@ export class ChainService {
       &&snapshot.state.next_price===hubPriceAtRound(initialPriceCents,snapshot.state.round)&&hashObject(snapshot.campaign.terms)===hashObject(terms),'DEPLOYMENT_MISMATCH','Marketplace offer differs from its published rules');
     return this.bindDeployment(contractId,expected,{mode:'hub',hubId:hub.accountId,offerId:contractId,codeHash:hub.codeHash,terms,initialPriceCents,arbiterId:walletId(arbiterId)});
   }
-  async snapshot(contractId,wallets=[]){
+  async snapshot(contractId,wallets=[],{block:pinnedBlock,priority='normal'}={}){
     const deployment=this.store.get('deployment',contractId);assert(deployment,'UNREGISTERED_DEPLOYMENT','Campaign deployment is not registered',404);
-    const snapshot=deployment.mode==='hub'?await hubSnapshot(this.reads,this.config,deployment,wallets):await this.reads.snapshot(contractId,{expectedCodeHash:deployment.codeHash,expectedIntentsCodeHash:this.config.assets.intentsCodeHash,expectedAssets:this.config.assets,wallets});
+    const block=pinnedBlock??(priority==='background'?await this.reads.block({priority}):undefined);
+    const snapshot=deployment.mode==='hub'?await hubSnapshot(this.reads,this.config,deployment,wallets,{block}):await this.reads.snapshot(contractId,{expectedCodeHash:deployment.codeHash,expectedIntentsCodeHash:this.config.assets.intentsCodeHash,expectedAssets:this.config.assets,wallets,block});
     assert(hashObject(snapshot.campaign.terms)===hashObject(deployment.terms),'TERMS_CHANGED','Published campaign differs from its deployment record');
     assert(snapshot.state.seller_id===deployment.owner&&snapshot.state.arbiter_id===deployment.arbiterId,'PARTIES_CHANGED','Campaign parties changed');return snapshot;
   }

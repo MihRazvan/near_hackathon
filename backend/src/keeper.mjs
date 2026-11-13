@@ -120,7 +120,7 @@ export function productionKeeper({ store, chain, config, now = Date.now, interva
     }
     if(completedJob(job,published,id))return 'complete';
     if ((job?.nextCheckAt ?? 0) > now()) return 'deferred';
-    const snapshot = await chain.snapshot(id);
+    const snapshot = await chain.snapshot(id, [], { priority: 'background' });
     assert(ownsLease(), 'KEEPER_LEASE_LOST', 'Keeper lease expired while reading the offer');
     assert(qualifies(snapshot, published, id), 'KEEPER_SCOPE_CHANGED', 'Keeper can only maintain the published qualified offer');
     if(fullyComplete(snapshot.state)){saveJob(id,{offerId:id,phase:'complete',completion:completionEvidence(snapshot,published,id),failures:0,nextCheckAt:0});return 'complete';}

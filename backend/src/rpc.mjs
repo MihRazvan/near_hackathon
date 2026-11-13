@@ -14,19 +14,37 @@ function retryDelay(response,attempt,now){
 }
 export class Rpc {
   constructor(endpoint,{fetchImpl=fetch,intervalMs=120,sleep=delay,now=Date.now}={}) {
-    Object.assign(this,{endpoint,fetch:fetchImpl,intervalMs,sleep,now,next:0,inflight:new Map()});
+    Object.assign(this,{endpoint,fetch:fetchImpl,intervalMs,sleep,now,next:0,inflight:new Map(),queue:[],draining:false});
   }
-  async call(method,params,{timeoutMs=15000}={}) {
+  async slot(priority,deadline){
+    if(this.next>=deadline)throw unavailable();
+    return new Promise((resolve,reject)=>{this.queue.push({priority,deadline,resolve,reject});if(!this.draining)void this.drain();});
+  }
+  async drain(){
+    this.draining=true;
+    try{
+      while(this.queue.length){
+        const wait=Math.max(0,this.next-this.now());if(wait>0)await this.sleep(wait);
+        // Choose after waiting, so a wallet request can pass a queued browse.
+        const foreground=this.queue.findIndex(job=>job.priority!=='background');
+        const [job]=this.queue.splice(foreground<0?0:foreground,1);
+        if(this.now()>=job.deadline){job.reject(unavailable());continue;}
+        this.next=this.now()+this.intervalMs;job.resolve();
+      }
+    }catch(error){for(const job of this.queue.splice(0))job.reject(error);}
+    finally{this.draining=false;}
+  }
+  async call(method,params,{timeoutMs=15000,priority='normal'}={}) {
     // Share only identical reads that are still running. Completed reads are
     // never cached, and transaction broadcasts always have their own request.
-    if(!RETRYABLE_READS.has(method))return this.request(method,params,{timeoutMs});
+    if(!RETRYABLE_READS.has(method))return this.request(method,params,{timeoutMs,priority});
     const key=JSON.stringify([method,params,timeoutMs]);
     let pending=this.inflight.get(key);
-    if(!pending){pending=this.request(method,params,{timeoutMs});this.inflight.set(key,pending);}
+    if(!pending){pending=this.request(method,params,{timeoutMs,priority});this.inflight.set(key,pending);}
     try{return structuredClone(await pending);}
     finally{if(this.inflight.get(key)===pending)this.inflight.delete(key);}
   }
-  async request(method,params,{timeoutMs=15000}={}) {
+  async request(method,params,{timeoutMs=15000,priority='normal'}={}) {
     assert(Number.isFinite(timeoutMs)&&timeoutMs>0,'RPC_UNAVAILABLE','Chain request timeout is invalid',503);
     const deadline=this.now()+timeoutMs,body=JSON.stringify({jsonrpc:'2.0',id:'everywhere',method,params}),attempts=RETRYABLE_READS.has(method)?3:1;
     const remaining=()=>deadline-this.now();
@@ -38,8 +56,8 @@ export class Rpc {
     for(let attempt=0;attempt<attempts;attempt++){
       // Every attempt shares the caller's deadline and the same serialized
       // payload. Retried finalized-block queries cannot drift to another block.
-      const start=Math.max(this.now(),this.next);if(start>=deadline)throw unavailable();this.next=start+this.intervalMs;
-      await wait(Math.max(0,start-this.now()));
+      await this.slot(priority,deadline);
+      if(remaining()<=0)throw unavailable();
       const controller=new AbortController();let timer,response,retry=false;
       const expired=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(unavailable());},Math.max(1,Math.ceil(remaining())));});
       try{
@@ -85,7 +103,7 @@ const VIEWS=new Set(['get_config','get_creation','get_state','get_campaign','get
   'get_totals','get_sponsor_usage','get_offer_exists','is_participant','is_invoice_used','mt_balance_of','storage_balance_of','storage_balance_bounds','ft_balance_of','fee','pa_all_paused']);
 export class NearReads {
   constructor(rpc,{network='mainnet',now=Date.now}={}){this.rpc=rpc;this.network=network;this.now=now;this.pinnedQueries=new Map();this.pendingQueries=new Map();this.pinnedBytes=0;}
-  async block(){return this.rpc.call('block',{finality:'final'});}
+  async block({priority='normal'}={}){const block=await this.rpc.call('block',{finality:'final'},{priority});return priority==='background'?{...block,readPriority:priority}:block;}
   async status(){const value=await this.rpc.call('status',[]);assert(value.chain_id===this.network,'WRONG_NETWORK','NEAR network does not match configuration');return value;}
   async query(params,block){
     const request={...params,...(block?{block_id:block.header.hash}:{finality:'final'})};
@@ -97,7 +115,7 @@ export class NearReads {
     if(cached){assert(cached.result.block_height===block.header.height,'UNBOUND_QUERY','RPC views must come from the same finalized block');return structuredClone(cached.result);}
     let pending=this.pendingQueries.get(key);
     if(!pending){pending=(async()=>{try{
-      const result=await this.rpc.call('query',request);
+      const result=await this.rpc.call('query',request,{priority:block.readPriority??'normal'});
       assert(result.block_hash===block.header.hash&&result.block_height===block.header.height,'UNBOUND_QUERY','RPC views must come from the same finalized block');
       const bytes=Buffer.byteLength(JSON.stringify(result))+Buffer.byteLength(key);
       if(bytes<=4194304){
@@ -116,8 +134,8 @@ export class NearReads {
     const response=await this.query({request_type:'call_function',account_id:accountId,method_name:method,args_base64:Buffer.from(JSON.stringify(args)).toString('base64')},block);
     return JSON.parse(Buffer.from(response.result).toString('utf8'));
   }
-  async snapshot(accountId,{expectedCodeHash,expectedIntentsCodeHash,expectedAssets,wallets=[]}={}){
-    const block=await this.block(),account=await this.account(accountId,block);
+  async snapshot(accountId,{expectedCodeHash,expectedIntentsCodeHash,expectedAssets,wallets=[],block:pinnedBlock}={}){
+    const block=pinnedBlock??await this.block(),account=await this.account(accountId,block);
     const age=BigInt(this.now())*1000000n-uint(block.header.timestamp_nanosec);
     assert(age>=-5000000000n&&age<=60000000000n,'STALE_BLOCK','Finalized chain state must be recent before preparing an action');
     assert(expectedCodeHash&&effectiveCodeHash(account)===expectedCodeHash,'CODE_CHANGED','Contract code differs from the registered deployment');
