@@ -85,7 +85,10 @@ export function configFromEnv(env = {}) {
     aiDailyLimit:Number(env.APP_AI_DAILY_LIMIT||'5'),
     aiGlobalDailyLimit:Number(env.APP_AI_GLOBAL_DAILY_LIMIT||(production?'100':'25')),
     aiModel:env.OPENAI_MODEL||'gpt-5-mini',
-    aiAvailable:!!env.OPENAI_API_KEY||!production,
+    nearAiModel:env.NEAR_AI_MODEL||'z-ai/glm-5.3-flash',
+    nearAiImageModel:env.NEAR_AI_IMAGE_MODEL||'black-forest-labs/FLUX.2-klein-4B',
+    aiAvailable:!!env.NEAR_AI_API_KEY||!!env.OPENAI_API_KEY||!production,
+    aiImageAvailable:!!env.NEAR_AI_API_KEY,
     personalAiWallets:(env.APP_PERSONAL_AI_WALLETS||'').split(',').filter(Boolean).map(value=>walletId(value.trim())),
     keeperEnabled:production&&env.APP_KEEPER_ENABLED==='true',
     hubArtifact:resolve(ROOT,env.APP_HUB_ARTIFACT_PATH||'target/proof-artifacts/marketplace-hub.wasm'),
@@ -133,6 +136,7 @@ export function configFromEnv(env = {}) {
     oneClick: env.INTEGRATION_ONECLICK_API_KEY,
     pinata: env.INTEGRATION_IPFS_PINNING_TOKEN,
     openai:env.OPENAI_API_KEY,
+    nearAi:env.NEAR_AI_API_KEY,
     personalAi:env.APP_PERSONAL_AI_TOKEN,
   }))
     Object.defineProperty(keys, name, {

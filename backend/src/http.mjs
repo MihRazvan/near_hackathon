@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { AIJobs } from './ai-jobs.mjs';
 import { CampaignRecords } from './campaign-records.mjs';
 import { assert, AppError, walletId } from './core.mjs';
 import { sessionToken,sessionCookie } from './session-http.mjs';
@@ -18,6 +19,7 @@ async function jsonBody(request,maxBytes=3000000){
 function publicOperation(op){return {id:op.id,phase:op.phase,transactionHash:op.transaction_hash};}
 export function httpApp({config,store,auth,marketplace,chain,nativeActions,publication,walletRequests,assetAI,personalAI,supportService,media,budget,near,source,routes,reads,client,returnVerifier,lab,product,funding,capture,provisioning,fundedWallets}){
  const records=new CampaignRecords({config,store,chain,marketplace,product});
+ const aiJobs=store?.db?new AIJobs({store,config,assetAI,personalAI}):null;
  const rates=new Map();let activeUploads=0;
  const server=createServer(async(request,response)=>{
   let uploadSlot=false;
@@ -54,7 +56,7 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    if(method==='GET'&&path[1]==='health'){send(200,{ok:true,service:'everywhere-backend',network:config.network});return;}
    if(method==='GET'&&path[1]==='config'){
     const defaults={network:config.network,executionEnabled:config.enabled,origin:config.origin,sandbox:false,walletMode:'External wallets',wallets:[],factory:config.factory?.accountId??null,defaultArbiter:config.defaultArbiter??null,publicationMode:config.hub?'hub':config.factory?'factory':'recoverable',time:new Date().toISOString()};
-    send(200,{...(lab&&!production?await lab.publicConfig():defaults),...(config.hub?{publicationMode:'hub'}:{}),production,aiAvailable:config.aiAvailable??!production,mediaMaxBytes:config.mediaMaxBytes??1000000,apiOrigin:config.apiOrigin??config.origin,customerRouteMax:config.customerRouteMax??'300000',developmentWallets:!production?fundedWallets?.list()??[]:[]});return;
+    send(200,{...(lab&&!production?await lab.publicConfig():defaults),...(config.hub?{publicationMode:'hub'}:{}),production,aiImageAvailable:!!config.aiImageAvailable,aiAvailable:config.aiAvailable??!production,mediaMaxBytes:config.mediaMaxBytes??1000000,apiOrigin:config.apiOrigin??config.origin,customerRouteMax:config.customerRouteMax??'300000',developmentWallets:!production?fundedWallets?.list()??[]:[]});return;
    }
    if(method==='GET'&&path[1]==='lab-config'&&lab){send(200,{...await lab.publicConfig(),developmentWallets:fundedWallets?.list()??[]});return;}
    if(method==='POST'&&path[1]==='funded-wallet'&&path[2]==='sign-in'&&fundedWallets?.enabled){send(200,await fundedWallets.signIn(await jsonBody(request)));return;}
@@ -100,7 +102,10 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    else if(method==='GET'&&path[1]==='integration')result={network:config.network,executionEnabled:config.enabled,budget:budget.totals()};
    else if(method==='POST'&&path[1]==='assets'&&path.length===2){result=marketplace.createAsset(wallet,body);status=201;}
    else if(method==='PATCH'&&path[1]==='assets'&&path.length===3)result=marketplace.updateAsset(wallet,path[2],body.version,body.asset);
+   else if(method==='POST'&&path[1]==='ai'&&path[2]==='jobs'){result=aiJobs.start(wallet,body);status=202;}
+   else if(method==='GET'&&path[1]==='ai'&&path[2]==='jobs'&&path.length===4)result=aiJobs.read(wallet,path[3]);
    else if(method==='POST'&&path[1]==='ai'&&path[2]==='draft'){
+    assert(assetAI||personalAI?.availability(wallet),'AI_UNAVAILABLE','AI scanning is currently offline. You can edit surfaces manually.',503);
     const day=new Date().toISOString().slice(0,10),quotaId=wallet+'-'+day;
     store.transaction(()=>{const quota=store.get('ai-quota',quotaId),globalId='global-'+day,global=store.get('ai-quota-global',globalId);
      assert((quota?.count??0)<(config.aiDailyLimit??5),'AI_QUOTA','AI draft limit reached for this wallet today',429);
