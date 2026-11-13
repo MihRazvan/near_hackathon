@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ROOT } from './config.mjs';
 import { assert, hashObject } from './core.mjs';
+import {parallelRead} from './parallel-read.mjs';
 
 const FIELDS=['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'];
 const pick=(value,keys)=>Object.fromEntries(keys.filter(k=>value?.[k]!==undefined).map(k=>[k,value[k]]));
@@ -21,16 +22,17 @@ export function publicSnapshot(snapshot,network,synthetic=false){
 export class CampaignRecords {
  constructor({store,chain,marketplace,product,config,now=Date.now,manifestPath=join(ROOT,'deployments/qualification.json')}){Object.assign(this,{store,chain,marketplace,product,config,now,manifestPath});this.qualificationCache=null;}
  async manifest(){const m=JSON.parse(await readFile(this.manifestPath,'utf8'));assert(m.schema==='everywhere-qualification/v1'&&m.network==='mainnet'&&m.record?.offerId&&m.verification?.status==='verified','INVALID_EVIDENCE','Recorded qualification evidence is unavailable',503);return m;}
- async snapshot(id){return this.product?.publicSnapshot?this.product.publicSnapshot(id):this.chain.snapshot(id);}
- async record(saleId){
+ async snapshot(id,getBlock){return this.product?.publicSnapshot?this.product.publicSnapshot(id,getBlock):this.chain.snapshot(id,[],getBlock?{block:await getBlock()}:undefined);}
+ async record(saleId,{metadataOnly=false}={}){
   const sale=this.marketplace.sale(saleId),manifest=sale.publication?.manifest;
   assert(manifest?.asset&&manifest.saleId===sale.id,'RECORD_UNAVAILABLE','Published campaign record is unavailable',503);
   let evidence;try{evidence=await this.manifest();}catch{}
   const matches=evidence?.record.saleId===sale.id&&this.config.network===evidence.network;
   const teamTest=manifest.campaignType==='team-test';
   const snapshots=[],unavailable=[];
-  for(const spot of sale.spots){try{snapshots.push(publicSnapshot(await this.snapshot(spot.contractId),this.config.network,teamTest||matches&&spot.contractId===evidence.record.offerId));}catch(error){unavailable.push({contractId:spot.contractId,code:error.code==='RPC_UNAVAILABLE'?'RPC_UNAVAILABLE':'STATE_UNAVAILABLE'});}}
-  return {schema:'everywhere-campaign-record/v1',network:this.config.network,observedAt:new Date(this.now()).toISOString(),status:unavailable.length?(snapshots.length?'partial':'unavailable'):'available',
+  const reads=this.product?.reads??this.chain?.reads;let block;const getBlock=reads?.block?()=>block??=reads.block({priority:'background'}):undefined;
+  if(!metadataOnly){const results=await parallelRead(sale.spots,4,async spot=>{try{return {snapshot:publicSnapshot(await this.snapshot(spot.contractId,getBlock),this.config.network,teamTest||matches&&spot.contractId===evidence.record.offerId)};}catch(error){return {unavailable:{contractId:spot.contractId,code:error.code==='RPC_UNAVAILABLE'?'RPC_UNAVAILABLE':'STATE_UNAVAILABLE'}};}});for(const result of results){if(result.snapshot)snapshots.push(result.snapshot);else unavailable.push(result.unavailable);}}
+  return {schema:'everywhere-campaign-record/v1',network:this.config.network,observedAt:new Date(this.now()).toISOString(),status:metadataOnly?'checking':unavailable.length?(snapshots.length?'partial':'unavailable'):'available',
    campaign:{id:sale.id,title:manifest.title,...(teamTest?{campaignType:'team-test'}:{}),ownerId:sale.owner,ownerDisplayName:this.store.get('profile',sale.owner)?.displayName??sale.owner,
     asset:{id:manifest.asset.id,name:manifest.asset.title,type:manifest.asset.assetType,city:manifest.asset.city,...pick(manifest.asset,['imageProvenance']),...(/^ipfs:\/\/[A-Za-z0-9]+$/.test(manifest.asset.coverUri??'')&&/^[0-9a-f]{64}$/.test(manifest.asset.coverSha256??'')?{coverUri:manifest.asset.coverUri,coverSha256:manifest.asset.coverSha256}:{})},schedule:pick(manifest.schedule,FIELDS),spots:sale.spots.map(spot=>({id:spot.id,name:manifest.asset.spots?.find(p=>p.id===spot.id)?.name??spot.id,contractId:spot.contractId}))},
    snapshots,unavailable,qualification:{matched:!!matches,evidencePath:matches?'/api/evidence/qualification':null,synthetic:!!matches,note:matches?evidence.record.note:'Delivery evidence is submitted by the space owner. Recording its commitment on NEAR does not independently verify physical installation.'},

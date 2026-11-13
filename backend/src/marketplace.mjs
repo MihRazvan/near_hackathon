@@ -1,3 +1,4 @@
+import {parallelRead} from './parallel-read.mjs';
 import { initializeLocalPhotoQuota,assertLocalPhotoQuota,pruneCaptureStorage,OWNER_ASSET_MAX,GLOBAL_ASSET_MAX } from './local-photo-quota.mjs';
 import { hubPriceAtRound } from './hub.mjs';
 import { randomUUID } from 'node:crypto';
@@ -125,15 +126,18 @@ export class Marketplace {
   assert(Array.isArray(contracts)&&contracts.length===sale.spots.length&&new Set(contracts.map(c=>c.contractId)).size===contracts.length&&new Set(contracts.map(c=>c.spotId)).size===contracts.length,'INVALID_DEPLOYMENTS','One distinct contract per spot is required');
   if(sale.status==='published')return this.store.transaction(()=>this.publishedResult(owned(this.store,'sale',id,owner),version,contracts));
   assert(sale.version===version,'STALE_VERSION','Sale changed; reload before publishing');
-  const publication=this.publication(owner,id,{allowStarted:true}),bound=[];
-  for(const terms of publication.terms){
-   const entry=contracts.find(c=>c.spotId===terms.spot_id),spot=sale.spots.find(s=>s.id===terms.spot_id);assert(entry,'MISSING_SPOT','A spot deployment is missing');
-   if(this.chain.attachDeployment)await this.chain.attachDeployment({contractId:entry.contractId,sellerId:sale.owner,arbiterId:sale.arbiterId,terms,initialPriceCents:spot.priceCents});
-   const snapshot=await this.chain.snapshot(entry.contractId);
+  const publication=this.publication(owner,id,{allowStarted:true});
+  const entries=publication.terms.map(terms=>{const entry=contracts.find(c=>c.spotId===terms.spot_id),spot=sale.spots.find(s=>s.id===terms.spot_id);assert(entry,'MISSING_SPOT','A spot deployment is missing');return {terms,entry,spot};});
+  if(this.chain.attachDeployment)await parallelRead(entries,4,({terms,entry,spot})=>this.chain.attachDeployment({contractId:entry.contractId,sellerId:sale.owner,arbiterId:sale.arbiterId,terms,initialPriceCents:spot.priceCents}));
+  // No chain writes occur in this verification batch. All placements bind to one
+  // fresh finalized block and share immutable hub/token qualification reads.
+  const block=this.chain.reads?.block?await this.chain.reads.block():undefined;
+  const bound=await parallelRead(entries,4,async({terms,entry,spot})=>{
+   const snapshot=await this.chain.snapshot(entry.contractId,[],block?{block}:undefined);
    assert(hashObject(snapshot.campaign.terms)===hashObject(terms)&&snapshot.state.seller_id===sale.owner&&snapshot.state.arbiter_id===sale.arbiterId
     &&(snapshot.mode==='hub'?snapshot.state.next_price===hubPriceAtRound(spot.priceCents,snapshot.state.round):(snapshot.state.round==='0'&&snapshot.state.next_price===(uint(spot.priceCents)*10000n).toString()&&snapshot.state.outcome==='open')),'DEPLOYMENT_MISMATCH','On-chain spot does not match the published offer');
-   bound.push({...spot,contractId:entry.contractId,codeHash:snapshot.codeHash,...(snapshot.offerId?{mode:'hub',offerId:snapshot.offerId,hubId:snapshot.receiverId}:{} )});
-  }
+   return {...spot,contractId:entry.contractId,codeHash:snapshot.codeHash,...(snapshot.offerId?{mode:'hub',offerId:snapshot.offerId,hubId:snapshot.receiverId}:{} )};
+  });
   return this.store.transaction(()=>{
    const current=owned(this.store,'sale',id,owner);
    if(current.status==='published')return this.publishedResult(current,version,contracts,{bound,publication});

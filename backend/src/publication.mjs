@@ -12,9 +12,9 @@ export function verifyWalletCall(outcome,transaction,hash){
 }
 export class Publication {
  constructor({store,reads,config,marketplace,now=Date.now}){Object.assign(this,{store,reads,config,marketplace,now});}
- async capacity(wallet){
+ async capacity(wallet,{background=false}={}){
   if(!this.config.hub)return {mode:this.config.factory?'factory':'recoverable',sponsoredSlots:0,paidAvailable:true};
-  const block=await this.reads.block(),c=await qualifyHub(this.reads,this.config,block),usage=await this.reads.view(this.config.hub.accountId,'get_sponsor_usage',{account_id:walletId(wallet)},block);
+  const block=await this.reads.block({priority:background?'background':'normal'}),[c,usage]=await Promise.all([qualifyHub(this.reads,this.config,block),this.reads.view(this.config.hub.accountId,'get_sponsor_usage',{account_id:walletId(wallet)},block)]);
   const reserve=uint(c.offer_storage_deposit),limits=[uint(c.sponsor_available)/reserve,uint(c.sponsored_offer_limit)-uint(c.sponsored_offers),uint(c.sponsored_per_owner_limit)-uint(usage)];
   return {mode:'hub',sponsoredSlots:Number(limits.reduce((a,b)=>a<b?a:b)),reservePerSpot:c.offer_storage_deposit,paidAvailable:!walletId(wallet).startsWith('0x'),observedAt:new Date(this.now()).toISOString()};
  }

@@ -35,6 +35,14 @@ test('local workspace reads never use RPC, never invent verified chain state and
   assert.deepEqual(own.issues.map(i=>i.id),['mine']);assert.deepEqual(other.issues,[]);
  }finally{store.close();}
 });
+test('targeted refresh qualifies only the requested published placements, bypassing public cache and binding private credits',async()=>{
+ const calls=[],store=new Store(),block={header:{hash:'fresh-final-block',height:19}},p=new Product({store,marketplace:{browse:()=>[{owner,spots:[{contractId:'x'},{contractId:'y'}]}]},reads:{block:async options=>{assert.equal(options.priority,'normal');return block;}},chain:{snapshot:async(id,wallets,options)=>{calls.push(id);assert.deepEqual(wallets,[owner]);assert.equal(options.block,block);return {accountId:id,credits:{[owner]:{available:'20000'}}};}},now:()=>now});
+ try{
+  p.publicSnapshots.set('x',{snapshot:{accountId:'x',credits:{}},loadedAt:now});
+  const result=await p.catalog(owner,{contracts:['x']});assert.deepEqual(calls,['x']);assert.deepEqual(result.scopedContracts,['x']);assert.equal(result.snapshots[0].credits[owner].available,'20000');
+  await assert.rejects(p.catalog(owner,{contracts:['private-or-unknown']}),{code:'INVALID_SCOPE'});await assert.rejects(p.catalog(owner,{contracts:Array(21).fill('x')}),{code:'INVALID_SCOPE'});assert.deepEqual(calls,['x']);
+ }finally{store.close();}
+});
 test('public display cache expires after five seconds and invalidation refreshes it immediately',async()=>{
  let time=0,calls=0;const p=new Product({now:()=>time,chain:{snapshot:async()=>({state:{round:String(++calls)}})}});
  assert.equal((await p.publicSnapshot('offer')).state.round,'1');time=4999;assert.equal((await p.publicSnapshot('offer')).state.round,'1');

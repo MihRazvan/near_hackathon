@@ -60,7 +60,7 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    }
    if(method==='GET'&&path[1]==='lab-config'&&lab){send(200,{...await lab.publicConfig(),developmentWallets:fundedWallets?.list()??[]});return;}
    if(method==='POST'&&path[1]==='funded-wallet'&&path[2]==='sign-in'&&fundedWallets?.enabled){send(200,await fundedWallets.signIn(await jsonBody(request)));return;}
-   if(method==='GET'&&path[1]==='campaign-records'&&path.length===3){send(200,await records.record(path[2]));return;}
+   if(method==='GET'&&path[1]==='campaign-records'&&path.length===3){send(200,await records.record(path[2],{metadataOnly:url.searchParams.get('summary')==='1'}));return;}
    if(method==='GET'&&path[1]==='evidence'&&path[2]==='qualification'&&path.length===3){send(200,await records.qualification());return;}
    if(method==='GET'&&path[1]==='catalog'&&product){send(200,await product.catalog());return;}
    if(method==='POST'&&path[1]==='captures'&&path[3]==='photo'&&capture){send(201,capture.upload(path[2],await jsonBody(request)));return;}
@@ -86,7 +86,7 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
     else if(path[2]==='send-base')result=await fundedWallets.sendBase(wallet,body);
     else assert(false,'NOT_FOUND','Development wallet action not found',404);
    }
-   else if(method==='GET'&&path[1]==='workspace'&&product)result=await product.workspace(wallet,{local:url.searchParams.get('local')==='1'});
+   else if(method==='GET'&&path[1]==='workspace'&&product)result=await product.workspace(wallet,{local:url.searchParams.get('local')==='1',...(url.searchParams.has('contract')?{contracts:url.searchParams.getAll('contract')}:{})});
    else if(method==='PATCH'&&path[1]==='profile'&&product)result=product.profile(wallet,body);
    else if(method==='POST'&&path[1]==='saved'&&product)result=product.save(wallet,body);
    else if(method==='GET'&&path[1]==='support'&&path.length===3&&supportService)result=supportService.read(wallet,path[2]);
@@ -101,7 +101,7 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    else if(method==='GET'&&path[1]==='lab-clock'&&lab?.sandbox)result=lab.clockState();
    else if(method==='POST'&&path[1]==='lab-restart'&&lab?.sandbox)result=lab.restart(wallet);
    else if(method==='GET'&&path[1]==='integration')result={network:config.network,executionEnabled:config.enabled,budget:budget.totals()};
-   else if(method==='GET'&&path[1]==='publication-capacity')result=await publication.capacity(wallet);
+   else if(method==='GET'&&path[1]==='publication-capacity')result=await publication.capacity(wallet,{background:url.searchParams.get('preview')==='1'});
    else if(method==='GET'&&path[1]==='sale-requests'&&path.length===3)result=marketplace.saleRequest(wallet,path[2]);
    else if(method==='POST'&&path[1]==='assets'&&path.length===2){result=marketplace.createAsset(wallet,body);status=201;}
    else if(method==='PATCH'&&path[1]==='assets'&&path.length===3)result=marketplace.updateAsset(wallet,path[2],body.version,body.asset);
