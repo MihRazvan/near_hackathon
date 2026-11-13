@@ -1,3 +1,4 @@
+import {walletPurpose} from './entry-context.mjs';
 import { live,nativeUnits,allSales,sale,snapshot,allBookings,booking,usdc,byNs,dateTime } from './runtime.mjs';
 import { esc,link,badge,card,empty,heading,act,select,form,input,textArea,check,submit,hidden,evidence,unavailable,signedOut,notice,table,transaction,short } from './ui.mjs';
 import { artifactFields } from './owner.mjs';
@@ -55,9 +56,10 @@ export function walletView(signIn=false){
 }
 function productionWalletView(signIn){
  const session=live.session,next=new URLSearchParams(location.search).get('next'),safeNext=next?.startsWith('/')&&!next.startsWith('//')?next:live.data?.profile?.defaultWorkspace==='owner'?'/host':'/profile';
+ const purpose=walletPurpose(safeNext);
  const providers=live.providers.map(p=>act('connect-evm','Connect '+esc(p.name),`data-id="${esc(p.id)}"`,'button primary')).join(' ');
- return heading('YOUR ACCOUNT',signIn?'Welcome to Everywhere.':'Your connected wallet.','Sign in with your wallet. Each payment needs your approval.')+
-  `<div class="split">${card(session?'You\'re connected':'Choose your wallet',session?`<p><strong>${esc(live.data?.profile?.displayName??short(session.wallet))}</strong></p><p class="tiny"><code>${esc(session.wallet)}</code></p><p>Available balance: <strong>${live.balances?usdc(live.balances.intentsUsdc):live.balanceError?'Unavailable':'Checking...'}</strong></p><div class="actions">${link(safeNext,'Continue','button primary')}${act('disconnect','Disconnect')}</div><p>${link('/profile/balance','Manage funds & withdrawals','text-link')}</p>`:'<p>Use the same wallet to manage your advertising or list your own spaces. Signing in does not move money.</p>')}
+ return heading('',signIn&&!session?purpose.title:'Your connected wallet.',signIn&&!session?purpose.description:'Sign in with your wallet. Each payment needs your approval.')+
+  `<div class="split">${card(session?'You\'re connected':'Choose your wallet',session?`<p><strong>${esc(live.data?.profile?.displayName??short(session.wallet))}</strong></p><p class="tiny"><code>${esc(session.wallet)}</code></p><p>Available balance: <strong>${live.balances?usdc(live.balances.intentsUsdc):live.balanceError?'Unavailable':'Checking...'}</strong></p><div class="actions">${link(safeNext,'Continue','button primary')}${act('disconnect','Disconnect')}</div><p>${link('/profile/balance','Manage funds & withdrawals','text-link')}</p>`:`<ol class="wallet-task-steps">${purpose.steps.map(step=>`<li>${esc(step)}</li>`).join('')}</ol><p class="tiny muted">Your wallet is your account. Signing in does not move money.</p>`)}
   ${card(session?'Use a different wallet':'Connect a wallet',`<div class="stack">${providers||'<p>No browser wallet detected. Open this page in a browser with your wallet enabled.</p>'}${act('connect-near','Connect NEAR wallet · Meteor','','button')}</div><p class="tiny muted">Base wallets such as Rabby and MetaMask can pay in USDC. Your account and campaign records follow the wallet you connect.</p>`)}</div>`+
   `<p class="tiny muted">We never ask for a seed phrase or private key. ${link('/account/recovery','Need help with a payment?','text-link')}</p>`;
 }

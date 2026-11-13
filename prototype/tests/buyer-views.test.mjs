@@ -84,3 +84,11 @@ test('placement preserves its private receipt beside the public campaign record'
  const {snapshot}=setup();live.data.dashboard.bookings=[{id:'booking',contractId:'offer',saleId:'sale',owner:wallet,accepted:true,status:'accepted'}];snapshot.state.holder={account_id:wallet};
  const html=buyerView({id:'B08',params:{id:'booking'}});assert.match(html,/href="\/receipts\/booking"/);assert.match(html,/href="\/records\/sale"/);
 });
+
+test('takeover discovery shows only verified takeover opportunities and preserves the buyer campaign',()=>{
+ const {snapshot}=setup();snapshot.state.holder={account_id:'other.near'};location.search='?booking=takeover&campaign=brand';
+ let html=publicView({id:'P02'});assert.match(html,/City van/);assert.match(html,/1 takeover available/);assert.match(html,/booking=takeover/);assert.match(html,/campaign=brand/);
+ snapshot.state.holder=null;html=publicView({id:'P02'});assert.match(html,/No spaces match/);assert.doesNotMatch(html,/0\.01 USDC/);
+ location.search='?booking=open';assert.match(publicView({id:'P02'}),/City van/);
+ live.catalog.snapshots=[];live.catalogLoading=true;assert.doesNotMatch(publicView({id:'P02'}),/0\.01 USDC|href="\/checkout\//);
+});

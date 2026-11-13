@@ -1,0 +1,68 @@
+/* Clear entry paths and visible, actual placement state. */
+.hero-entry { margin:20px 0 0; font-size:13px; color:var(--ink); }
+.hero-entry .text-link { color:inherit; font-size:inherit; }
+.market-card-period { margin:0 0 10px; font-size:13px; color:var(--muted); }
+.market-card-availability { margin:0 0 16px; color:var(--blue); font-size:13px; font-weight:650; }
+.market-booking-modes { display:flex; gap:24px; align-items:center; margin:6px 0 20px; border-bottom:1px solid var(--line); }
+.market-booking-modes a { padding:12px 0; min-height:44px; font-size:14px; color:var(--muted); text-decoration:none; border-bottom:3px solid transparent; }
+.market-booking-modes a[aria-current] { color:var(--ink); font-weight:750; border-color:var(--pink); }
+.wallet-task-steps { margin:10px 0 26px; padding-left:22px; }
+.wallet-task-steps li { padding:8px 0 8px 6px; font-size:16px; }
+.owner-feature .owner-photo { padding:0; background:transparent; }
+.owner-feature .street-preview { margin:0; }
+.owner-feature .street-preview figcaption { padding:12px; background:var(--paper); }
+.owner-feature .street-preview img { object-fit:contain; }
+.owner-feature .owner-draft-note { font-size:13px; }
+.owner-feature .editorial-link { color:var(--paper); }
+.nft-feature.recorded-proof { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:28px 64px; align-items:start; padding:54px 0; }
+.proof-intro h2 { margin:0 0 20px; font:800 clamp(34px,3.8vw,54px)/1.05 var(--font-display); letter-spacing:-.035em; }
+.proof-intro > p { max-width:44ch; font-size:16px; line-height:1.7; color:var(--muted); }
+.proof-intro > .proof-provenance { font-size:13px; }
+.proof-history ol { list-style:none; padding:0; margin:0; }
+.proof-history li { display:flex; justify-content:space-between; gap:20px; padding:18px 0; border-bottom:1px solid var(--line); }
+.proof-history li strong { font:750 21px/1.2 var(--font-display); letter-spacing:-.02em; }
+.proof-history li p { margin:6px 0 0; font-size:14px; color:var(--muted); }
+.proof-history li a { display:grid; place-items:center; flex:0 0 44px; height:44px; color:var(--blue); }
+.proof-handoff { font-size:13px; line-height:1.7; margin:20px 0 0; color:var(--muted); }
+.proof-pass { grid-column:1 / -1; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:64px; align-items:center; }
+.proof-pass .placement-nft { max-width:none; margin:0; }
+.proof-pass > p { max-width:32ch; font-size:15px; color:var(--muted); line-height:1.7; }
+@media(max-width:800px) { .nft-feature.recorded-proof { gap:28px; } .proof-pass { gap:28px; } }
+@media(max-width:560px) { .nft-feature.recorded-proof, .proof-pass { grid-template-columns:minmax(0,1fr); gap:26px; } .recorded-proof .proof-pass { grid-column:1; } .market-booking-modes { gap:22px; } .market-booking-modes a { font-size:13px; } .proof-pass > p { margin:0; font-size:13px; } }
+.listing-progress { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px 24px; margin:4px 0 30px; padding-bottom:18px; border-bottom:1px solid var(--line); }
+.listing-progress ol { display:flex; flex-wrap:wrap; align-items:center; gap:22px; margin:0; padding:0; list-style:none; }
+.listing-progress li { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
+.listing-progress li > span { display:grid; place-items:center; width:25px; height:25px; border:1px solid var(--line); border-radius:50%; font-size:12px; }
+.listing-progress [aria-current] { color:var(--ink); font-weight:750; }
+.listing-progress [aria-current] > span { background:var(--ink); border-color:var(--ink); color:var(--paper); }
+.listing-progress .is-complete > span { border-color:var(--blue); color:var(--blue); }
+.listing-progress > p { margin:0; font-size:12px; color:var(--muted); max-width:48ch; }
+.vehicle-photo-notes { margin-top:18px; font-size:14px; }
+.vehicle-photo-notes summary, .offer-timing summary, .offer-rules summary { cursor:pointer; padding-block:10px; font-size:14px; font-weight:650; }
+.vehicle-photo-notes textarea { margin-top:10px; }
+.offer-fields > h2, .offer-spot-heading h2 { margin:0 0 18px; font-size:25px; }
+.offer-timing { margin:12px 0 32px; }
+.offer-timing .field { margin-top:12px; }
+.offer-spot-heading { margin:28px 0 18px; }
+.offer-spot-heading h2 { margin-bottom:8px; }
+.offer-spot-heading p { margin:0; font-size:14px; color:var(--muted); }
+.offer-fields .offer-price { display:grid; grid-template-columns:minmax(0,1fr) minmax(150px,.75fr); gap:14px 24px; padding:20px 0; border-bottom:1px solid var(--line); }
+.offer-price-name { display:flex; align-items:center; gap:10px; }
+.offer-price-name > span { display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--blue); color:var(--paper); font-size:13px; }
+.offer-fields .offer-price > details { grid-column:1 / -1; font-size:13px; }
+.offer-fields .offer-price > details summary { cursor:pointer; padding:5px 0; }
+.offer-fields .offer-price > details .field { margin-top:12px; }
+.offer-fields .offer-price > .field { margin:0; }
+.offer-rules { margin-top:24px; }
+.offer-review > h3 { margin:16px 0 8px; font-size:21px; }
+.offer-review > p { font-size:14px; }
+@media(max-width:560px) { .listing-progress { margin-bottom:24px; gap:12px; } .listing-progress ol { width:100%; justify-content:space-between; gap:8px; } .listing-progress li { font-size:11px; gap:5px; } .listing-progress li > span { width:22px; height:22px; } .offer-fields .offer-price { grid-template-columns:minmax(0,1fr); } .offer-fields .offer-price > details { grid-column:1; } }
+.owner-feature .street-preview { height:100%; display:flex; flex-direction:column; }
+.owner-feature .street-picture { position:relative; width:100%; flex:1; min-height:280px; aspect-ratio:16/9; }
+.owner-feature .street-picture img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.nft-feature.recorded-proof { grid-template-areas:'intro pass' 'history pass'; }
+.proof-intro { grid-area:intro; }
+.proof-history { grid-area:history; }
+.recorded-proof .proof-pass { grid-area:pass; display:block; }
+.proof-pass > p { max-width:none; margin:12px 0 0; font-size:12px; }
+@media(max-width:560px) { .nft-feature.recorded-proof { grid-template-areas:'intro' 'history' 'pass'; } .owner-feature .street-picture { min-height:220px; } }

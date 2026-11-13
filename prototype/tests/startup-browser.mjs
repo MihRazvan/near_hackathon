@@ -150,7 +150,7 @@ try{
   await test.page.goto(origin+'/host');await test.page.locator('#first-campaign-title').waitFor();
   assert.equal(await test.page.locator('.sidebar,.workspace-switch,.mobile-workspace-nav').count(),0);
   assert.equal(await test.page.locator('.site-nav a').count(),3);
-  assert.match(await test.page.locator('#main').innerText(),/Create your\s*first campaign/);
+  assert.match(await test.page.locator('#main').innerText(),/Create your\s*first listing/);
   assert.doesNotMatch(await test.page.locator('#main').innerText(),/Your earnings|Recent bookings|0 USDC|Calendar|Performance/);
   assert.equal(await test.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   if(process.env.ACCOUNT_SCREENSHOT_DIR){await mkdir(process.env.ACCOUNT_SCREENSHOT_DIR,{recursive:true});await test.page.screenshot({path:resolve(process.env.ACCOUNT_SCREENSHOT_DIR,'first-campaign-'+width+'.png'),fullPage:true});}

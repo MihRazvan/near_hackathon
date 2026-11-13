@@ -1,4 +1,5 @@
 import './style.css';
+import {mountCreationHints} from './listing-progress.mjs';
 import {mountOffer} from './offer-setup.mjs';
 import {mountSpotWorkspace,unmountSpotWorkspace} from './spot-workspace.mjs';
 import {mountOnboarding} from './onboarding.mjs';
@@ -65,7 +66,7 @@ export function legacyAction(target,r){
 }
 export function mountConnected(r){
  unmountSpotWorkspace();
- mountOnboarding(r);mountCapture(r);mountOffer();
+ mountOnboarding(r);mountCapture(r);mountOffer();mountCreationHints();
  if(r.id==='P10')mountCampaignRecord(r.params.id);
  const providers=document.querySelector('form[data-live-form="connect-evm"] select');
  if(providers){const old=providers.value;providers.innerHTML=live.providers.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')||'<option value="">No injected EVM wallet detected</option>';if(live.providers.some(p=>p.id===old))providers.value=old;}

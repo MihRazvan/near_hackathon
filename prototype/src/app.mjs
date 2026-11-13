@@ -14,6 +14,7 @@ import { matchRoute, canonicalDestination } from './routes.mjs';
 import { siteHeader, accountContext, accountArea } from './shell.mjs';
 import './marketplace-account.css';
 import './marketplace.css';
+import './experience-flow.css';
 import { closeModal } from './ui.mjs';
 
 const app = document.querySelector('#app');

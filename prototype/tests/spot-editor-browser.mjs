@@ -21,7 +21,7 @@ async function setup({width=1440,touch=false}={}){
   const r=route.request(),url=new URL(r.url());if(url.origin!==origin)return route.abort();
   if(url.pathname==='/wallets.js')return route.fulfill({contentType:'text/javascript',body:'export class ExternalWallets { list(){return [];} }'});
   if(!url.pathname.startsWith('/api/'))return route.continue();
-  const values={'/api/config':config,'/api/auth/session':{wallet:'owner.near'},'/api/browse':[],'/api/catalog':{sales:[],snapshots:[],owners:[],time:new Date().toISOString()},'/api/workspace':workspace(),'/api/wallet/balances':{intentsUsdc:'0',nearUsdc:'0',near:'1',tokenStorageRegistered:true}};
+  const values={'/api/publication-capacity':{mode:'hub',sponsoredSlots:8,paidAvailable:true},'/api/config':config,'/api/auth/session':{wallet:'owner.near'},'/api/browse':[],'/api/catalog':{sales:[],snapshots:[],owners:[],time:new Date().toISOString()},'/api/workspace':workspace(),'/api/wallet/balances':{intentsUsdc:'0',nearUsdc:'0',near:'1',tokenStorageRegistered:true}};
   if(r.method()==='PATCH'&&url.pathname==='/api/assets/vehicle'){
    writes++;const body=r.postDataJSON();try{assert.equal(body.version,asset.version);const draft=validateDraft(body.asset,{preserveIds:true,allowEmpty:true});asset={...asset,...draft,...body.asset,version:asset.version+1};const response=structuredClone(asset);if(hold){const gate=hold;hold=null;held?.();await gate;}return route.fulfill({json:response});}catch(e){return route.fulfill({status:409,json:{error:{message:e.message}}});}
   }

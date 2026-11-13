@@ -30,7 +30,7 @@ test('first-time owners see creation, then resume saved vehicle drafts without e
  setup();live.data.dashboard.sales=[];live.data.dashboard.assets=[];
  let html=ownerView({id:'O01'});assert.match(html,/first-campaign-title/);assert.match(html,/mode=photo/);assert.match(html,/mode=describe/);assert.doesNotMatch(html,/Your earnings|Your campaigns|Calendar|Performance/);
  const {a}=setup();live.data.dashboard.sales=[];
- html=ownerView({id:'O01'});assert.match(html,/Finish your first campaign/);assert.match(html,new RegExp('/host/assets/'+a.id+'/review'));assert.doesNotMatch(html,/id="earnings"|id="vehicles"/);
+ html=ownerView({id:'O01'});assert.match(html,/Finish your first listing/);assert.match(html,new RegExp('/host/assets/'+a.id+'/review'));assert.doesNotMatch(html,/id="earnings"|id="vehicles"/);
 });
 test('one owner campaign shows independent next steps for both placements and retains earning claims',()=>{
  setup();let html=ownerView({id:'O01'});
