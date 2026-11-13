@@ -7,7 +7,7 @@ export const live={enabled:true,config:null,data:null,session:null,sessionReady:
  balances:null,busy:false,error:null,draft:null,selectedSpot:null,providers:[],review:null,refreshing:null};
 const changed=()=>window.dispatchEvent(new Event('app:changed'));
 export function setProgress(message){live.progress=message;const notice=document.querySelector('#connected-notice');if(notice){notice.hidden=false;notice.textContent=message;notice.classList.remove('orange');}}
-function clearWorkspace(){live.data=null;live.balances=null;live.balanceError=null;live.fundingRecords=[];live.assetEdit=null;live.aiPending=null;live.aiReferencePreview=null;live.capturePhoto=null;live.captureSaved=null;live.fundQuote=null;live.exitQuote=null;live.routeResult=null;live.selectedSpot=null;}
+function clearWorkspace(){live.data=null;live.balances=null;live.balanceError=null;live.chainError=null;live.fundingRecords=[];live.assetEdit=null;live.aiPending=null;live.aiReferencePreview=null;live.capturePhoto=null;live.captureSaved=null;live.fundQuote=null;live.exitQuote=null;live.routeResult=null;live.selectedSpot=null;}
 export const amount=value=>{const s=String(value);if(!/^(0|[1-9][0-9]*)(\.\d{1,6})?$/.test(s))throw new Error('Enter a USDC amount with up to six decimal places.');const [whole,fraction='']=s.split('.');return (BigInt(whole)*1000000n+BigInt(fraction.padEnd(6,'0'))).toString();};
 export const nativeUnits=(value,decimals=24)=>{const n=BigInt(value??0),scale=10n**BigInt(decimals),fraction=(n%scale).toString().padStart(decimals,'0').slice(0,6).replace(/0+$/,'');return (n/scale).toString()+(fraction?'.'+fraction:'');};
 export const dollars=value=>Number(value??0)/1e6;
@@ -20,26 +20,72 @@ export function currentPerson(){
  return {id:live.session.wallet,ownerId:live.session.wallet,wallet:live.session.wallet,
   name:name&&name!==live.session.wallet?name:short(live.session.wallet),brand:live.data?.profile?.brand??'',role:location.pathname.startsWith('/host')?'owner':location.pathname.startsWith('/ops')?'ops':'buyer'};
 }
-export async function api(path,body,{method=body===undefined?'GET':'POST',session=live.session}={}){
- const response=await fetch('/api/'+path,{method,credentials:'include',headers:{...(body===undefined?{}:{'Content-Type':'application/json'}),...(session?.token?{Authorization:'Bearer '+session.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+export async function api(path,body,{method=body===undefined?'GET':'POST',session=live.session,signal}={}){
+ const response=await fetch('/api/'+path,{method,signal,credentials:'include',headers:{...(body===undefined?{}:{'Content-Type':'application/json'}),...(session?.token?{Authorization:'Bearer '+session.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
  let value;try{value=await response.json();}catch{throw new Error('The service is temporarily unavailable. Your saved progress and transaction records are retained.');}
  if(!response.ok){const error=new Error(value.error?.message??'The request could not be completed.');error.code=value.error?.code;error.status=response.status;throw error;}return value;
 }
-export async function refresh({render=true,force=false}={}){
- if(live.refreshing){if(!force)return live.refreshing;await live.refreshing.catch(()=>{});return refresh({render,force:false});}
- const session=live.session;
- live.refreshing=(async()=>{
-  try{
-   if(session){const data=await api('workspace',undefined,{session});if(live.session!==session)return;
-    live.data=data;live.config.aiAvailable=live.publicAiAvailable||data.ai?.available===true;live.catalog={sales:data.sales,snapshots:data.snapshots,owners:data.owners,time:data.time,unavailable:data.unavailable};
-    try{const balances=await api('wallet/balances',undefined,{session});if(live.session!==session)return;live.balances=balances;live.balanceError=null;}catch(error){if(live.session===session)live.balanceError=error.message;}
-    if(live.config?.network==='mainnet'&&session.wallet.startsWith('0x')){const records=await api('wallet-funding',undefined,{session});if(live.session===session)live.fundingRecords=records;}}
-   else{const catalog=await api('catalog');if(live.session!==session)return;live.catalog=catalog;live.data=null;live.balances=null;if(live.config)live.config.aiAvailable=!!live.publicAiAvailable;}
-   live.catalogLoading=false;
-  }catch(error){if(live.session!==session)return;if(error.status===401){live.session=null;live.data=null;sessionStorage.removeItem(KEY);}live.error=error.message;throw error;}
-  finally{live.refreshing=null;if(render)changed();}
- })();return live.refreshing;
+// Refreshes belong to the session and to their data lane. An old public or
+// previous-wallet read must never delay a new sign-in or overwrite its data.
+const refreshes=new Map();
+let localRevision=0;
+function applyWorkspace(data,{local,revision}){
+ const previous=live.data;
+ if(local){
+  localRevision++;
+  const same=previous?.wallet===live.session?.wallet;
+  if(same){data.placements=previous.placements;data.placementMessages=previous.placementMessages;
+   data.issues=[...(previous.issues??[]).filter(i=>!data.issues.some(n=>n.id===i.id)),...data.issues];}
+  data.chainPending=same?previous.chainPending!==false:true;
+  live.catalog={...live.catalog,sales:data.sales,owners:data.owners,snapshots:live.catalog?.snapshots??[],time:live.catalog?.time??data.time,unavailable:live.catalog?.unavailable??[]};
+ }else{
+  // A delayed chain response can hydrate rights without undoing a profile or
+  // draft that was saved through the independent database lane in the meantime.
+  if(revision!==localRevision&&previous?.wallet===data.wallet){
+   const keys=['snapshots','unavailable','time','placements','issues','placementMessages','chainPending'];
+   data={...data,...previous,...Object.fromEntries(keys.map(key=>[key,data[key]]))};
+  }
+  live.catalog={sales:data.sales,snapshots:data.snapshots,owners:data.owners,time:data.time,unavailable:data.unavailable};live.chainError=null;
+ }
+ live.data=data;live.config.aiAvailable=live.publicAiAvailable||data.ai?.available===true;
 }
+export async function refresh({render=true,local=false,background=false,force=!background}={}){
+ const session=live.session,lane=local?'local':'live';
+ let lanes=refreshes.get(session);if(!lanes){lanes=new Map();refreshes.set(session,lanes);}
+ const prior=lanes.get(lane);if(prior&&!force)return prior.promise;
+ if(prior)prior.controller.abort(); // Supersede read-only work, never a wallet write.
+ const record={controller:new AbortController(),revision:localRevision},signal=record.controller.signal;
+ lanes.set(lane,record);
+ const active=()=>live.session===session&&lanes.get(lane)===record;
+ const notify=()=>{if(render&&(!background||(!live.busy&&!document.activeElement?.matches('input,textarea,select')&&!document.querySelector('form[data-dirty="true"]'))))changed();};
+ record.promise=(async()=>{
+  // Balances are independent of marketplace state. Starting them together also
+  // avoids queueing wallet reads behind the entire public inventory scan.
+  const balances=!local&&session?api('wallet/balances',undefined,{session,signal}).then(value=>({value}),error=>({error})):null;
+  const funding=!local&&session&&live.config?.network==='mainnet'&&session.wallet.startsWith('0x')?api('wallet-funding',undefined,{session,signal}).then(value=>({value}),error=>({error})):null;
+  try{
+   if(session){
+    const data=await api('workspace'+(local?'?local=1':''),undefined,{session,signal});if(!active())return;
+    applyWorkspace(data,{local,revision:record.revision});notify();
+    if(balances){const result=await balances;if(!active())return;if(result.error)live.balanceError=result.error.message;else{live.balances=result.value;live.balanceError=null;}}
+    if(funding){const result=await funding;if(!active())return;if(!result.error)live.fundingRecords=result.value;}
+   }else{
+    const catalog=await api('catalog',undefined,{session,signal});if(!active())return;
+    live.catalog=catalog;live.data=null;live.balances=null;if(live.config)live.config.aiAvailable=!!live.publicAiAvailable;
+   }
+   if(!local)live.catalogLoading=false;
+  }catch(error){
+   if(!active()||signal.aborted)return;
+   if(error.status===401){live.session=null;clearWorkspace();sessionStorage.removeItem(KEY);}
+   if(!local)live.chainError=error.message;
+   live.error=error.message;if(error.status===401)changed();throw error;
+  }finally{
+   if(lanes.get(lane)===record){lanes.delete(lane);if(!lanes.size)refreshes.delete(session);if(active()||live.session===session){if(!local)live.catalogLoading=false;notify();}}
+   if(live.refreshing===record.promise)live.refreshing=null;
+  }
+ })();live.refreshing=record.promise;return record.promise;
+}
+function hydrate(){void refresh({background:true}).catch(()=>{});}
 export async function initialize(){
  live.config=await api('config');
  live.publicAiAvailable=live.config.aiAvailable===true;
@@ -61,14 +107,14 @@ export async function initialize(){
   try{const session=await api('auth/session'),same=stored?.wallet===session.wallet;live.session={...session,kind:session.wallet.startsWith('0x')?'evm':'near',providerId:same?stored.providerId:null,providerName:same?stored.providerName:null,providerRdns:same?stored.providerRdns:null};}catch(error){if(error.status!==401)throw error;}
  }else if(stored?.token&&stored?.wallet)live.session=stored;
  live.sessionReady=true;changed();
- try{await refresh({render:false});}catch{}finally{live.catalogLoading=false;}
+ try{if(live.session){await refresh({local:true,render:false});hydrate();}else await refresh({render:false});}catch{}
  state.connectedPerson=currentPerson();
  const idle=()=>document.visibilityState!=='hidden'&&!live.busy&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,select')
   &&!document.querySelector('form[data-dirty="true"]');
  // Payment actions reconcile immediately; idle dashboards need fewer reads and
  // hidden tabs must not keep consuming the shared chain-provider allowance.
- setInterval(()=>{if(idle())void refresh().catch(()=>{});},live.config.production?30000:12000);
- document.addEventListener('visibilitychange',()=>{if(idle())void refresh().catch(()=>{});});
+ setInterval(()=>{if(idle())hydrate();},live.config.production?30000:12000);
+ document.addEventListener('visibilitychange',()=>{if(idle())hydrate();});
 }
 export function signInRequired(){if(live.session)return true;navigate('/sign-in?next='+encodeURIComponent(location.pathname+location.search));return false;}
 export function review(title,details,{wallet=live.session?.wallet??'',rejectLabel='Reject request',approveLabel='Continue'}={}){
@@ -92,10 +138,10 @@ export async function connect(kind,value){
  const provider=kind==='evm'?live.providers.find(p=>p.id===value):null;
  live.session={...await api('auth/verify',signed),kind,providerId:provider?.id??null,providerName:provider?.name??null,providerRdns:provider?.rdns??null};sessionStorage.setItem(KEY,JSON.stringify(live.session));
  if(previous?.token&&previous.wallet!==wallet){/* Existing original-wallet requests remain in the server journal. */}
- await refresh({render:false,force:true});toast('Connected '+short(live.session.wallet));
- const next=new URLSearchParams(location.search).get('next');navigate(next?.startsWith('/')&&!next.startsWith('//')?next:live.data?.profile?.defaultWorkspace==='owner'?'/host':'/buy');
+ await refresh({local:true,render:false,force:true});toast('Connected '+short(live.session.wallet));
+ const next=new URLSearchParams(location.search).get('next');navigate(next?.startsWith('/')&&!next.startsWith('//')?next:live.data?.profile?.defaultWorkspace==='owner'?'/host':'/buy');hydrate();
 }
-export async function disconnect(){if(live.session)await api('auth/logout',{});live.session=null;clearWorkspace();sessionStorage.removeItem(KEY);await refresh({render:false,force:true});navigate('/');}
+export async function disconnect(){if(live.session)await api('auth/logout',{});live.session=null;clearWorkspace();sessionStorage.removeItem(KEY);navigate('/');hydrate();}
 export async function run(callback){
  if(live.busy)return;live.busy=true;live.error=null;document.body.classList.add('connected-busy');document.body.setAttribute('aria-busy','true');setProgress('Saving your progress. Please wait…');
  const buttons=[...document.querySelectorAll('[data-live-action],form[data-live-form] button')].map(e=>[e,e.disabled]);buttons.forEach(([e])=>e.disabled=true);

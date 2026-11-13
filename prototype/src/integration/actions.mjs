@@ -40,8 +40,8 @@ async function prepareBooking(data,{pay=live.config.production}={}){
   const field=document.querySelector('form[data-live-form="prepare-booking"] [name="campaignId"]');
   if(field){const option=document.createElement('option');option.value=campaignId;option.textContent=String(data.get('name'));field.append(option);field.value=campaignId;}}
  const b=await api('bookings',{campaignId,saleId:String(data.get('saleId')),spotId:String(data.get('spotId')),testCampaignAcknowledged:data.has('testCampaignAcknowledged')});
- if(data.get('expectedAmount')&&String(data.get('expectedAmount'))!==b.amount){await api('bookings/'+b.id+'/cancel',{});await refresh({render:false});navigate('/checkout/'+b.saleId+'?spot='+b.spotId+'&campaign='+encodeURIComponent(campaignId));throw new Error('The price changed while you were booking. Review the updated price before paying.');}
- await refresh({render:false});navigate('/payments/'+b.id);if(pay)await payBooking(b.id);return b;
+ if(data.get('expectedAmount')&&String(data.get('expectedAmount'))!==b.amount){await api('bookings/'+b.id+'/cancel',{});await refresh({local:true,render:false});navigate('/checkout/'+b.saleId+'?spot='+b.spotId+'&campaign='+encodeURIComponent(campaignId));throw new Error('The price changed while you were booking. Review the updated price before paying.');}
+ await refresh({local:true,render:false});navigate('/payments/'+b.id);if(pay)await payBooking(b.id);return b;
 }
 async function ensureUsdcStorage(){
  await refresh({render:false});if(live.balances?.tokenStorageRegistered)return;
@@ -88,10 +88,10 @@ export const actions={
   if(live.session?.wallet!==wallet)throw new Error('Your wallet changed. Reopen this booking with the original account.');
   await prepareBooking(data,{pay:true});
  },
- 'start-capture':async()=>{const r=await api('captures',{});sessionStorage.setItem('everywhere-capture-link:'+r.id,r.uploadUrl);await refresh({render:false});navigate('/host/capture/'+r.id);},
+ 'start-capture':async()=>{const r=await api('captures',{});sessionStorage.setItem('everywhere-capture-link:'+r.id,r.uploadUrl);await refresh({local:true,render:false});navigate('/host/capture/'+r.id);},
  'use-capture':async el=>useCapturedPhoto(el.dataset.id),
  'save-sale':async el=>{if(!live.session){navigate('/sign-in?next='+encodeURIComponent(location.pathname+location.search));return;}
-  const old=live.data.saved.find(s=>s.saleId===el.dataset.id);await api('saved',{saleId:el.dataset.id,saved:!old?.saved});await refresh();toast(old?.saved?'Space removed from shortlist.':'Space saved.');},
+  const old=live.data.saved.find(s=>s.saleId===el.dataset.id);await api('saved',{saleId:el.dataset.id,saved:!old?.saved});await refresh({local:true});toast(old?.saved?'Space removed from shortlist.':'Space saved.');},
  'add-spot':()=>{
   const form=currentForm(),data=new FormData(form),a=rawAsset(data.get('id')),base=live.assetEdit?.id===a.id?live.assetEdit:a;
   const draft={...base,...assetFields(data,base)};draft.spots.push({id:'spot-'+crypto.randomUUID().slice(0,8),name:'New panel',side:'left',box:{x:.3,y:.4,width:.25,height:.2},suggestedPriceCents:'10',confidence:'low',requiresMeasurement:true,dimensionsCm:null});
@@ -112,12 +112,12 @@ export const actions={
   for(const record of result.plans){if(record.status==='confirmed')continue;await nativePlan(record.plan,'Publish advertising spot '+record.plan.spotId);}
   await refresh();toast(sale(el.dataset.id)?.status==='published'?'Your sale is published.':'Publication is pending. Recover the original requests to continue.');
  },
- 'cancel-unsent-request':async el=>{await api('wallet-requests/'+el.dataset.id+'/cancel-unsent',{});await refresh();toast('The unopened request was cancelled.');},
- 'cancel-unsent-funding':async el=>{await api('wallet-funding/'+el.dataset.id+'/cancel-unsent',{});await refresh();toast('The unopened Base request was cancelled.');},
+ 'cancel-unsent-request':async el=>{await api('wallet-requests/'+el.dataset.id+'/cancel-unsent',{});await refresh({local:true});toast('The unopened request was cancelled.');},
+ 'cancel-unsent-funding':async el=>{await api('wallet-funding/'+el.dataset.id+'/cancel-unsent',{});await refresh({local:true});toast('The unopened Base request was cancelled.');},
  'resume-intent':async el=>{await ensureSigningWallet();const r=await api('wallet-requests/'+el.dataset.id+'/resume-intent',{});if(r.status==='rejected'){const plan=await verifyOriginalIntent(await api('intents/'+r.planId),r);await intentPlan(plan,'Retry your original payment with the same amount and nonce');}await refresh({force:true});toast('Your original request has been checked.');},
  'resume-publication':async el=>{await api('provision-plans/'+el.dataset.id+'/start',{reviewed:true});await refresh();toast('The original publication plan is being reconciled. No replacement account was created.');},
  'pay-booking':el=>payBooking(el.dataset.id),
- 'cancel-booking':async el=>{await api('bookings/'+el.dataset.id+'/cancel',{});await refresh();toast('Unsent booking cancelled.');},
+ 'cancel-booking':async el=>{await api('bookings/'+el.dataset.id+'/cancel',{});await refresh({local:true});toast('Unsent booking cancelled.');},
  faucet:async()=>{const r=await api('lab-wallet/faucet',{});if(r.status!=='confirmed')throw new Error('The original faucet transaction is pending. Reconcile it before trying another wallet.');await refresh();toast('This wallet\'s test funding is confirmed.');},
  'lock-artwork':el=>confirmAction(el.dataset.contract,'lock-artwork',{expectedRevision:el.dataset.revision}),
  'cancel-empty':el=>confirmAction(el.dataset.contract,'cancel-empty'),
@@ -174,18 +174,18 @@ export const forms={
  'connect-funded':data=>connect('funded',String(data.get('wallet'))),
  'connect-test':data=>connect('test',String(data.get('wallet'))),'connect-evm':data=>connect('evm',String(data.get('provider'))),
  search:data=>navigate('/explore?'+new URLSearchParams({city:data.get('city'),type:data.get('type')})),
- profile:async data=>{await api('profile',{displayName:String(data.get('displayName')),brand:String(data.get('brand')),city:String(data.get('city')),notifications:data.has('notifications'),defaultWorkspace:data.get('defaultWorkspace')},{method:'PATCH'});await refresh();toast('Profile saved to this wallet.');},
+ profile:async data=>{await api('profile',{displayName:String(data.get('displayName')),brand:String(data.get('brand')),city:String(data.get('city')),notifications:data.has('notifications'),defaultWorkspace:data.get('defaultWorkspace')},{method:'PATCH'});await refresh({local:true});toast('Profile saved to this wallet.');},
  'asset-create':async data=>{
   const photo=data.get('photo'),photoDataUrl=await photoData(photo)??live.capturePhoto;let draft;
   if(data.get('method')==='ai'){const r=await api('ai/draft',{prompt:String(data.get('title'))+'. '+String(data.get('description')),...(photoDataUrl?{imageDataUrl:photoDataUrl}:{})});draft=r.draft;}
   else draft={assetType:data.get('assetType'),description:String(data.get('description')),assumptions:['Owner-created layout; confirm physical measurements.'],spots:[{id:'spot-1',name:'Advertising panel',side:'left',box:{x:.3,y:.4,width:.3,height:.2},suggestedPriceCents:'10',confidence:'low'}]};
   let coverMediaId;if(data.has('publicCover')){if(!photoDataUrl)throw new Error('Choose a photo before publishing a listing cover.');coverMediaId=(await api('media',{base64:photoDataUrl.split(',')[1],mime:photoDataUrl.slice(5,photoDataUrl.indexOf(';')),publicContentAcknowledged:true})).id;}
   const asset=await api('assets',{...draft,title:String(data.get('title')),city:String(data.get('city')),source:data.get('method')==='ai'?'ai':'manual',campaignType:data.get('campaignType')==='team-test'?'team-test':'physical',imageProvenance:data.has('aiGeneratedImage')?'ai-generated':'owner-photo',...(photoDataUrl?{photoDataUrl}:{}),...(coverMediaId?{coverMediaId}:{})});
-  await refresh({render:false});live.assetEdit=null;live.capturePhoto=null;navigate('/host/assets/'+asset.id+'/review');toast('Editable space saved. Review every surface before publishing.');
+  await refresh({local:true,render:false});live.assetEdit=null;live.capturePhoto=null;navigate('/host/assets/'+asset.id+'/review');toast('Editable space saved. Review every surface before publishing.');
  },
  'asset-edit':async data=>{
   const a=rawAsset(data.get('id')),base=live.assetEdit?.id===a.id?live.assetEdit:a;
-  await saveEditor(data);live.assetEdit=null;await refresh({render:false});navigate(data.get('next')==='campaign'?'/host/sales/new?asset='+a.id:'/host/assets/'+a.id);toast('Space and advertising surfaces saved.');
+  await saveEditor(data);live.assetEdit=null;await refresh({local:true,render:false});navigate(data.get('next')==='campaign'?'/host/sales/new?asset='+a.id:'/host/assets/'+a.id);toast('Space and advertising surfaces saved.');
  },
  'sale-edit':async data=>{
   const a=rawAsset(data.get('assetId')),existing=data.get('id')?sale(data.get('id')):null;
@@ -193,9 +193,9 @@ export const forms={
   const payload={assetId:a.id,title:String(data.get('title')),arbiterId:String(data.get('arbiterId')),takeoverDefault:data.has('takeoverDefault'),rules:String(data.get('rules')),spots,
    schedule:campaignSchedule(Object.fromEntries(['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'].map(key=>[key,String(data.get(key))])),{custom:data.has('customMilestones')})};
   const result=existing?await api('sales/'+existing.id,{version:Number(data.get('version')),sale:payload},{method:'PATCH'}):await api('sales',payload);
-  await refresh({render:false});navigate('/host/sales/'+result.id);toast('Sale draft saved. Review & publish when ready.');
+  await refresh({local:true,render:false});navigate('/host/sales/'+result.id);toast('Sale draft saved. Review & publish when ready.');
  },
- 'campaign-create':async data=>{const c=await api('campaigns',{name:String(data.get('name')),budgetMicroUsdc:amount(data.get('budget'))});await refresh({render:false});navigate('/buy/campaigns/'+c.id);},
+ 'campaign-create':async data=>{const c=await api('campaigns',{name:String(data.get('name')),budgetMicroUsdc:amount(data.get('budget'))});await refresh({local:true,render:false});navigate('/buy/campaigns/'+c.id);},
  'prepare-booking':data=>prepareBooking(data),
  nomination:async data=>{const plan=await api('nomination',{contractId:String(data.get('contractId')),recipientId:String(data.get('recipientId'))});const r=await intentPlan(plan,'Nominate your final placement NFT recipient');
   for(let i=0;i<20;i++){await api('wallet-requests/'+r.id+'/reconcile',{});await refresh({render:false});if(snapshot(data.get('contractId'))?.state.nominated_recipient===data.get('recipientId'))break;await new Promise(r=>setTimeout(r,300));}rerender();},
@@ -211,7 +211,7 @@ export const forms={
   if(snapshot(contractId)?.mode==='hub')await confirmAction(contractId,'open-issue',{caseId:issue.id});
  },
  'issue-decision':async data=>{const mediaId=await artifact(data);await confirmAction(String(data.get('contractId')),'issue-decision',{caseId:String(data.get('caseId')),open:data.get('decision')==='open',mediaId});},
- support:async data=>{const ticket=await api('support',{subject:String(data.get('subject')),message:String(data.get('message'))});await refresh({render:false});navigate('/support/cases/'+ticket.id);},
+ support:async data=>{const ticket=await api('support',{subject:String(data.get('subject')),message:String(data.get('message'))});await refresh({local:true,render:false});navigate('/support/cases/'+ticket.id);},
  message:async data=>{await api('placements/'+data.get('contractId')+'/messages',{message:String(data.get('message'))});await refresh();toast('Message saved to this placement conversation.');},
  'withdraw-native':async data=>{
   if(BigInt(amount(data.get('amount')))>BigInt(live.balances?.intentsUsdc??0))throw new Error('Choose an amount within your available balance.');

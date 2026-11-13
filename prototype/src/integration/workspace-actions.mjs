@@ -8,7 +8,7 @@ export const supportAdministrator = state => !!state.session?.wallet && state.da
 
 export function createWorkspaceForms({ request = api, uploadFile = upload, refreshWorkspace = refresh, showToast = toast, getLive = () => live } = {}) {
   function account() { const state = getLive(); if (!state.session?.wallet) throw new Error('Connect your wallet to continue.'); return state; }
-  async function updated(message) { await refreshWorkspace({ force: true }); showToast(message); }
+  async function updated(message) { await refreshWorkspace({ force: true, local: true }); showToast(message); }
   return {
     'brand-upload': async data => {
       account(); const file = data.get('file');

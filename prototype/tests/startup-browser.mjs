@@ -26,6 +26,7 @@ const now=Date.now(),ns=ms=>(BigInt(ms)*1000000n).toString();
 const asset={id:'vehicle',title:'City van',description:'Delivery van',city:'Dublin',assetType:'van',spots:[{id:'side',name:'Side panel',box:{x:.2,y:.3,width:.4,height:.2}}]};
 const sale={id:'sale',assetId:asset.id,owner:'owner.near',title:'Van campaign',status:'published',createdAt:new Date(now).toISOString(),rules:'Reviewed content',publication:{manifest:{asset}},schedule:{biddingClose:new Date(now+600000).toISOString(),serviceStart:new Date(now+1200000).toISOString(),serviceEnd:new Date(now+1800000).toISOString()},spots:[{id:'side',contractId:'offer',takeoverEnabled:true}]};
 const catalog={sales:[sale],snapshots:[{accountId:'offer',state:{outcome:'open',cutoff_ns:ns(now+600000),next_price:'10000',holder:null},rights:{},campaign:{terms:{sale_id:sale.id}}}],owners:[],time:new Date(now).toISOString()};
+const workspace={...catalog,wallet:'owner.near',chainPending:false,profile:{displayName:'Space owner'},dashboard:{assets:[],sales:[],bookings:[],incomingBookings:[],campaigns:[]},...Object.fromEntries(['arbiterSales','placements','media','requests','intents','nativePlans','publicationPlans','provisionPlans','issues','messages','placementMessages','support','saved','captures','routes','routeResults','operations','events'].map(k=>[k,[]]))};
 const walletSource='export class ExternalWallets { constructor(){} list(){return [];} }';
 const report=[],errors=[],writes=[];
 async function setup(options={}){
@@ -41,7 +42,11 @@ async function setup(options={}){
   if(url.pathname==='/api/browse'){await options.browseGate?.promise;return route.fulfill({json:catalog.sales});}
   if(url.pathname==='/api/auth/session'){await options.sessionGate?.promise;return route.fulfill({status:options.signedIn?200:401,json:options.signedIn?{wallet:'owner.near',expiresAt:new Date(now+3600000).toISOString()}:{error:{message:'Signed out'}}});}
   if(url.pathname==='/api/catalog'){await options.catalogGate?.promise;return route.fulfill({status:options.failCatalog?503:200,json:options.failCatalog?{error:{message:'Availability check is temporarily unavailable.'}}:catalog});}
-  if(url.pathname==='/api/workspace'){await options.workspaceGate?.promise;return route.fulfill({status:503,json:{error:{message:'Workspace temporarily unavailable.'}}});}
+  if(url.pathname==='/api/workspace'){
+   if(url.searchParams.get('local')==='1'&&options.localWorkspace)return route.fulfill({json:{...workspace,snapshots:[],chainPending:true}});
+   await options.workspaceGate?.promise;return route.fulfill({status:options.localWorkspace?200:503,json:options.localWorkspace?workspace:{error:{message:'Workspace temporarily unavailable.'}}});
+  }
+  if(url.pathname==='/api/wallet/balances'){await options.balanceGate?.promise;return route.fulfill({json:{wallet:'owner.near',intentsUsdc:'10000',nearUsdc:'10000',near:'1000000000000000000000000',tokenStorageRegistered:true}});}
   throw Error('Unexpected fixture API '+url.pathname);
  });
  return {context,page};
@@ -115,7 +120,7 @@ try{
  }
  {
   const workspaceGate=deferred(),test=await setup({signedIn:true,workspaceGate});
-  const workspaceRequest=test.page.waitForRequest(r=>r.url().endsWith('/api/workspace'));
+  const workspaceRequest=test.page.waitForRequest(r=>new URL(r.url()).pathname==='/api/workspace');
   await test.page.goto(origin);await test.page.locator('#home-title').waitFor();await workspaceRequest;
   await test.page.locator('.mobile-nav-links a[href="/host"]').click();
   assert.match(await test.page.locator('#main').innerText(),/Opening your workspace/);
@@ -123,6 +128,21 @@ try{
   workspaceGate.resolve();await test.page.getByRole('button',{name:'Try again',exact:true}).waitFor();
   assert.match(await test.page.locator('#main').innerText(),/Your workspace could not load/);
   report.push('Restored accounts wait for their own workspace without flashing signed-out or empty account data');await test.context.close();
+ }
+ {
+  const workspaceGate=deferred(),balanceGate=deferred(),test=await setup({signedIn:true,localWorkspace:true,workspaceGate,balanceGate,viewport:{width:1440,height:1000}});
+  await test.page.goto(origin+'/settings/wallets');await test.page.locator('[data-live-action="disconnect"]').waitFor();
+  assert.match(await test.page.locator('#main').innerText(),/Available balance: Checking/);
+  await test.page.locator('.sidebar a[href="/settings/profile"]').click();
+  await test.page.locator('[name="displayName"]').fill('Keep this unsaved edit');
+  workspaceGate.resolve();await test.page.evaluate(()=>window.dispatchEvent(new Event('app:walletproviders')));
+  assert.equal(await test.page.locator('[name="displayName"]').inputValue(),'Keep this unsaved edit');
+  await test.page.locator('.sidebar a[href="/buy/money"]').click();
+  assert.match(await test.page.locator('#main').innerText(),/Checking your live campaign status/);
+  assert.equal(await test.page.locator('form[data-live-form="withdraw-native"]').count(),0);
+  balanceGate.resolve();await test.page.locator('form[data-live-form="withdraw-native"]').waitFor();
+  assert.match(await test.page.locator('#main').innerText(),/0\.01 USDC/);
+  report.push('Account controls and draft editing work before live checks; delayed balances cannot appear as spendable zero or erase edits');await test.context.close();
  }
  const noJs=await browser.newContext({javaScriptEnabled:false,viewport:{width:320,height:640}}),fallback=await noJs.newPage();await fallback.goto(origin);
  assert.equal(await fallback.locator('#startup').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(26, 26, 26)');

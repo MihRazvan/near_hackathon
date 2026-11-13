@@ -32,7 +32,7 @@ export async function saveOffer(data,{publish=false}={}){
  guard();let result;
  if(existing?.status==='published'){navigate('/host/sales/'+existing.id);return;}
  if(existing)result=await api('sales/'+existing.id,{version:existing.version,sale:payload},{method:'PATCH'});else result=await api('sales',{...payload,requestId});
- guard();await refresh({render:false});navigate('/host/sales/'+result.id);
+ guard();await refresh({local:true,render:false});navigate('/host/sales/'+result.id);
  if(publish){if(!canPublish)throw new Error('Your campaign draft is saved. Complimentary publication is currently full. You can return when sponsorship is available or use a NEAR wallet with its own deposit.');await actions.publish({dataset:{id:result.id}});}else toast('Campaign draft saved. Publish it when you are ready.');
 }
 export function mountOffer(){

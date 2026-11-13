@@ -35,9 +35,16 @@ export function renderConnected(r){
  else if(r.scope==='buyer')body=buyerView(r);
  else if(r.scope==='shared')body=sharedView(r);
  else if(r.scope==='ops')body=opsView(r);
+ // Account/draft data is available immediately. Financial and fulfillment views
+ // wait for this wallet's verified live state, never an invented zero balance.
+ if(live.session&&((live.data?.chainPending&&(['B06','B07','B08','B09','B11','B12','O14','O15','O16','O19','O20'].includes(r.id)||r.scope==='ops'))||(['B06','B11'].includes(r.id)&&!live.balances))){
+  const failed=live.chainError||live.balanceError;
+  body=empty(failed?'Campaign status is unavailable.':'Checking your live campaign status.',failed?'Your account and drafts are available. Retry the status check before continuing.':'Your account is connected. Current placements and balances are loading.',act('refresh','Refresh status','','button primary'));
+ }
  if(!body)body=empty('This destination is unavailable.','Choose a published space or open your own workspace.',link('/explore','Explore spaces','button primary'));
  const unavailable=live.error?`<div id="connected-notice" class="notice orange" role="status">${esc(live.error)}</div>`:live.busy&&live.progress?`<div id="connected-notice" class="notice" role="status">${esc(live.progress)}</div>`:'<div id="connected-notice" class="notice" role="status" hidden></div>';
- return unavailable+body;
+ const pending=live.session&&live.data?.chainPending&&!live.error?'<p class="tiny muted" role="status">Live campaign status is updating. You can work on your drafts meanwhile.</p>':'';
+ return unavailable+pending+body;
 }
 
 function globalView(r){
