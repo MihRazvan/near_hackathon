@@ -78,3 +78,8 @@ test('a delayed full refresh hydrates rights without reverting a newer profile o
  gate.resolve(workspace(session.wallet,false,{profile:{displayName:'Old profile'},placements:[{accountId:'verified-right'}],dashboard:{assets:[{id:'asset',version:2}]}}));await full;
  assert.equal(live.data.chainPending,false);assert.equal(live.data.profile.displayName,'New profile');assert.equal(live.data.dashboard.assets[0].version,3);assert.equal(live.data.placements[0].accountId,'verified-right');
 });
+test('an unavailable initial account read publishes a recoverable error instead of leaving an invisible wait',async()=>{
+ reset({wallet:'owner.near'});let renders=0;const changed=()=>renders++;window.addEventListener('app:changed',changed);
+ globalThis.fetch=async()=>Response.json({error:{message:'Service temporarily unavailable'}},{status:503});
+ try{await assert.rejects(refresh({local:true,render:false}),/Service temporarily unavailable/);assert.equal(live.data,null);assert.equal(live.session.wallet,'owner.near');assert.equal(renders,1);assert.match(live.error,/temporarily unavailable/);}finally{window.removeEventListener('app:changed',changed);}
+});

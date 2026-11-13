@@ -78,7 +78,7 @@ export async function refresh({render=true,local=false,background=false,force=!b
    if(!active()||signal.aborted)return;
    if(error.status===401){live.session=null;clearWorkspace();sessionStorage.removeItem(KEY);}
    if(!local)live.chainError=error.message;
-   live.error=error.message;if(error.status===401)changed();throw error;
+   live.error=error.message;if(error.status===401||(local&&!live.data))changed();throw error;
   }finally{
    if(lanes.get(lane)===record){lanes.delete(lane);if(!lanes.size)refreshes.delete(session);if(active()||live.session===session){if(!local)live.catalogLoading=false;notify();}}
    if(live.refreshing===record.promise)live.refreshing=null;

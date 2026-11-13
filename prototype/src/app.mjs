@@ -50,13 +50,14 @@ function render() {
   const signedOutReady=live.config&&live.sessionReady&&!live.session;
   const workspaceReady=live.config&&live.sessionReady&&live.session&&live.data;
   if(!publicReady&&!signedOutReady&&!workspaceReady){
-    if(startupFailed){
+    const failed=startupFailed||!!live.error;
+    if(failed){
       const startup=document.querySelector('#startup');
       startup?.setAttribute('aria-busy','false');
       const content=startup?.querySelector('.startup-content');
       if(content)content.innerHTML=`<img class="startup-mark" src="/favicon.svg" width="64" height="64" alt=""><h1 class="startup-name">Let\'s try that again<span>.</span></h1><p class="startup-copy" role="alert">We couldn\'t open Everywhere. Check your connection and try again.</p><button type="button" class="startup-retry" data-startup-retry>Try again</button>`;
     }
-    if(!document.querySelector('#startup'))app.innerHTML=publicShell(`<section class="market-invitation" ${startupFailed?'role="alert"':'role="status" aria-busy="true"'}><div><h1 class="empty-title">${startupFailed?'Your workspace could not load.':'Opening your workspace.'}</h1><p>${startupFailed?'Your saved progress is retained. Try again to reconnect.':'Your account and saved campaigns are loading.'}</p></div>${startupFailed?'<button type="button" class="button primary" data-startup-retry>Try again</button>':''}</section>`);
+    if(!document.querySelector('#startup'))app.innerHTML=publicShell(`<section class="market-invitation" ${failed?'role="alert"':'role="status" aria-busy="true"'}><div><h1 class="empty-title">${failed?'Your workspace could not load.':'Opening your workspace.'}</h1><p>${failed?'Your saved progress is retained. Try again to reconnect.':'Your account and saved campaigns are loading.'}</p></div>${failed?'<button type="button" class="button primary" data-startup-retry>Try again</button>':''}</section>`);
     return;
   }
   let body=renderConnected(currentRoute);
