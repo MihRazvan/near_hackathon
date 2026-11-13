@@ -29,6 +29,7 @@ export function categoryLinks(selected = "") {
     ["", "All spaces", "grid"],
     ["car", "Cars", "car"],
     ["van", "Vans", "car"],
+    ["truck", "Trucks", "car"],
     ["bike", "Bikes", "bike"],
     ["motorcycle", "Motorcycles", "moto"],
     ["other", "Other surfaces", "surface"],
