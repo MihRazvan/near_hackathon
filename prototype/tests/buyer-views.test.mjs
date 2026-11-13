@@ -18,7 +18,7 @@ function setup(){
  location.search='';const asset={id:'asset',title:'City van',description:'Delivery van',city:'Bucharest',assetType:'van',spots:[{id:'door',name:'Side door',suggestedPriceCents:1,box:{x:.2,y:.2,width:.2,height:.2}}]};
  const sale={id:'sale',assetId:'asset',owner:'owner.near',title:'December campaign',createdAt:new Date(now).toISOString(),status:'published',rules:'No restricted content',publication:{manifest:{asset}},schedule:{biddingClose:new Date(now+60000).toISOString(),serviceStart:new Date(now+120000).toISOString(),serviceEnd:new Date(now+180000).toISOString()},spots:[{id:'door',contractId:'offer',takeoverEnabled:true}]};
  const snapshot={accountId:'offer',state:{outcome:'open',cutoff_ns:ns(now+60000),next_price:'10000',holder:null,nft_minted:false,refund_end_ns:ns(now+240000)},rights:{bidding_closed:false,current_owner_id:null,active:false},campaign:{terms:{sale_id:'sale',artwork_due_ns:ns(now+90000)},delivery_proof:null},credits:{}};
- Object.assign(live,{config:{production:true,sandbox:false},session:{wallet,kind:'evm'},catalog:{time:new Date(now).toISOString(),sales:[sale],snapshots:[snapshot],owners:[]},balances:{intentsUsdc:'0',baseUsdc:'1000000'},data:{dashboard:{bookings:[],campaigns:[],incomingBookings:[],sales:[]},placements:[],saved:[],requests:[],intents:[],routes:[]}});
+ Object.assign(live,{config:{production:true,sandbox:false},session:{wallet,kind:'evm'},catalogLoading:false,catalog:{time:new Date(now).toISOString(),sales:[sale],snapshots:[snapshot],owners:[]},balances:{intentsUsdc:'0',baseUsdc:'1000000'},data:{dashboard:{bookings:[],campaigns:[],incomingBookings:[],sales:[]},placements:[],saved:[],requests:[],intents:[],routes:[]}});
  return {sale,snapshot};
 }
 test('generated team tests show real-payment disclosure and acknowledgement at checkout without promising installation',()=>{
@@ -35,6 +35,19 @@ test('marketplace hides stale bookable prices and preserves campaign choice thro
  const {snapshot}=setup();location.search='?campaign=brand';let html=publicView({id:'P02'});assert.match(html,/name="campaign" value="brand"/);assert.match(html,/campaign=brand/);assert.match(html,/0\.01 USDC/);assert.match(html,/href="\/explore\?campaign=brand&amp;type=van"/);
  snapshot.state.cutoff_ns=ns(now-1);html=publicView({id:'P02'});assert.doesNotMatch(html,/0\.01 USDC/);assert.match(html,/No spaces match/);
  html=publicView({id:'P03',params:{slug:'asset'}});assert.doesNotMatch(html,/Book this (?:spot|placement)/);assert.doesNotMatch(html,/0\.01 USDC/);
+});
+test('published metadata can be browsed before chain verification without advertising a price or enabling checkout',()=>{
+ setup();live.catalog.snapshots=[];live.catalogLoading=true;
+ for(const id of ['P01','P02','P03']){
+  const html=publicView({id,params:{slug:'asset'}});
+  assert.match(html,/City van/);assert.match(html,/Checking availability/i);
+  assert.doesNotMatch(html,/Booking closed|List the first space|No spaces match|0\.01 USDC|href="\/checkout\//);
+ }
+ live.catalogLoading=false;
+ assert.match(publicView({id:'P02'}),/Availability unavailable/i);
+ live.catalog=null;live.catalogLoading=true;
+ assert.match(publicView({id:'P01'}),/Loading available spaces/);
+ assert.doesNotMatch(publicView({id:'P01'}),/List the first space/);
 });
 test('checkout funds the exact chosen spot while existing holdings cannot be purchased twice',()=>{
  const {snapshot}=setup();location.search='?spot=door';let html=buyerView({id:'B06',params:{intentId:'sale'}});assert.match(html,/data-live-action="fund-and-book" data-sale="sale" data-spot="door"/);assert.match(html,/data-live-form="prepare-booking"/);

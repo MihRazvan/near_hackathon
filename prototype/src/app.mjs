@@ -16,7 +16,7 @@ import { matchRoute } from './routes.mjs';
 import { icon, esc, short, link, closeModal } from './ui.mjs';
 
 const app = document.querySelector('#app');
-let currentRoute, toastTimer, initialized=false, startupFailed=false;
+let currentRoute, toastTimer, startupFailed=false;
 const navs = {
   buyer: [['/buy','Overview','grid'],['/buy/campaigns','Campaigns','file'],['/buy/saved','Saved spaces','heart'],['/settings/workspace?tab=brand','Brand assets','upload'],['/buy/money','Money & credits','wallet']],
   owner: [['/host','Overview','grid'],['/host/assets','My spaces','car'],['/host/sales','Campaigns','file'],['/host/bookings','Bookings','shield'],['/host/calendar','Calendar','calendar'],['/host/analytics','Performance','chart'],['/host/earnings','Earnings','wallet']],
@@ -42,17 +42,23 @@ function workspaceShell(body, scope) {
   return `${topbar()}<div class="workspace"><aside class="sidebar"><a class="brand" href="/">${wordmark}</a><div class="workspace-switch"><a href="/buy" class="${role==='buyer'?'active':''}">Buy space</a><a href="/host" class="${role==='owner'?'active':''}">List space</a></div><div><div class="nav-section-label">${role==='ops'?'CAMPAIGN OPERATIONS':label.toUpperCase()+' WORKSPACE'}</div><nav aria-label="${label} navigation">${nav.map(navLink).join('')}</nav></div><div><div class="nav-section-label">YOUR ACCOUNT</div><nav aria-label="Account navigation">${accountNav.map(navLink).join('')}</nav></div><div class="sidebar-bottom"><nav><a href="/explore">${icon('arrow')}Explore marketplace</a><a href="/help">${icon('file')}Help & support</a></nav><div class="sidebar-person"><span class="avatar">${esc(initials)}</span><div><strong>${esc(name)}</strong><small>${esc(p.brand||'Your workspace')}</small></div></div></div></aside><div class="workspace-main"><header class="workspace-topbar"><div class="workspace-breadcrumb"><a href="${role==='owner'?'/host':role==='ops'?'/ops':'/buy'}">${label}</a><span>/</span><strong>${esc(currentRoute.title)}</strong></div><div class="actions"><a class="wallet-label" href="/settings/wallets">${icon('wallet')}${esc(short(p.wallet)||'Connect wallet')}</a>${link('/notifications',icon('bell')+'<span class="sr-only">Notifications</span>','icon-button')}${link('/settings/profile','<span class="avatar">'+esc(initials)+'</span><span class="sr-only">Your profile</span>','')}</div></header><nav class="mobile-workspace-nav" aria-label="Workspace navigation">${[...nav,['/buy','Buy','grid'],['/host','List','car'],['/settings/wallets','Wallet','wallet']].map(navLink).join('')}</nav><main class="workspace-content" id="main">${body}</main></div></div>`;
 }
 function render() {
-  if(!initialized){
+  currentRoute=location.pathname==='/_testing'&&live.config&&!live.config.production?{id:'T01',title:'Local testing',scope:'shared',params:{}}:matchRoute(location.pathname);
+  state.connectedPerson=currentPerson();
+  // Render public content as soon as configuration is available. Private views
+  // still wait for session restoration and their wallet-scoped workspace.
+  const publicReady=live.config&&(['public','global'].includes(currentRoute.scope)||currentRoute.id==='O05');
+  const signedOutReady=live.config&&live.sessionReady&&!live.session;
+  const workspaceReady=live.config&&live.sessionReady&&live.session&&live.data;
+  if(!publicReady&&!signedOutReady&&!workspaceReady){
     if(startupFailed){
       const startup=document.querySelector('#startup');
       startup?.setAttribute('aria-busy','false');
       const content=startup?.querySelector('.startup-content');
       if(content)content.innerHTML=`<img class="startup-mark" src="/favicon.svg" width="64" height="64" alt=""><h1 class="startup-name">Let\'s try that again<span>.</span></h1><p class="startup-copy" role="alert">We couldn\'t open Everywhere. Check your connection and try again.</p><button type="button" class="startup-retry" data-startup-retry>Try again</button>`;
     }
+    if(!document.querySelector('#startup'))app.innerHTML=publicShell(`<section class="market-invitation" ${startupFailed?'role="alert"':'role="status" aria-busy="true"'}><div><h1 class="empty-title">${startupFailed?'Your workspace could not load.':'Opening your workspace.'}</h1><p>${startupFailed?'Your saved progress is retained. Try again to reconnect.':'Your account and saved campaigns are loading.'}</p></div>${startupFailed?'<button type="button" class="button primary" data-startup-retry>Try again</button>':''}</section>`);
     return;
   }
-  state.connectedPerson=currentPerson();
-  currentRoute=location.pathname==='/_testing'&&live.config&&!live.config.production?{id:'T01',title:'Local testing',scope:'shared',params:{}}:matchRoute(location.pathname);
   let body=renderConnected(currentRoute);
   if(!body.includes('<h1'))body=body.replace('<h2>','<h1 tabindex="-1" class="empty-title">').replace('</h2>','</h1>');
   document.body.dataset.route=currentRoute.id;
@@ -98,11 +104,16 @@ document.addEventListener('keydown',event=>{
   if(['Enter',' '].includes(event.key)&&event.target.matches('.spot-shape[role="button"]')){event.preventDefault();event.target.dispatchEvent(new window.MouseEvent('click',{bubbles:true}));}
 });
 window.addEventListener('popstate',()=>{render();document.querySelector('h1')?.focus({preventScroll:true});});
-window.addEventListener('app:changed',render);
+function renderUpdate(){
+  // A background availability update must not erase a search being typed.
+  if(currentRoute?.scope==='public'&&document.activeElement?.matches('input,textarea,select'))return;
+  render();
+}
+window.addEventListener('app:changed',renderUpdate);
 window.addEventListener('app:navigate',()=>{closeModal();render();window.scrollTo(0,0);document.querySelector('h1')?.focus({preventScroll:true});});
 window.addEventListener('app:toast',event=>{
   const t=document.querySelector('#toast');t.textContent=event.detail;t.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('visible'),5000);
 });
 render();
-try{await initializeConnected();if(!live.catalog)throw new Error('Marketplace could not be loaded');initialized=true;}catch(error){live.error=error.message;startupFailed=true;}
-render();
+try{await initializeConnected();if(!live.catalog||live.session&&!live.data&&!live.busy)throw new Error('Marketplace could not be loaded');}catch(error){live.error=error.message;startupFailed=true;}
+renderUpdate();

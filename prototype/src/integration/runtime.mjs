@@ -3,7 +3,7 @@ import { state, navigate, toast } from '../store.mjs';
 import { esc, short } from '../ui.mjs';
 
 const KEY='everywhere-connected-session-v1';
-export const live={enabled:true,config:null,data:null,session:null,catalog:null,
+export const live={enabled:true,config:null,data:null,session:null,sessionReady:false,catalog:null,catalogLoading:true,
  balances:null,busy:false,error:null,draft:null,selectedSpot:null,providers:[],review:null,refreshing:null};
 const changed=()=>window.dispatchEvent(new Event('app:changed'));
 export function setProgress(message){live.progress=message;const notice=document.querySelector('#connected-notice');if(notice){notice.hidden=false;notice.textContent=message;notice.classList.remove('orange');}}
@@ -35,6 +35,7 @@ export async function refresh({render=true,force=false}={}){
     try{const balances=await api('wallet/balances',undefined,{session});if(live.session!==session)return;live.balances=balances;live.balanceError=null;}catch(error){if(live.session===session)live.balanceError=error.message;}
     if(live.config?.network==='mainnet'&&session.wallet.startsWith('0x')){const records=await api('wallet-funding',undefined,{session});if(live.session===session)live.fundingRecords=records;}}
    else{const catalog=await api('catalog');if(live.session!==session)return;live.catalog=catalog;live.data=null;live.balances=null;if(live.config)live.config.aiAvailable=!!live.publicAiAvailable;}
+   live.catalogLoading=false;
   }catch(error){if(live.session!==session)return;if(error.status===401){live.session=null;live.data=null;sessionStorage.removeItem(KEY);}live.error=error.message;throw error;}
   finally{live.refreshing=null;if(render)changed();}
  })();return live.refreshing;
@@ -42,6 +43,12 @@ export async function refresh({render=true,force=false}={}){
 export async function initialize(){
  live.config=await api('config');
  live.publicAiAvailable=live.config.aiAvailable===true;
+ // Public pages do not need a wallet or chain reads to become usable. Published
+ // metadata comes from the database; it never authorizes a price or payment.
+ changed();
+ void api('browse').then(sales=>{
+  if(!live.catalog){live.catalog={sales,snapshots:[],owners:[],time:new Date().toISOString()};changed();}
+ }).catch(()=>{}); // The full catalog below remains the authoritative fallback.
  const { ExternalWallets }=await import(/* @vite-ignore */ '/wallets.js');
  live.wallets=new ExternalWallets(changedAccount=>{
   live.providers=live.wallets?.list()??[];
@@ -53,7 +60,8 @@ export async function initialize(){
  if(live.config.production){
   try{const session=await api('auth/session'),same=stored?.wallet===session.wallet;live.session={...session,kind:session.wallet.startsWith('0x')?'evm':'near',providerId:same?stored.providerId:null,providerName:same?stored.providerName:null,providerRdns:same?stored.providerRdns:null};}catch(error){if(error.status!==401)throw error;}
  }else if(stored?.token&&stored?.wallet)live.session=stored;
- try{await refresh({render:false});}catch{}
+ live.sessionReady=true;changed();
+ try{await refresh({render:false});}catch{}finally{live.catalogLoading=false;}
  state.connectedPerson=currentPerson();
  const idle=()=>document.visibilityState!=='hidden'&&!live.busy&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,select')
   &&!document.querySelector('form[data-dirty="true"]');
