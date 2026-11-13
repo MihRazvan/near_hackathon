@@ -5,6 +5,7 @@ import './experience.css';
 import './record.css';
 import './placement-nft.css';
 import './listing.css';
+import './vehicle-setup.css';
 import { handleExperienceAction } from './integration/experience.mjs';
 import { handleRecordAction } from './integration/record.mjs';
 import { wordmark, outwardArrow } from './brand.mjs';

@@ -1,4 +1,6 @@
 import './style.css';
+import {mountVehicleEditor} from './vehicle-editor.mjs';
+import {mountOnboarding,rememberUndo,rememberEditor} from './onboarding.mjs';
 import { navigate,toast } from '../store.mjs';
 import { live,initialize,currentPerson,rawAsset } from './runtime.mjs';
 import { publicView } from './public.mjs';
@@ -51,21 +53,24 @@ export function legacyAction(target,r){
   if(live.dragJustHappened)return;
   if(['O06','O07','O08'].includes(r.id)){
    const form=document.querySelector('form[data-live-form="asset-edit"]');if(form){const a=rawAsset(r.params.id);if(!a)return;const base=live.assetEdit?.id===a.id?live.assetEdit:a;live.assetEdit={...base,...assetFields(new FormData(form),base)};}
-   navigate('/host/assets/'+r.params.id+'/spots?spot='+encodeURIComponent(target.dataset.id));
+   navigate(location.pathname+'?spot='+encodeURIComponent(target.dataset.id));
   }else if(r.id==='P03'){const query=new URLSearchParams(location.search);query.set('spot',target.dataset.id);navigate(location.pathname+'?'+query);}
   return;
  }
  toast('This action is unavailable. Refresh the page and try again.');
 }
 export function mountConnected(r){
+ mountOnboarding(r);
  if(r.id==='X01')mountExperience();
  if(r.id==='P10')mountCampaignRecord(r.params.id);
  const providers=document.querySelector('form[data-live-form="connect-evm"] select');
  if(providers){const old=providers.value;providers.innerHTML=live.providers.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')||'<option value="">No injected EVM wallet detected</option>';if(live.providers.some(p=>p.id===old))providers.value=old;}
  document.querySelectorAll('form[data-live-form]').forEach(form=>form.addEventListener('input',()=>form.dataset.dirty='true'));
  if(!['O06','O07','O08'].includes(r.id))return;
- const asset=rawAsset(r.params.id),form=document.querySelector('form[data-live-form="asset-edit"]'),svg=document.querySelector('[data-editor-canvas]');
- if(!asset||!form||!svg)return;
+ const original=rawAsset(r.params.id),asset=live.assetEdit?.id===original?.id?live.assetEdit:original,form=document.querySelector('form[data-live-form="asset-edit"]'),svg=document.querySelector('[data-editor-canvas]');
+ if(!asset||!form)return;
+ if(mountVehicleEditor(asset,form,{begin:()=>rememberUndo(rememberEditor(form)),changed:(id,p)=>{Object.assign(asset.spots.find(s=>s.id===id),p);live.assetEdit=asset;}}))return;
+ if(!svg)return;
  let drag;
  const point=event=>{const b=svg.getBoundingClientRect();return {x:(event.clientX-b.left)/b.width,y:(event.clientY-b.top)/b.height};};
  svg.addEventListener('pointerdown',event=>{

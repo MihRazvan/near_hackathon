@@ -1,3 +1,4 @@
+import {polygonPath} from './panel-geometry.mjs';
 import {esc} from '../ui.mjs';
 import {referenceImage} from './reference-images.mjs';
 // These contours belong only to the exact, verified reference photograph.
@@ -20,6 +21,7 @@ const profiles={
   'spot-2':{path:'M1052 561 L1238 581 L1222 626 L1056 626 Z',pin:[1140,594]}}
 };
 function contour(asset,entry){
+ if(entry.geometry?.polygon){const b=entry.geometry.box;return {path:polygonPath(entry.geometry,1536,1024),pin:[(b.x+b.width/2)*1536,(b.y+b.height/2)*1024]};}
  const expected=expectedBoxes[asset.coverSha256]?.[entry.spot.id],box=entry.geometry?.box,unchanged=box&&expected&&['x','y','width','height'].every((k,i)=>Math.abs(box[k]-expected[i])<.000001);
  const known=asset.imageProvenance==='ai-generated'&&unchanged&&profiles[asset.coverSha256]?.[entry.spot.id];if(known)return known;
  const b=entry.geometry?.box??{x:.4,y:.4,width:.2,height:.15},x=b.x*1536,y=b.y*1024,w=b.width*1536,h=b.height*1024;

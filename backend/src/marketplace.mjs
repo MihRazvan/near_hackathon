@@ -56,7 +56,7 @@ export class Marketplace {
    for(const sale of this.store.list('sale',walletId(owner)).filter(s=>s.assetId===id&&s.status==='draft'))this.assertSaleEditable(sale);
    const row=owned(this.store,'asset',id,owner),draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
    assert(row.version===version,'STALE_VERSION','Asset changed; reload before editing');
-   const data={...draft,...this.assetMedia(owner,{...row,...input}),...assetProvenance(input,row),city:text(input.city,'city',100),source:row.source,status:'draft'};
+   const data={...draft,...this.assetMedia(owner,{...row,...input}),...assetProvenance(input,row),city:text(input.city,'city',100),source:input.source==='ai'?'ai':row.source,status:'draft'};
    assertLocalPhotoQuota(this.store,{kind:'asset',id,value:data.photoDataUrl,config:this.chain?.config});
    return this.store.update('asset',id,row.owner,version,data);
   });

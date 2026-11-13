@@ -1,3 +1,5 @@
+import {onboardingActions,onboardingForms,saveEditor,rememberUndo,useCapturedPhoto} from './onboarding.mjs';
+import {reboxPanel} from './panel-geometry.mjs';
 import {isTeamTest} from './campaign-kind.mjs';
 import { navigate,toast } from '../store.mjs';
 import { live,api,refresh,connect,disconnect,review,nativePlan,intentPlan,nativeAction,poll,sale,snapshot,allSales,booking,rawAsset,amount,fileData,upload,rerender,nativeUnits,ensureSigningWallet } from './runtime.mjs';
@@ -11,9 +13,8 @@ const currentForm=()=>document.querySelector('form[data-live-form="asset-edit"]'
 export function assetFields(data,base){
  return {title:String(data.get('title')),description:String(data.get('description')),city:String(data.get('city')),assetType:String(data.get('assetType')),
   assumptions:base.assumptions??[],source:base.source??'manual',...(base.photoDataUrl?{photoDataUrl:base.photoDataUrl}:{}),...(base.coverMediaId?{coverMediaId:base.coverMediaId}:{}),
-  spots:base.spots.map(p=>({...p,name:String(data.get('name:'+p.id)??p.name),side:String(data.get('side:'+p.id)??p.side),
-   suggestedPriceCents:cents(data.get('price:'+p.id)??(Number(p.suggestedPriceCents)/100).toFixed(2)),
-   box:Object.fromEntries(['x','y','width','height'].map(k=>[k,Number(data.get(k+':'+p.id)??p.box[k]*100)/100]))}))};
+  spots:base.spots.map(p=>({...reboxPanel(p,Object.fromEntries(['x','y','width','height'].map(k=>[k,Number(data.get(k+':'+p.id)??p.box[k]*100)/100]))),name:String(data.get('name:'+p.id)??p.name),side:String(data.get('side:'+p.id)??p.side),
+   suggestedPriceCents:cents(data.get('price:'+p.id)??(Number(p.suggestedPriceCents)/100).toFixed(2))}))};
 }
 async function artifact(data){const selected=data.get('mediaId'),uri=String(data.get('artifactUri')??'').trim();
  if(uri&&(selected||data.get('file')?.size))throw new Error('Use one artifact source at a time. Remove the IPFS link to select or upload a file.');
@@ -59,6 +60,7 @@ async function claimCredit(contractId){
  return result;
 }
 export const actions={
+ ...onboardingActions,
  'reload-workspace':()=>location.reload(),
  refresh:async()=>{await refresh();toast('Confirmed state refreshed.');},disconnect,
  'connect-near':()=>connect('near'),
@@ -95,10 +97,10 @@ export const actions={
  'add-spot':()=>{
   const form=currentForm(),data=new FormData(form),a=rawAsset(data.get('id')),base=live.assetEdit?.id===a.id?live.assetEdit:a;
   const draft={...base,...assetFields(data,base)};draft.spots.push({id:'spot-'+crypto.randomUUID().slice(0,8),name:'New panel',side:'left',box:{x:.3,y:.4,width:.25,height:.2},suggestedPriceCents:'10',confidence:'low',requiresMeasurement:true,dimensionsCm:null});
-  live.assetEdit=draft;rerender();
+  rememberUndo(base);live.assetEdit=draft;rerender();queueMicrotask(()=>currentForm()?.dispatchEvent(new Event('input',{bubbles:true})));
  },
  'remove-spot':el=>{const form=currentForm(),data=new FormData(form),a=rawAsset(data.get('id')),base=live.assetEdit?.id===a.id?live.assetEdit:a;
-  if(base.spots.length<=1)throw new Error('Keep at least one advertising surface.');live.assetEdit={...base,...assetFields(data,base)};live.assetEdit.spots=live.assetEdit.spots.filter(p=>p.id!==el.dataset.id);rerender();},
+  if(base.spots.length<=1)throw new Error('Keep at least one advertising surface.');rememberUndo(base);live.assetEdit={...base,...assetFields(data,base)};live.assetEdit.spots=live.assetEdit.spots.filter(p=>p.id!==el.dataset.id);rerender();queueMicrotask(()=>currentForm()?.dispatchEvent(new Event('input',{bubbles:true})));},
  'mainnet-test-dates':()=>setDates([10,20,25,25,30,35]),'quick-dates':()=>setDates([3,8,12,12,14,16]),'relaxed-dates':()=>setDates([30,60,90,90,110,120]),
  publish:async el=>{
   const result=await api('sales/'+el.dataset.id+'/publication-options',{});
@@ -168,6 +170,7 @@ export const actions={
 function setDates(minutes){const form=document.querySelector('form[data-live-form="sale-edit"]'),base=Date.parse(live.catalog.time);
  ['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'].forEach((key,i)=>form.elements.namedItem(key).value=localDate(base+minutes[i]*60000));if(form.elements.namedItem('customMilestones'))form.elements.namedItem('customMilestones').checked=true;form.dataset.dirty='true';}
 export const forms={
+ ...onboardingForms,
  ...workspaceForms,
  'connect-funded':data=>connect('funded',String(data.get('wallet'))),
  'connect-test':data=>connect('test',String(data.get('wallet'))),'connect-evm':data=>connect('evm',String(data.get('provider'))),
@@ -182,9 +185,8 @@ export const forms={
   await refresh({render:false});live.assetEdit=null;live.capturePhoto=null;navigate('/host/assets/'+asset.id+'/review');toast('Editable space saved. Review every surface before publishing.');
  },
  'asset-edit':async data=>{
-  if(!data.has('reviewed'))throw new Error('Confirm that you reviewed the surfaces and physical measurements.');
   const a=rawAsset(data.get('id')),base=live.assetEdit?.id===a.id?live.assetEdit:a;
-  await api('assets/'+a.id,{version:Number(data.get('version')),asset:assetFields(data,base)},{method:'PATCH'});live.assetEdit=null;await refresh({render:false});navigate(data.get('next')==='campaign'?'/host/sales/new?asset='+a.id:'/host/assets/'+a.id);toast('Space and advertising surfaces saved.');
+  await saveEditor(data);live.assetEdit=null;await refresh({render:false});navigate(data.get('next')==='campaign'?'/host/sales/new?asset='+a.id:'/host/assets/'+a.id);toast('Space and advertising surfaces saved.');
  },
  'sale-edit':async data=>{
   const a=rawAsset(data.get('assetId')),existing=data.get('id')?sale(data.get('id')):null;

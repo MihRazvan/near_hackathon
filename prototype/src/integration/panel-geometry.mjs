@@ -1,0 +1,4 @@
+export function panelPolygon(spot){const b=spot.box;return spot.polygon??[[b.x,b.y],[b.x+b.width,b.y],[b.x+b.width,b.y+b.height],[b.x,b.y+b.height]];}
+export function reboxPanel(spot,box){return {...spot,box,...(spot.polygon?{polygon:spot.polygon.map(([x,y])=>[box.x+(x-spot.box.x)/spot.box.width*box.width,box.y+(y-spot.box.y)/spot.box.height*box.height])}:{})};}
+export function polygonPath(spot,width=1000,height=1000){return panelPolygon(spot).map(([x,y],i)=>(i?'L':'M')+(x*width)+' '+(y*height)).join(' ')+'Z';}
+export function movePanel(spot,dx,dy,{resize=false}={}){const b={...spot.box};if(resize){b.width=Math.max(.025,Math.min(1-b.x,b.width+dx));b.height=Math.max(.025,Math.min(1-b.y,b.height+dy));}else{b.x=Math.max(0,Math.min(1-b.width,b.x+dx));b.y=Math.max(0,Math.min(1-b.height,b.y+dy));}return reboxPanel(spot,b);}
