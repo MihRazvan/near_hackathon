@@ -45,7 +45,7 @@ export class Marketplace {
    const actor=walletId(owner);const prior=this.store.get('asset',id);if(prior){assert(prior.owner===actor,'NOT_FOUND','Asset not found',404);return prior;}pruneCaptureStorage(this.store,this.now());
    assert(this.store.db.prepare("SELECT COUNT(*) count FROM objects WHERE kind='asset' AND owner=?").get(actor).count<OWNER_ASSET_MAX,'ASSET_LIMIT','This wallet has reached its 20-space limit.',429);
    assert(this.store.db.prepare("SELECT COUNT(*) count FROM objects WHERE kind='asset'").get().count<GLOBAL_ASSET_MAX,'ASSET_LIMIT','The platform is at its current space capacity.',429);
-   const draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
+   const draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true,allowEmpty:true});
    const data={...draft,...this.assetMedia(owner,input),...assetProvenance(input),city:text(input.city,'city',100),source:input.source==='ai'?'ai':'manual',status:'draft'};
    assertLocalPhotoQuota(this.store,{kind:'asset',value:data.photoDataUrl,config:this.chain?.config});
    return this.store.insert('asset',id,actor,data);
@@ -55,7 +55,7 @@ export class Marketplace {
   return this.store.transaction(()=>{
    pruneCaptureStorage(this.store,this.now());
    for(const sale of this.store.list('sale',walletId(owner)).filter(s=>s.assetId===id&&s.status==='draft'))this.assertSaleEditable(sale);
-   const row=owned(this.store,'asset',id,owner),draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true});
+   const row=owned(this.store,'asset',id,owner),draft=validateDraft({...input,assumptions:input.assumptions??[]},{preserveIds:true,allowEmpty:true});
    assert(row.version===version,'STALE_VERSION','Asset changed; reload before editing');
    const data={...draft,...this.assetMedia(owner,{...row,...input}),...assetProvenance(input,row),city:text(input.city,'city',100),source:input.source==='ai'?'ai':row.source,status:'draft'};
    assertLocalPhotoQuota(this.store,{kind:'asset',id,value:data.photoDataUrl,config:this.chain?.config});
@@ -96,6 +96,7 @@ export class Marketplace {
    assert(!overlaps||!other.spots.some(a=>sale.spots.some(b=>a.id===b.id)),'OVERLAPPING_SALE','A published campaign already uses this physical spot during these dates');
   }
   if(!allowStarted)dates(sale.schedule,this.now());const asset=owned(this.store,'asset',sale.assetId,owner);
+  assert(sale.spots.length>0&&sale.spots.every(p=>asset.spots.some(a=>a.id===p.id)),'INVALID_SPOT','A campaign spot was removed from this vehicle. Update your draft campaign before publishing.',400);
   const manifest={version:1,saleId:sale.id,title:sale.title,sellerId:sale.owner,arbiterId:sale.arbiterId,
    asset:{id:asset.id,title:asset.title,description:asset.description,assetType:asset.assetType,city:asset.city,spots:asset.spots,...assetProvenance(asset),...(asset.coverUri?{coverUri:asset.coverUri,coverSha256:asset.coverSha256}:{})},
    schedule:sale.schedule,spots:sale.spots,rules:sale.rules,...(sale.campaignType==='team-test'?{campaignType:'team-test'}:{}),printingAndInstallationIncluded:sale.printingAndInstallationIncluded,

@@ -1,10 +1,11 @@
+import {pushEditorHistory} from './editor-history.mjs';
 import {live,api,refresh,rawAsset,rerender,setProgress,noteWorkspaceMutation} from './runtime.mjs';
 import {navigate,toast} from '../store.mjs';
 import {esc,heading,act,form,input,textArea,submit,link,check,hidden,notice} from './ui.mjs';
 import {photoData} from './photos.mjs';
 import {assetFields} from './asset-fields.mjs';
 const pilotCreative=new URL('../assets/everywhere-motorcycle.svg',import.meta.url).href;
-const histories=new Map(),saves=new Map(),revisions=new Map(),acknowledged=new Map();
+const saves=new Map(),revisions=new Map(),acknowledged=new Map();
 const key=(id,kind='draft')=>'everywhere-vehicle-'+kind+':'+live.session?.wallet+':'+id;
 function readLocal(id,kind){try{return JSON.parse(localStorage.getItem(key(id,kind)));}catch{return null;}}
 function writeLocal(id,value,kind){try{const saved=value.asset?{...value,asset:Object.fromEntries(Object.entries(value.asset).filter(([k])=>k!=='photoDataUrl'))}:value;localStorage.setItem(key(id,kind),JSON.stringify(saved));}catch{}}
@@ -12,7 +13,7 @@ const same=wallet=>{if(live.session?.wallet!==wallet)throw new Error('The connec
 function updateAsset(asset){noteWorkspaceMutation();const d=live.data?.dashboard;if(d){const i=d.assets.findIndex(a=>a.id===asset.id);if(i>=0)d.assets[i]=asset;else d.assets.push(asset);}live.assetEdit=asset;}
 export function restoredAsset(a){const cached=readLocal(a.id);return cached?.version===a.version?{...a,...cached.asset}:a;}
 export function rememberEditor(form){const a=rawAsset(form.elements.namedItem('id').value),base=live.assetEdit?.id===a.id?live.assetEdit:a;const data=assetFields(new FormData(form),base);revisions.set(a.id,(revisions.get(a.id)??0)+1);writeLocal(a.id,{version:a.version,asset:data});return {...a,...data};}
-export function rememberUndo(asset){const history=histories.get(asset.id)??[];history.push(structuredClone(asset));if(history.length>12)history.shift();histories.set(asset.id,history);}
+export function rememberUndo(asset){pushEditorHistory(live.session.wallet,asset);}
 export async function saveEditor(data){
  const id=String(data.get('id')),wallet=live.session.wallet,revision=revisions.get(id)??0,original=rawAsset(id),base=live.assetEdit?.id===id?live.assetEdit:original,payload=assetFields(data,base);
  const task=(saves.get(id)??Promise.resolve()).catch(()=>{}).then(async()=>{
@@ -64,13 +65,6 @@ export const onboardingActions={
  'vehicle-manual-start':async el=>{const f=el.closest('form'),data=new FormData(f),imageDataUrl=await photoData(data.get('camera'))??await photoData(data.get('photo'));return createVehicle({imageDataUrl,prompt:String(data.get('prompt')??'').trim()||'My vehicle advertising layout',useAI:false});},
  'vehicle-camera':()=>document.querySelector('[name="camera"]').click(),
  'vehicle-example':async()=>{const response=await fetch('/images/team-tests/van.jpg');if(!response.ok)throw new Error('The example image could not be loaded. Upload your own photo.');const blob=await response.blob();const imageDataUrl=await photoData(new File([blob],'example-van.jpg',{type:'image/jpeg'}));return createVehicle({imageDataUrl,prompt:'A white delivery van. Suggest separate visible cargo and cab-door advertising panels.',example:true});},
- 'undo-panels':async()=>{
-  const f=document.querySelector('form[data-live-form="asset-edit"]'),id=f.elements.namedItem('id').value,previous=histories.get(id)?.pop();if(!previous){toast('No earlier change in this editing session.');return;}
-  const current=rawAsset(id);
-  if(previous.photoDataUrl!==current.photoDataUrl){const wallet=live.session.wallet;try{const restored=await api('assets/'+id,{version:current.version,asset:previous},{method:'PATCH'});same(wallet);updateAsset(restored);rerender();return;}catch(e){histories.get(id)?.push(previous);throw e;}}
-  live.assetEdit={...previous,version:current.version};writeLocal(id,{version:current.version,asset:live.assetEdit});rerender();queueMicrotask(()=>document.querySelector('form[data-live-form="asset-edit"]')?.dispatchEvent(new Event('input',{bubbles:true})));
- },
-
  'refine-panels':async()=>{const form=document.querySelector('form[data-live-form="asset-edit"]'),prompt=form.elements.namedItem('instruction').value.trim();if(!prompt)throw new Error('Describe the change you want to make.');const a=await saveEditor(new FormData(form));return suggest(a,{prompt,existing:a,imageDataUrl:a.photoDataUrl});},
  'resume-ai':async el=>{const a=rawAsset(el.dataset.id),marker=readLocal(a.id,'job');if(!marker?.id)throw new Error('There is no earlier AI request for this draft.');live.aiPending=a.id;live.aiReplacing=marker.replacing??true;rerender();try{return await recoverJob(a,await api('ai/jobs/'+marker.id));}finally{live.aiPending=null;live.aiReferencePreview=null;rerender();}},
 };
@@ -80,7 +74,7 @@ export const onboardingForms={
   return createVehicle({imageDataUrl,prompt,generateReference:describe&&live.config.aiImageAvailable&&!imageDataUrl});
  },
 };
-export function editorTools(asset){const marker=readLocal(asset.id,'job');return `<div class="vehicle-editor-tools"><label class="button small">Change photo<input hidden name="replacementPhoto" type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif"></label><span data-draft-status role="status">Saved to your workspace</span>${act('undo-panels','Undo','','button small')}${marker&&!marker.applied?act('resume-ai','Check AI result',`data-id="${asset.id}"`,'button small'):''}</div>${live.config.aiAvailable?`<div class="vehicle-instruction">${input('instruction','Tell AI what to change','','text','maxlength="2000" placeholder="Split the doors into two placements"')}${act('refine-panels','Apply change','','button')}</div>`:''}`;}
+export function editorTools(asset){const marker=readLocal(asset.id,'job');return `<div class="vehicle-editor-tools"><button type="button" class="button small" data-editor-photo>Change photo</button><input hidden name="replacementPhoto" type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif"><span data-draft-status role="status">Saved to your workspace</span>${marker&&!marker.applied?act('resume-ai','Check AI result',`data-id="${asset.id}"`,'button small'):''}</div>${live.config.aiAvailable?`<div class="vehicle-instruction">${input('instruction','Tell AI what to change','','text','maxlength="2000" placeholder="Split the doors into two placements"')}${act('refine-panels','Apply change','','button')}</div>`:''}`;}
 export function mountOnboarding(r){
  if(r.id==='O03'){
   const form=document.querySelector('form[data-live-form="vehicle-start"]'),drop=form?.querySelector('.vehicle-photo-input');drop?.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('is-dragging');});drop?.addEventListener('dragleave',()=>drop.classList.remove('is-dragging'));drop?.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('is-dragging');const file=e.dataTransfer.files[0];if(!file)return;const transfer=new DataTransfer();transfer.items.add(file);form.elements.namedItem('photo').files=transfer.files;form.requestSubmit();});for(const name of ['photo','camera'])form?.elements.namedItem(name)?.addEventListener('change',()=>{if(form.elements.namedItem(name).files.length)form.requestSubmit();});

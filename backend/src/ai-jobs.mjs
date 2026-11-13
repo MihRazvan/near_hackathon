@@ -13,7 +13,7 @@ export class AIJobs {
   assert(/^[a-zA-Z0-9_-]{16,80}$/.test(id),'INVALID_AI_REQUEST','Use a unique request ID.');
   const prompt=text(input.prompt,'vehicle description',3000),imageDataUrl=input.imageDataUrl;
   if(imageDataUrl)imageInput(imageDataUrl);
-  const existing=input.existing?validateDraft(input.existing,{preserveIds:true}):null;
+  const existing=input.existing?validateDraft(input.existing,{preserveIds:true,allowEmpty:true}):null;
   assert(!input.generateReference||!imageDataUrl,'INVALID_AI_REQUEST','Choose a photo or generate a reference.');
   const fingerprint=hashObject({actor,prompt,imageDataUrl:imageDataUrl??null,existing,generateReference:!!input.generateReference});
   const prior=this.store.get('ai-job',id);

@@ -53,6 +53,9 @@ const paths = {
   copy: "M8 8h13v13H8zM3 16V3h13",
   shield: "m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6zM8 11l3 3 5-6",
   menu: "M3 6h18M3 12h18M3 18h18",
+  trash: "M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7",
+  undo: "M9 4 4 9l5 5M4 9h9a7 7 0 0 1 7 7v4",
+  redo: "m15 4 5 5-5 5M20 9h-9a7 7 0 0 0-7 7v4",
 };
 export const icon = (name = "arrow") =>
   `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] ?? paths.arrow}"/></svg>`;

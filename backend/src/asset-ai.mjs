@@ -8,8 +8,8 @@ export function imageInput(dataUrl){
  assert(match[1]==='png'?bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):bytes[0]===255&&bytes[1]===216&&bytes[2]===255,'INVALID_IMAGE','Image content does not match its type',400);
  return {bytes,mime:'image/'+match[1],dataUrl};
 }
-export function validateDraft(value,{preserveIds=false}={}){
- assert(value&&Array.isArray(value.spots)&&value.spots.length>0&&value.spots.length<=8,'INVALID_AI_DRAFT','Draft requires one to eight spots',502);
+export function validateDraft(value,{preserveIds=false,allowEmpty=false}={}){
+ assert(value&&Array.isArray(value.spots)&&(allowEmpty||value.spots.length>0)&&value.spots.length<=8,'INVALID_AI_DRAFT',allowEmpty?'Draft supports up to eight spots':'Draft requires one to eight spots',502);
  const title=text(value.title,'title',100),description=text(value.description,'description',1000);
  assert(['car','bike','motorcycle','van','truck','other'].includes(value.assetType),'INVALID_AI_DRAFT','Unsupported asset type',502);
  const seen=new Set();const spots=value.spots.map((spot,index)=>{
@@ -39,7 +39,7 @@ const INSTRUCTIONS=`You draft editable advertising inventory for the Everywhere 
 export class AssetAI {
  constructor(chatgpt){this.chatgpt=chatgpt;}
  async refine({prompt,imageDataUrl,existing}){
-  const base=validateDraft(existing,{preserveIds:true}),instruction=text(prompt,'panel instruction',3000),nullable=s=>({anyOf:[s,{type:'null'}]});
+  const base=validateDraft(existing,{preserveIds:true,allowEmpty:true}),instruction=text(prompt,'panel instruction',3000),nullable=s=>({anyOf:[s,{type:'null'}]});
   const panel=INVENTORY_SCHEMA.properties.spots.items.properties;
   const schema={type:'object',additionalProperties:false,required:['changes'],properties:{changes:{type:'array',maxItems:8,items:{type:'object',additionalProperties:false,required:['action','id','name','side','box','polygon','confidence'],properties:{action:{type:'string',enum:['update','remove','add']},id:{type:'string'},...Object.fromEntries(['name','side','box','polygon','confidence'].map(k=>[k,nullable(panel[k])]))}}}}};
   const content=[{type:'input_text',text:JSON.stringify({instruction,draft:base})}];if(imageDataUrl){imageInput(imageDataUrl);content.push({type:'input_image',image_url:imageDataUrl,detail:'high'});}
@@ -56,7 +56,7 @@ export class AssetAI {
    if(patch.box&&!patch.polygon&&before.polygon){const b=patch.box;patch.polygon=before.polygon.map(([x,y])=>[b.x+(x-before.box.x)/before.box.width*b.width,b.y+(y-before.box.y)/before.box.height*b.height]);}
    spots[index]={...before,...patch};
   }
-  return {draft:validateDraft({...base,spots},{preserveIds:true}),model:r.model,usage:r.usage};
+  return {draft:validateDraft({...base,spots},{preserveIds:true,allowEmpty:true}),model:r.model,usage:r.usage};
  }
 
  async draft({prompt,imageDataUrl,existing}){

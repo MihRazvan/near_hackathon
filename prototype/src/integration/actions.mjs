@@ -1,6 +1,5 @@
 import {saveOffer} from './offer-setup.mjs';
-import {onboardingActions,onboardingForms,saveEditor,rememberUndo,useCapturedPhoto} from './onboarding.mjs';
-import {assetFields} from './asset-fields.mjs';
+import {onboardingActions,onboardingForms,saveEditor,useCapturedPhoto} from './onboarding.mjs';
 export {assetFields} from './asset-fields.mjs';
 import {isTeamTest} from './campaign-kind.mjs';
 import { navigate,toast } from '../store.mjs';
@@ -107,13 +106,6 @@ export const actions={
  'use-capture':async el=>useCapturedPhoto(el.dataset.id),
  'save-sale':async el=>{if(!live.session){navigate('/sign-in?next='+encodeURIComponent(location.pathname+location.search));return;}
   const old=live.data.saved.find(s=>s.saleId===el.dataset.id);await api('saved',{saleId:el.dataset.id,saved:!old?.saved});await refresh({local:true});toast(old?.saved?'Space removed from shortlist.':'Space saved.');},
- 'add-spot':()=>{
-  const form=currentForm(),data=new FormData(form),a=rawAsset(data.get('id')),base=live.assetEdit?.id===a.id?live.assetEdit:a;
-  const draft={...base,...assetFields(data,base)};draft.spots.push({id:'spot-'+crypto.randomUUID().slice(0,8),name:'New panel',side:'left',box:{x:.3,y:.4,width:.25,height:.2},suggestedPriceCents:'10',confidence:'low',requiresMeasurement:true,dimensionsCm:null});
-  rememberUndo(base);live.assetEdit=draft;rerender();queueMicrotask(()=>currentForm()?.dispatchEvent(new Event('input',{bubbles:true})));
- },
- 'remove-spot':el=>{const form=currentForm(),data=new FormData(form),a=rawAsset(data.get('id')),base=live.assetEdit?.id===a.id?live.assetEdit:a;
-  if(base.spots.length<=1)throw new Error('Keep at least one advertising surface.');rememberUndo(base);live.assetEdit={...base,...assetFields(data,base)};live.assetEdit.spots=live.assetEdit.spots.filter(p=>p.id!==el.dataset.id);rerender();queueMicrotask(()=>currentForm()?.dispatchEvent(new Event('input',{bubbles:true})));},
  'mainnet-test-dates':()=>setDates([10,20,25,25,30,35]),'quick-dates':()=>setDates([3,8,12,12,14,16]),'relaxed-dates':()=>setDates([30,60,90,90,110,120]),
  publish:async el=>{
   const result=await api('sales/'+el.dataset.id+'/publication-options',{});

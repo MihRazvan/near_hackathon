@@ -67,3 +67,14 @@ test('sale creation recovers its original draft after a lost response and reject
  assert.throws(()=>s.app.createSale('owner.near',{...input,title:'Changed'}),{code:'SALE_REQUEST_CHANGED'});assert.throws(()=>s.app.saleRequest('other.near',input.requestId),{code:'NOT_FOUND'});
  }finally{s.store.close();}
 });
+
+test('an owner can save an empty vehicle layout, but cannot publish a campaign with a removed spot',async()=>{
+ const s=setup();try{
+  const l=await s.listing('owner.near','spot.near');
+  const empty=s.app.updateAsset('owner.near',l.a.id,l.a.version,{...l.a,spots:[]});assert.deepEqual(empty.spots,[]);
+  assert.throws(()=>s.app.publication('owner.near',l.sale.id),/removed from this vehicle/);
+  assert.throws(()=>s.app.createSale('owner.near',{...l.sale,spots:[]}),/Select spots/);
+  const restored=s.app.updateAsset('owner.near',l.a.id,empty.version,l.a);assert.equal(restored.spots[0].id,l.a.spots[0].id);
+  assert.equal(s.app.publication('owner.near',l.sale.id).manifest.asset.spots.length,1);
+ }finally{s.store.close();}
+});

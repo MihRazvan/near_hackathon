@@ -21,6 +21,7 @@ Open **http://127.0.0.1:4318**. The backend serves `prototype/dist`, `/wallets.j
 - **Navigation:** Marketplace handles discovery and checkout. Dashboard is for listing owners, starting with a first-campaign prompt; existing campaigns, saved vehicles and earnings stay on that page. Profile holds bookings, placement NFTs, saved spaces, balance/wallet access and account details. Messages remain inside the relevant booking. Legacy aggregate URLs redirect to these consolidated pages.
 - **Marketplace:** browse published vehicles, filter spaces, select surfaces, review campaign dates/rules and book available spots.
 - **Advertiser workspace:** group marketplace bookings across owners, approve USDC purchases or takeovers, submit artwork, follow fulfillment, message owners, raise issues and manage refunds/withdrawals.
+- **Spot editor:** select directly on the photo without navigation; drag to move or draw, use edge/corner handles to resize, and choose rectangular, angled or oval outlines. Delete/Backspace remove the selected spot outside text fields; Cmd/Ctrl+Z undoes and Shift+Z redoes. Empty layouts remain saved drafts, and publishing requires at least one spot.
 - **Owner workspace:** describe or photograph a vehicle, review/edit surfaces, publish priced campaign periods, approve artwork, provide installation evidence and manage earnings.
 - **Account and operations:** connect/switch wallets, edit profiles, reconcile original payment requests, and resolve cases as the campaign's authorized arbiter.
 
@@ -40,6 +41,7 @@ Campaign status, balances and earnings come from recorded state. Installation ev
 | `src/integration/public.mjs`, `buyer.mjs`, `owner.mjs` | Marketplace, advertiser and space-owner journeys. |
 | `src/integration/shared.mjs`, `capture.mjs` | Account, messaging, support, arbitration and scoped phone-photo handoff. |
 | `tests/*.test.mjs` | Routing, money/status logic, owner/buyer progress and view regressions. |
+| `tests/spot-editor-browser.mjs` | Mouse/touch editing, shortcuts, undo/redo, draft persistence and optional accessibility checks. |
 | `tests/production-browser.mjs` | Actual production-interface flow against the isolated shared-hub Sandbox fixture. |
 
 Surface previews are approximate rectangular layouts on illustrative vehicles or uploaded photos. Photo drafting is private unless the owner explicitly publishes a cover; submitted public artwork/evidence requires consent.

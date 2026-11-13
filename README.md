@@ -79,9 +79,10 @@ npm test --prefix prototype
 npm run build --prefix prototype
 node prototype/tests/startup-browser.mjs
 node prototype/tests/judge-browser.mjs
+node prototype/tests/spot-editor-browser.mjs
 ```
 
-The judge browser suite uses isolated API fixtures for desktop/mobile layouts, example isolation, wallet-scoped progress, evidence outages and retries. It does not claim actual wallet or mainnet execution.
+The presentation suites use isolated API fixtures for desktop/mobile layouts, placement NFTs, evidence outages and retries. The spot editor suite exercises mouse and touch gestures, keyboard shortcuts, undo/redo, empty drafts and delayed-save recovery, with actual draft validation. These suites do not claim wallet or mainnet execution.
 
 The [production browser qualification](backend/README.md#production-interface-on-near-sandbox) runs the actual interface against a real isolated NEAR Sandbox, the compiled shared hub and the pinned Intents verifier. It covers an unfunded EVM owner, publication, distinct buyers, takeovers, rejected signatures, restart recovery, automatic NFT minting, EVM creative-control transfer and former-controller rejection, fulfillment, disputes, settlement, exact payouts and native USDC withdrawal.
 

@@ -51,3 +51,11 @@ test('panel instructions apply explicit changes and keep original IDs, geometry 
  const draft={title:'My vehicle',description:'Owner description',assetType:'car',assumptions:['Measure'],spots:[{id:'owner-panel-1',name:'Door',side:'left',box:{x:.2,y:.3,width:.4,height:.2},polygon:[[.2,.3],[.6,.3],[.6,.5],[.2,.5]],suggestedPriceCents:'999',confidence:'medium'}]};
  const ai=new AssetAI({complete:async()=>({text:JSON.stringify({changes:[{action:'update',id:'owner-panel-1',name:'Studio panel',box:null,polygon:null,side:null,confidence:null}]}),model:'fixture'})});const result=await ai.draft({prompt:'Rename this panel',existing:draft});assert.equal(result.draft.spots[0].name,'Studio panel');assert.equal(result.draft.spots[0].id,'owner-panel-1');assert.deepEqual(result.draft.spots[0].polygon,draft.spots[0].polygon);assert.equal(result.draft.spots[0].suggestedPriceCents,'999');assert.equal(result.draft.title,draft.title);
 });
+
+test('AI can remove the last layout spot and refine an empty draft without accepting an empty initial photo analysis',async()=>{
+ const draft={title:'My van',description:'Owner vehicle',assetType:'van',assumptions:[],spots:[{id:'side',name:'Side',side:'left',box:{x:.2,y:.3,width:.4,height:.2},suggestedPriceCents:'100',confidence:'low'}]};
+ let changes=[{action:'remove',id:'side'}];const ai=new AssetAI({complete:async()=>({text:JSON.stringify({changes}),model:'fixture'})});
+ const empty=(await ai.draft({prompt:'Remove every spot',existing:draft})).draft;assert.deepEqual(empty.spots,[]);
+ changes=[{action:'add',name:'New door',side:'left',box:{x:.3,y:.4,width:.2,height:.2},confidence:'low'}];const added=(await ai.draft({prompt:'Add a door spot',existing:empty})).draft;assert.equal(added.spots.length,1);
+ assert.throws(()=>validateDraft(empty),/one to eight/);
+});
