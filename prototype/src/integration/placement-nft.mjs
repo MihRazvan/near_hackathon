@@ -22,7 +22,7 @@ export function placementNft({ surface = 'Campaign placement', controller, owner
   const [status, authority] = phases[phase] ?? phases.unknown;
   const minted = phase !== 'pending', label = example ? 'Example placement NFT' : 'Placement NFT';
   return `<section class="placement-nft" data-nft-phase="${esc(phase)}" aria-label="${label}">
-    <div class="nft-pass-top"><span>${label}</span><span>${example ? 'Interactive example' : network === 'mainnet' ? 'NEAR mainnet' : network === 'sandbox' ? 'NEAR Sandbox' : esc(network)}</span></div>
+    <div class="nft-pass-top"><span>${label}</span><span>${example ? 'Illustration' : network === 'mainnet' ? 'NEAR mainnet' : network === 'sandbox' ? 'NEAR Sandbox' : esc(network)}</span></div>
     <h3>Right to<br>this spot.</h3><p class="nft-pass-surface">${esc(surface)}</p>
     <dl class="nft-pass-facts"><div><dt>${minted ? 'NFT owner' : 'Final recipient'}</dt><dd data-nft-controller>${esc(owner ?? (minted ? 'Unavailable' : 'Decided at booking close'))}</dd></div>${minted && controller && controller !== owner ? `<div><dt>Creative controller</dt><dd>${esc(controller)}</dd></div>` : ''}<div><dt>Artwork authority</dt><dd>${esc(status)}</dd></div>${minted && revision !== undefined && revision !== null ? `<div><dt>Artwork revision</dt><dd>${esc(revision)}</dd></div>` : ''}${originalPayer ? `<div><dt>Original advertiser</dt><dd>${esc(originalPayer)}</dd></div>` : ''}</dl>
     <p class="nft-pass-authority">${esc(controller && controller !== owner ? authority.replace('NFT owner', 'creative controller') : authority)}</p><p class="nft-pass-money">Refunds, rewards and earnings stay with their original wallets.</p>

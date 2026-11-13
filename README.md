@@ -8,21 +8,9 @@ The application uses persisted inventory, wallet authentication and real NEAR co
 
 Open the [live application](https://everywhere-near.vercel.app). The [public deployment manifest](deployments/mainnet.json) identifies the mainnet contract, pinned code and completed synthetic qualification campaign. That campaign exercised real payments and on-chain fulfillment records; no physical advertisement was installed.
 
-## Try the interactive example
+## Use the marketplace
 
-Open **[Try a takeover](https://everywhere-near.vercel.app/experience)** and sign in with an existing EVM or NEAR wallet. Choose a prepared brand, book the example spot, trigger its competitor's takeover, close booking, approve the example delivery, and claim the example payouts. The studio handoff transfers the example placement NFT and its artwork authority. Payment claims stay with their original wallets. You can also keep creative control yourself. Progress resumes for the same wallet on the same browser.
-
-Wallet authentication is real. This accelerated experience uses example money and does not request token funding, broadcast transactions or issue a visitor-owned NFT. It is separate from ordinary marketplace inventory and payments. The example has no waiting periods. Allow about two minutes after wallet sign-in.
-
-Then open the **[recorded mainnet campaign](https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168)**. Its 11 transaction receipts cover actual 1¢/2¢ USDC purchases, takeover, NFT mint, artifact commitments, fulfillment, settlement and original-wallet payouts: **3¢ received, 3¢ withdrawn, zero pending**. The qualification used synthetic artwork and delivery evidence; no physical advertisement was installed. The creative-control handoff has separate real Sandbox coverage; it was not recorded in this V3 mainnet campaign. The run used pre-existing Intents balances. It did not include a new Base bridge.
-
-The public record exposes current finalized state and a scoped receipt manifest, with explicit unavailable/mismatch states. Reproduce historical verification without keys or funds:
-
-```sh
-node backend/bin/verify-evidence.mjs
-```
-
-The [qualification manifest](deployments/qualification.json) binds the receipt hashes, original signed action meanings, actors, offer, token amounts, terms and artifact digests. The verifier re-reads finalized NEAR receipts and campaign state. The [machine-readable endpoint](https://everywhere-near.vercel.app/api/evidence/qualification) distinguishes historical receipt verification from its cached current-state check.
+Open the [marketplace](https://everywhere-near.vercel.app/explore) to inspect live listings and campaign records. To create a listing, connect a wallet, open Dashboard and add a vehicle photo or description. Review its spots directly on the photo, then set dates and prices. Bookings, placement NFTs and refunds live in Profile.
 
 ## The NFT thesis
 
@@ -30,7 +18,7 @@ A placement NFT is a transferable, time-bounded right to manage the creative for
 
 Submitting a new artwork revision updates the NFT metadata's IPFS reference and content hash. The space owner approves that exact revision before printing. Approval or the artwork deadline closes editing, and the NFT remains a campaign record afterward. A later archival transfer cannot reopen the creative window. Artwork submission and transfers use the existing marketplace contract.
 
-The short interactive experience puts the NFT handoff in its main path. The public mainnet records show minted NFTs and artwork commitments. The Berlin van also records a real mainnet NFT handoff to a studio; the setup verified former-controller rejection, new-controller artwork submission and unchanged financial credits. The real Sandbox qualification covers the same authority boundary. The physical motorcycle pilot remains pending real installation and evidence.
+The public mainnet records show minted NFTs and artwork commitments. The Berlin van also records a real mainnet NFT handoff to a studio; the setup verified former-controller rejection, new-controller artwork submission and unchanged financial credits. The real Sandbox qualification covers the same authority boundary. The physical motorcycle pilot remains pending real installation and evidence.
 
 ## Hackathon tracks
 

@@ -1,12 +1,10 @@
 import './style.css';
 import './identity.css';
 import './workspace-identity.css';
-import './experience.css';
 import './record.css';
 import './placement-nft.css';
 import './listing.css';
 import './vehicle-setup.css';
-import { handleExperienceAction } from './integration/experience.mjs';
 import { handleRecordAction } from './integration/record.mjs';
 import { wordmark, outwardArrow } from './brand.mjs';
 import { live, currentPerson, initializeConnected, renderConnected, topbar, handleAction, handleForm, legacyAction, mountConnected } from './integration/index.mjs';
@@ -20,7 +18,7 @@ import { closeModal } from './ui.mjs';
 const app = document.querySelector('#app');
 let currentRoute, toastTimer, startupFailed=false,renderedViewKey=null;
 function publicShell(body) {
-  return `${topbar()}${siteHeader({session:live.session,area:accountArea(currentRoute??{scope:'public'}),publicPage:location.pathname==='/'})}<main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/experience">Try a takeover</a><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Book space on a vehicle.</span><span>Built on NEAR</span></div></footer>`;
+  return `${topbar()}${siteHeader({session:live.session,area:accountArea(currentRoute??{scope:'public'}),publicPage:location.pathname==='/'})}<main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Book space on a vehicle.</span><span>Built on NEAR</span></div></footer>`;
 }
 function workspaceShell(body) {
   return `${topbar()}${siteHeader({session:live.session,area:accountArea(currentRoute)})}<div class="workspace marketplace-workspace"><div class="workspace-main">${accountContext(currentRoute)}<main class="workspace-content" id="main">${body}</main></div></div>`;
@@ -65,8 +63,6 @@ document.addEventListener('click',async event=>{
   if(event.target.closest('[data-startup-retry]')){location.reload();return;}
   const preview=event.target.closest('[data-preview-toggle]');
   if(preview){const figure=preview.closest('.street-preview'),blank=figure.classList.toggle('is-blank');figure.querySelector('[data-preview-ad]')?.setAttribute('aria-hidden',String(blank));figure.querySelector('[data-preview-original]')?.setAttribute('aria-hidden',String(!blank));preview.setAttribute('aria-pressed',String(!blank));preview.innerHTML=(blank?'Preview a campaign':'See the blank canvas')+outwardArrow;return;}
-  const example=event.target.closest('[data-experience-action]');
-  if(example){event.preventDefault();handleExperienceAction(example,live);return;}
   const record=event.target.closest('[data-record-action]');
   if(record){event.preventDefault();await handleRecordAction(record);return;}
   const action=event.target.closest('[data-live-action]');

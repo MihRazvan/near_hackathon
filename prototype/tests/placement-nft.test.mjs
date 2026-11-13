@@ -11,8 +11,8 @@ test('NFT artwork authority distinguishes minting, active editing, approval, exp
  assert.equal(placementNftPhase({minted:true}), 'unknown');
  const expired=placementNft({phase:'archived',controller:'new-owner.near',originalPayer:'original.near',tokenId:'offer'});assert.match(expired,/new-owner.near/);assert.match(expired,/original.near/);assert.match(expired,/cannot reopen artwork editing/);assert.doesNotMatch(expired,/Artwork control open/);
 });
-test('the placement artifact labels simulated rights and unissued tokens and escapes participant content',()=>{
- const preview=placementNft({example:true,controller:'Creative studio',phase:'editable'});assert.match(preview,/Example placement NFT/);assert.match(preview,/Interactive example/);assert.doesNotMatch(preview,/NEAR mainnet/);
+test('the placement artifact labels illustrative rights and unissued tokens and escapes participant content',()=>{
+ const preview=placementNft({example:true,controller:'Creative studio',phase:'editable'});assert.match(preview,/Example placement NFT/);assert.match(preview,/Illustration/);assert.doesNotMatch(preview,/NEAR mainnet/);
  const pending=placementNft({phase:'pending',tokenId:'reserved'});assert.match(pending,/Not issued yet/);assert.doesNotMatch(pending,/reserved|NFT identifier/);
  const actual=placementNft({phase:'locked',network:'sandbox',surface:'<b>Side</b>',controller:'<script>',originalPayer:'original.near',tokenId:'offer'});assert.match(actual,/NEAR Sandbox/);assert.match(actual,/&lt;script&gt;/);assert.match(actual,/&lt;b&gt;Side&lt;\/b&gt;/);assert.match(actual,/original wallets/);
 });
