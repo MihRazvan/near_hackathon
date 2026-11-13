@@ -28,6 +28,7 @@
 !deployments
 !deployments/mainnet.json
 !deployments/qualification.json
+!deployments/team-campaigns.json
 
 !prototype/public/images/team-tests
 !prototype/public/images/team-tests/*.jpg

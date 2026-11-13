@@ -8,6 +8,7 @@ COPY backend/lab/wallets.entry.js ./backend/lab/wallets.entry.js
 COPY prototype/index.html prototype/vite.config.mjs ./prototype/
 COPY prototype/src ./prototype/src
 COPY prototype/public ./prototype/public
+COPY deployments/qualification.json deployments/team-campaigns.json ./deployments/
 RUN npm run build:lab --prefix backend && npm run build --prefix prototype && npm prune --prefix backend --omit=dev --ignore-scripts
 
 FROM node:24.12.0-bookworm-slim
