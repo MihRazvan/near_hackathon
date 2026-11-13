@@ -22,7 +22,7 @@ npm ci --prefix prototype --ignore-scripts
 npm test --prefix backend
 # Expected: 248 tests pass, 0 fail.
 npm test --prefix prototype
-# Expected: 90 tests pass, 0 fail.
+# Expected: 97 tests pass, 0 fail.
 
 npm run build:lab --prefix backend
 npm run build --prefix prototype

@@ -17,18 +17,18 @@ const catalogStatus=()=>`<div class="market-invitation" role="status" ${live.cat
 const campaignQuery=()=>new URLSearchParams(location.search).get('campaign');
 const campaignInput=()=>campaignQuery()?`<input type="hidden" name="campaign" value="${esc(campaignQuery())}">`:'';
 const spaceUrl=(offer,spot)=>'/spaces/'+encodeURIComponent(offer.assetId)+'?sale='+encodeURIComponent(offer.id)+(spot?'&spot='+encodeURIComponent(spot.id):'')+(campaignQuery()?'&campaign='+encodeURIComponent(campaignQuery()):'');
-function offerCards(offers){
+function offerCards(offers,mode="all"){
  if(!offers.length)return '';
  return `<div class="asset-grid market-grid">${offers.map(offer=>{
   const asset=assetFor(offer);if(!asset)return '';
-  const available=availablePlacements(offer),prices=available.map(e=>stateFor(e.sale,e.spot).price),price=prices.reduce((a,b)=>micro(a)<micro(b)?a:b,prices[0]);
+  const available=availablePlacements(offer),matching=mode==='all'?available:available.filter(e=>stateFor(e.sale,e.spot).kind===(mode==='open'?'available':'takeover')),chosen=matching.reduce((a,b)=>!a||micro(stateFor(b.sale,b.spot).price)<micro(stateFor(a.sale,a.spot).price)?b:a,null),price=chosen?stateFor(chosen.sale,chosen.spot).price:null;
   const members=placements(offer),completed=members.every(e=>snapshot(e.spot.contractId)?.state.outcome==='success'),minted=members.some(e=>snapshot(e.spot.contractId)?.state.nft_minted),delivered=members.some(e=>snapshot(e.spot.contractId)?.campaign.delivery_proof);
   const closedStatus=checking(offer)?live.catalogLoading?'Checking availability':'Availability unavailable':completed?'Campaign complete':delivered?'Delivery recorded':minted?'Placement NFT issued':'Booking closed';
   const takeovers=available.filter(e=>stateFor(e.sale,e.spot).kind==='takeover'),open=available.length-takeovers.length;
   const date=value=>Number.isFinite(Date.parse(value))?new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',timeZone:'UTC'}).format(new Date(value)):'';
   const period=offer.schedule?.serviceStart&&offer.schedule?.serviceEnd?date(offer.schedule.serviceStart)+' – '+date(offer.schedule.serviceEnd):'';
   const spotState=available.length?(takeovers.length?`${takeovers.length} takeover${takeovers.length===1?'':'s'} available${open?' · '+open+' open':''}`:'Open for reservations'):'';
-  return marketCard({asset,period,spotState,href:available.length||checking(offer)?spaceUrl(offer):'/records/'+encodeURIComponent(offer.id),price:price?usdc(price):null,status:closedStatus,count:members.length,demo:isTeamTest(offer)||asset.imageProvenance==='ai-generated',action:available.length||checking(offer)?'View spots':'View record'});
+  return marketCard({asset,period,spotState,href:chosen?spaceUrl(chosen.sale,chosen.spot):checking(offer)?spaceUrl(offer):'/records/'+encodeURIComponent(offer.id),price:price?usdc(price):null,priceLabel:mode==='takeover'?'Takeover from':mode==='open'?'Reserve from':'From',status:closedStatus,count:members.length,demo:isTeamTest(offer)||asset.imageProvenance==='ai-generated',action:available.length||checking(offer)?'View spots':'View record'});
  }).join('')}</div>`;
 }
 function searchForm(q=new URLSearchParams()){
@@ -44,12 +44,13 @@ export function publicView(r){
  }
  if(r.id==='P02'){
   const term=(q.get('q')??q.get('city')??'').trim().toLowerCase(),type=q.get('type')??'',all=q.get('availability')==='all',sort=q.get('sort')??'newest',mode=['open','takeover'].includes(q.get('booking'))?q.get('booking'):'all';
-  let values=sales.filter(s=>{const a=assetFor(s),owner=live.catalog?.owners?.find(o=>o.wallet===s.owner);return a&&(!term||[a.title,a.description,a.city,s.title,owner?.name,owner?.brand].some(v=>String(v??'').toLowerCase().includes(term)))&&(!type||a.assetType===type)&&(all||availableSpots(s).length||checking(s))&&(mode==='all'||availablePlacements(s).some(e=>stateFor(e.sale,e.spot).kind===(mode==='open'?'available':'takeover')));});
+  const matches=sales.filter(s=>{const a=assetFor(s),owner=live.catalog?.owners?.find(o=>o.wallet===s.owner);return a&&(!term||[a.title,a.description,a.city,s.title,owner?.name,owner?.brand].some(v=>String(v??'').toLowerCase().includes(term)))&&(!type||a.assetType===type)&&(all||availableSpots(s).length||checking(s));});
+  let values=matches.filter(s=>mode==='all'||availablePlacements(s).some(e=>stateFor(e.sale,e.spot).kind===(mode==='open'?'available':'takeover')));
   if(sort==='price')values.sort((a,b)=>{const cheapest=s=>availableSpots(s).map(p=>micro(stateFor(s,p).price)).reduce((a,b)=>a<b?a:b,10n**30n);const x=cheapest(a),y=cheapest(b);return x<y?-1:x>y?1:0;});else values=[...values].sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
   const modes=`<nav class="market-booking-modes" aria-label="Booking type">${[['all','All spaces'],['open','Open spots'],['takeover','Takeovers']].map(([id,label])=>{const next=new URLSearchParams(q);next.set('booking',id);return `<a href="/explore?${esc(next.toString())}" ${mode===id?'aria-current="page"':''}>${label}</a>`;}).join('')}</nav>`;
   return `<section class="marketplace-page"><div class="marketplace-heading"><h1 tabindex="-1">Find your next spot.</h1><p>Pick a vehicle. Choose a panel. Put your brand out there.</p></div>`+searchForm(q)+categoryLinks(type)+modes+
    `<p class="market-results">${values.length} ${values.length===1?'vehicle':'vehicles'}${term?' matching your search':''}</p>`+
-   (values.length?offerCards(values):!live.catalog||live.catalogLoading?catalogStatus():empty('No spaces match just yet.','Try another area or include past campaigns to see more inventory.',link('/explore?availability=all','Browse all campaigns','button primary')))+'</section>';
+   (values.length?offerCards(values,mode):!live.catalog||live.catalogLoading?catalogStatus():matches.some(checking)?empty('Availability unavailable.','Retry to check whether these vehicles have open spots or takeovers.',act('refresh','Check availability','','button primary')):empty('No spaces match just yet.','Try another area or include past campaigns to see more inventory.',link('/explore?availability=all','Browse all campaigns','button primary')))+'</section>';
  }
  if(r.id==='P03'){
   const offer=sale(q.get('sale'))??sales.find(s=>s.assetId===r.params.slug&&availableSpots(s).length)??sales.find(s=>s.assetId===r.params.slug);if(!offer||offer.status!=='published')return !live.catalog||live.catalogLoading?catalogStatus():unavailable('This campaign is unavailable.');
@@ -58,7 +59,7 @@ export function publicView(r){
  if(r.id==='P04'){
   const values=sales.filter(s=>s.owner===r.params.slug),owner=live.catalog?.owners?.find(o=>o.wallet===r.params.slug);
   if(!owner&&!values.length)return !live.catalog||live.catalogLoading?catalogStatus():unavailable('Space owner not found.');
-  return heading('SPACE OWNER',owner?.name??'Independent space owner',owner?.brand??'Advertising inventory from an independent owner.')+(values.length?offerCards(values):empty('No published campaigns yet.','This owner\'s spaces will appear here when they publish a campaign.',link('/explore','Explore spaces')));
+  return heading('SPACE OWNER',owner?.name??'Independent space owner',owner?.brand??'Advertising inventory from an independent owner.')+(values.length?offerCards(values,mode):empty('No published campaigns yet.','This owner\'s spaces will appear here when they publish a campaign.',link('/explore','Explore spaces')));
  }
  if(r.id==='P07')return heading('HELP','Help with your campaign.','Find answers about booking, artwork, takeovers and payouts.')+`<div class="grid two">${Object.entries(articles).map(([slug,a])=>card(a.title,`<p>${a.summary}</p>${link('/help/'+slug,'Read guide','text-link')}`)).join('')}</div>`+card('Need help with a campaign?',`<p>Open your placement to contact the owner or request an issue review.</p>${link('/support/new','Contact support','button primary')}`);
  if(r.id==='P08'){

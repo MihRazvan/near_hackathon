@@ -66,6 +66,18 @@
 .recorded-proof .proof-pass { grid-area:pass; display:block; }
 .proof-pass > p { max-width:none; margin:12px 0 0; font-size:12px; }
 @media(max-width:560px) { .nft-feature.recorded-proof { grid-template-areas:'intro' 'history' 'pass'; } .owner-feature .street-picture { min-height:220px; } }
+.placement-right-note { display:flex; align-items:flex-start; gap:8px; margin:15px 0 8px; color:var(--blue); font-size:13px; line-height:1.5; }
+.placement-right-note svg { flex:0 0 16px; width:16px; height:16px; margin-top:2px; }
+.placement-reserve { white-space:normal; text-align:center; }
+.checkout-campaign { margin:0 0 20px; }
+.checkout-campaign summary { font-weight:700; padding:10px 0; }
+.checkout-steps { font-size:13px; margin:0 0 20px; color:var(--muted); line-height:1.6; }
+.checkout-service { font-weight:700; }
+.checkout-right { color:var(--blue); font-size:14px; line-height:1.6; margin-top:24px; }
+.placement-nft-tools .placement-transfer { margin:0 0 28px; background:var(--paper); border:1px solid var(--ink); padding:16px 20px; }
+.placement-transfer summary { color:var(--blue); font-weight:800; cursor:pointer; }
+.placement-transfer h3 { margin:22px 0 8px; }
+.placement-transfer p { font-size:14px; line-height:1.6; }
 
 .setup-preview { min-width:0; margin:0; transform:rotate(.7deg); }
 .setup-preview-frame { overflow:hidden; border:1px solid var(--ink); background:var(--paper); }
@@ -76,3 +88,9 @@
 .setup-preview > p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
 @media(max-width:560px) { .setup-preview { transform:none; } .setup-preview figcaption { font-size:12px; gap:8px; } }
 @media(prefers-reduced-motion:reduce) { .setup-preview { transform:none; } }
+
+.checkout-layout { gap:24px; }
+.checkout-layout .checkout-right { margin:18px 0 10px; font-size:14px; line-height:1.5; }
+.checkout-takeover { font-size:14px; line-height:1.5; }
+.checkout-layout .panel > .section-heading { margin-bottom:14px; }
+@media(max-width:560px) { .checkout-layout > .panel { padding:22px; } .checkout-layout .panel > p { margin:12px 0; } .checkout-layout .checkout-steps { font-size:12px; } }

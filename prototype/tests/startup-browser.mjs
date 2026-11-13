@@ -79,7 +79,7 @@ try{
  // Sign-in and public navigation work while the chain response is still held.
  await page.locator('.mobile-nav-links a[href="/explore"]').click();await page.locator('.asset-card').waitFor();
  await page.locator('.market-card-link').click();
- catalogGate.resolve();await page.getByRole('link',{name:'Reserve this spot',exact:true}).waitFor();
+ catalogGate.resolve();await page.getByRole('link',{name:/^Reserve for [0-9.]+ USDC/}).waitFor();
  assert.match(await page.locator('.placement-booking-price').innerText(),/0\.01 USDC/);
  assert.equal(new URL(page.url()).search,'?sale=sale');
  report.push('Homepage, published vehicles, deep links and wallet choice work before chain reads finish; checkout only appears after verification');
@@ -115,7 +115,7 @@ try{
   assert.equal(await test.page.locator('#startup').count(),0);
   assert.equal(await test.page.locator('a[href^="/checkout/"]').count(),0);
   options.failCatalog=false;await test.page.getByRole('button',{name:'Check availability',exact:true}).click();
-  await test.page.getByRole('link',{name:'Reserve this spot',exact:true}).waitFor();
+  await test.page.getByRole('link',{name:/^Reserve for [0-9.]+ USDC/}).waitFor();
   report.push('A chain outage leaves the site usable and a retry recovers verified availability');await test.context.close();
  }
  {

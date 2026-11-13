@@ -91,4 +91,53 @@ test('takeover discovery shows only verified takeover opportunities and preserve
  snapshot.state.holder=null;html=publicView({id:'P02'});assert.match(html,/No spaces match/);assert.doesNotMatch(html,/0\.01 USDC/);
  location.search='?booking=open';assert.match(publicView({id:'P02'}),/City van/);
  live.catalog.snapshots=[];live.catalogLoading=true;assert.doesNotMatch(publicView({id:'P02'}),/0\.01 USDC|href="\/checkout\//);
+ live.catalogLoading=false;const unavailable=publicView({id:'P02'});assert.match(unavailable,/Availability unavailable/);assert.doesNotMatch(unavailable,/No spaces match/);
+});
+
+test('listing preserves the exact selected spot through sign-in and directs its holder to management',()=>{
+ const {snapshot}=setup();location.search='?spot=door&campaign=brand';live.session=null;
+ let html=publicView({id:'P03',params:{slug:'asset'}});
+ assert.match(html,/Reserve for 0\.01 USDC/);
+ assert.match(html,/href="\/sign-in\?next=%2Fcheckout%2Fsale%3Fspot%3Ddoor%26campaign%3Dbrand"/);
+ snapshot.state.holder={account_id:wallet};live.session={wallet};
+ live.data.dashboard.bookings=[{id:'old',contractId:'offer',accepted:true,status:'outbid'},{id:'current',contractId:'offer',accepted:true,status:'accepted'}];
+ html=publicView({id:'P03',params:{slug:'asset'}});
+ assert.match(html,/href="\/profile\/placements\/current"/);assert.match(html,/Manage your placement/);
+ assert.doesNotMatch(html,/Take over for|href="\/checkout\//);
+});
+
+test('compact checkout retains the quote, campaign choice and required financial acknowledgements',()=>{
+ const {sale,snapshot}=setup();sale.campaignType='team-test';location.search='?spot=door&campaign=brand';
+ live.balances.intentsUsdc='1000000';live.data.dashboard.campaigns=[{id:'brand',name:'Studio campaign',status:'active'}];
+ const html=buyerView({id:'B06',params:{intentId:'sale'}});
+ assert.match(html,/name="expectedAmount" value="10000"/);assert.match(html,/name="spotId" value="door"/);
+ assert.match(html,/<option value="brand" selected>/);assert.match(html,/<details class="checkout-campaign"><summary>Campaign: Studio campaign/);
+ assert.match(html,/name="rules"/);assert.match(html,/name="testCampaignAcknowledged"/);assert.doesNotMatch(html,/name="(?:rules|testCampaignAcknowledged)"[^>]*checked/);
+ assert.match(html,/Full schedule &amp; advertising rules|Full schedule & advertising rules/);
+ assert.match(html,/data-live-form="prepare-booking"/);
+ snapshot.state.next_price='75000000';live.balances.intentsUsdc='100000000';live.data.dashboard.campaigns=[];const highPrice=buyerView({id:'B06',params:{intentId:'sale'}});assert.match(highPrice,/name="budget" type="number" value="75.000000"/);
+});
+
+test('unsettled takeover rewards remain separate from claimable credit in placement and balance views',()=>{
+ const {snapshot}=setup();snapshot.credits[wallet]={available:'10000',conditional_bonus:'10000'};
+ live.data.placements=[snapshot];
+ const placement=buyerView({id:'B08',params:{id:'offer'}}),money=buyerView({id:'B11',params:{}});
+ assert.match(placement,/Available to claim: <strong>0\.01 USDC/);
+ assert.match(placement,/Reward pending completion: <strong>0\.01 USDC/);
+ assert.match(placement,/only if the campaign settles successfully/);
+ assert.match(money,/Available to claim/);assert.match(money,/Reward pending completion/);
+ assert.doesNotMatch(placement,/Available to claim: <strong>0\.02 USDC/);
+});
+
+test('a takeover-filtered vehicle quotes and opens its takeover spot rather than a cheaper open panel',()=>{
+ const {sale,snapshot}=setup();
+ sale.publication.manifest.asset.spots.push({id:'rear',name:'Rear panel',box:{x:.5,y:.3,width:.2,height:.2}});
+ sale.spots.push({id:'rear',contractId:'rear-offer',takeoverEnabled:true});
+ live.catalog.snapshots.push({...snapshot,accountId:'rear-offer',state:{...snapshot.state,next_price:'20000',holder:{account_id:'previous.near'}}});
+ location.search='?booking=takeover&campaign=brand';
+ const html=publicView({id:'P02'});
+ assert.match(html,/Takeover from/);assert.match(html,/0\.02 USDC/);assert.doesNotMatch(html,/0\.01 USDC/);
+ assert.match(html,/href="\/spaces\/asset\?sale=sale&amp;spot=rear&amp;campaign=brand"/);
+ location.search='?booking=open';const open=publicView({id:'P02'});
+ assert.match(open,/0\.01 USDC/);assert.match(open,/spot=door/);
 });
