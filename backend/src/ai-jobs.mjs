@@ -36,9 +36,10 @@ export class AIJobs {
   const run=Promise.resolve().then(async()=>{
    try{
     const reference=input.generateReference?await provider.generateReference(prompt):null;
+    if(reference){const current=this.store.get('ai-job',id);this.store.update('ai-job',id,actor,current.version,{...current,reference});}
     const image=reference?.imageDataUrl??imageDataUrl;
     const result=this.assetAI?await this.assetAI.draft({prompt,...(image?{imageDataUrl:image}:{}),...(existing?{existing}:{})}):await this.personalAI.draft(actor,{prompt,...(image?{imageDataUrl:image}:{})});
-    const current=this.store.get('ai-job',id);this.store.update('ai-job',id,actor,current.version,{...current,status:'completed',completedAt:new Date(this.now()).toISOString(),result:{...result,...reference}});
+    const current=this.store.get('ai-job',id);this.store.update('ai-job',id,actor,current.version,{...current,status:'completed',reference:null,completedAt:new Date(this.now()).toISOString(),result:{...result,...reference}});
    }catch(error){const current=this.store.get('ai-job',id);this.store.update('ai-job',id,actor,current.version,{...current,status:'failed',error:'The AI request did not finish. Your saved layout is available to edit manually.',errorCode:error.code??'AI_UNAVAILABLE'});}
    finally{this.running.delete(id);}
   });this.running.set(id,run);return this.read(actor,id);

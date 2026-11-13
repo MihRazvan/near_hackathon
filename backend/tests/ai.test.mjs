@@ -47,3 +47,7 @@ test('AI drafts stay editable and unmeasured; invalid geometry, prices and disgu
  assert.throws(()=>imageInput('data:image/png;base64,'+Buffer.from('not a picture').toString('base64')));
  const ai=new AssetAI({complete:async()=>({text:JSON.stringify(draft),model:'test',usage:null})});assert.equal((await ai.draft({prompt:'Synthetic car'})).draft.spots.length,1);
 });
+test('panel instructions apply explicit changes and keep original IDs, geometry and prices on a rename',async()=>{
+ const draft={title:'My vehicle',description:'Owner description',assetType:'car',assumptions:['Measure'],spots:[{id:'owner-panel-1',name:'Door',side:'left',box:{x:.2,y:.3,width:.4,height:.2},polygon:[[.2,.3],[.6,.3],[.6,.5],[.2,.5]],suggestedPriceCents:'999',confidence:'medium'}]};
+ const ai=new AssetAI({complete:async()=>({text:JSON.stringify({changes:[{action:'update',id:'owner-panel-1',name:'Studio panel',box:null,polygon:null,side:null,confidence:null}]}),model:'fixture'})});const result=await ai.draft({prompt:'Rename this panel',existing:draft});assert.equal(result.draft.spots[0].name,'Studio panel');assert.equal(result.draft.spots[0].id,'owner-panel-1');assert.deepEqual(result.draft.spots[0].polygon,draft.spots[0].polygon);assert.equal(result.draft.spots[0].suggestedPriceCents,'999');assert.equal(result.draft.title,draft.title);
+});

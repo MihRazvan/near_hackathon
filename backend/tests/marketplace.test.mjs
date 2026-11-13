@@ -61,3 +61,9 @@ test('one buyer campaign books across owners with a shared budget, isolated conv
   s.snapshots.get('alice-spot.near').state.holder={account_id:stranger};assert.equal((await s.app.booking(buyer,a.id)).status,'outbid');
  }finally{s.store.close();}
 });
+test('sale creation recovers its original draft after a lost response and rejects changed input or another wallet',()=>{
+ const s=setup();try{const a=s.app.createAsset('owner.near',asset),now=Date.now(),schedule=Object.fromEntries(['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'].map((k,i)=>[k,new Date(now+(i+1)*600000).toISOString()])),input={assetId:a.id,title:'Campaign',schedule,spots:[{id:a.spots[0].id,priceCents:'10'}],takeoverDefault:true,arbiterId:'arbiter.near',rules:'Owner prints and installs.',requestId:'request-create-sale-0001'};
+ const first=s.app.createSale('owner.near',input);assert.equal(s.app.createSale('owner.near',input).id,first.id);assert.equal(s.store.list('sale').length,1);assert.equal(s.app.saleRequest('owner.near',input.requestId).id,first.id);
+ assert.throws(()=>s.app.createSale('owner.near',{...input,title:'Changed'}),{code:'SALE_REQUEST_CHANGED'});assert.throws(()=>s.app.saleRequest('other.near',input.requestId),{code:'NOT_FOUND'});
+ }finally{s.store.close();}
+});

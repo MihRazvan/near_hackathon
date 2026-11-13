@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { assert, AppError } from './core.mjs';
+sharp.cache({memory:16,files:0,items:16});sharp.concurrency(1);
 
 // Public inference uses a dedicated server key. No personal OAuth session is forwarded.
 export class NearAI {

@@ -76,7 +76,15 @@ export class Marketplace {
   return {assetId:asset.id,title:text(input.title,'sale title',100),schedule,spots,arbiterId:arbiter,
    takeoverDefault:input.takeoverDefault,rules:text(input.rules,'published advertising rules',3000),...(asset.campaignType==='team-test'?{campaignType:'team-test'}:{}),printingAndInstallationIncluded:asset.campaignType!=='team-test',status:'draft'};
  }
- createSale(owner,input){return this.store.insert('sale',randomUUID(),walletId(owner),this.saleData(owner,input));}
+ createSale(owner,input){
+  if(!input.requestId)return this.store.insert('sale',randomUUID(),walletId(owner),this.saleData(owner,input));
+  const actor=walletId(owner);assert(typeof input.requestId==='string'&&/^[A-Za-z0-9_-]{16,80}$/.test(input.requestId),'INVALID_REQUEST','A unique sale request ID is required');
+  const id=hashObject({actor,requestId:input.requestId}),fingerprint=hashObject(input);
+  return this.store.transaction(()=>{const prior=this.store.get('sale-request',id);if(prior){assert(prior.fingerprint===fingerprint,'SALE_REQUEST_CHANGED','An earlier draft already uses this request. Reopen that draft before changing the offer.',409);return this.store.get('sale',prior.saleId);}
+   const sale=this.store.insert('sale',randomUUID(),actor,this.saleData(actor,input));this.store.insert('sale-request',id,actor,{fingerprint,saleId:sale.id});return sale;});
+ }
+ saleRequest(owner,requestId){const actor=walletId(owner),r=this.store.get('sale-request',hashObject({actor,requestId}));assert(r?.owner===actor,'NOT_FOUND','Sale request not found',404);return this.store.get('sale',r.saleId);}
+
  updateSale(owner,id,version,input){const sale=owned(this.store,'sale',id,owner);assert(sale.status==='draft','IMMUTABLE_SALE','Published sale rules cannot be changed');
   this.assertSaleEditable(sale);
   return this.store.update('sale',id,sale.owner,version,this.saleData(owner,{...sale,...input}));}

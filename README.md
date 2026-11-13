@@ -101,7 +101,21 @@ Its injected EIP-1193 wallet shell produces real signatures; it does not automat
 
 ## AI and hosting
 
-Manual description/photo onboarding and surface editing are the default. An optional server API provider can propose editable surfaces. The private personal AI companion connects only its owner's allowlisted wallets to that owner's locally authenticated ChatGPT connection; subscription credentials stay on the owner's computer and are not shared with public visitors.
+The homepage opens photo or description creation. After wallet sign-in, upload a vehicle photo, send one through a private phone QR link, describe a vehicle, or choose the labelled example van. NEAR AI proposes editable panel outlines. A description can generate a labelled reference image before panel detection. Drafts are private and do not allocate NEAR.
+
+Try `/host/assets/new`, move a panel or type `Rename the first panel to Studio panel`, then continue to the offer screen. Set the operating area, campaign dates, all-in prices and per-panel takeover rules. Save a campaign draft or publish with wallet approval. Each published spot uses the existing hub; NFT issuance follows booking close. Complimentary publication depends on the live sponsor pool and limits.
+
+Configure `NEAR_AI_API_KEY` on the server. Development also reads this credential from the owner-only `.env.local`; production uses explicit process secrets. `NEAR_AI_MODEL` defaults to `z-ai/glm-5.3-flash` with minimal reasoning. `NEAR_AI_IMAGE_MODEL` defaults to `black-forest-labs/FLUX.2-klein-4B`. `sharp` prepares generated images and `qrcode` renders the phone link locally. AI jobs have per-wallet/global limits, stable request IDs and retained results. A page reload checks its original job; interrupted paid inference is never retried automatically. Panel instructions apply explicit changes and keep unrelated geometry and prices. Manual editing remains available during provider outages.
+
+The opt-in provider benchmark accepts up to 20 selected photos and writes a private latency/usage report for visual review:
+
+```sh
+node backend/bin/benchmark-vehicle-ai.mjs --run /path/to/manifest.json .local/vehicle-ai-report.json
+```
+
+The manifest contains entries such as `{"file":"/path/to/vehicle.jpg","prompt":"Suggest visible body panels"}`. This command consumes configured AI credits, performs no chain actions and does not claim measured physical dimensions or automatic panel accuracy.
+
+The private personal AI companion connects only its owner's allowlisted wallets to that owner's locally authenticated ChatGPT connection; subscription credentials stay on the owner's computer and are not shared with public visitors.
 
 Production uses the [Docker image](Dockerfile) and [Railway configuration](.railway/railway.ts), one application instance and a persistent SQLite volume. Configure HTTPS origins and server secrets explicitly. A static frontend deployment also needs the API and wallet-adapter routes; the frontend build alone does not provide the application backend. Deployment configuration is described in the [backend README](backend/README.md#production-hosting).
 
@@ -109,7 +123,7 @@ Personal wallet keys, local credentials, state databases and generated qualifica
 
 ## Physical motorcycle pilot
 
-The team has selected its Pitboard motorcycle and Everywhere branding for a genuine pilot. The [prepared owner draft](https://everywhere-near.vercel.app/host/assets/new?pilot=motorcycle) includes editable Honda CBR600F2 details and downloadable outlined vector artwork. Nothing is automatically saved, published, paid or installed. The owner must confirm the actual motorcycle details, permitted panel, dimensions, city, schedule and printing requirements, upload a current photo, and later supply real installation evidence. The draft artwork has no promised physical print size. Until those steps happen, the public qualification remains explicitly synthetic.
+The team has selected its Pitboard motorcycle and Everywhere branding for a genuine pilot. The [motorcycle setup](https://everywhere-near.vercel.app/host/assets/new?pilot=motorcycle) includes editable Honda CBR600F2 details and downloadable outlined vector artwork. Nothing is automatically saved, published, paid or installed. The owner must confirm the actual motorcycle details, permitted panel, dimensions, city, schedule and printing requirements, upload a current photo, and later supply real installation evidence. The draft artwork has no promised physical print size. Until those steps happen, the public qualification remains explicitly synthetic.
 
 ## Team-run vehicle campaigns
 

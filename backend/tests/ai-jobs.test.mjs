@@ -23,3 +23,8 @@ test('NEAR provider sends structured requests without exposing credentials or re
  let calls=0;const client=new NearAI({apiKey:'private-test',fetchImpl:async(url,options)=>{calls++;assert.equal(url,'https://cloud-api.near.ai/v1/chat/completions');const b=JSON.parse(options.body);assert.equal(b.max_tokens,3000);assert.equal(b.response_format.type,'json_schema');return Response.json({status:'incomplete'});}});
  assert.equal(JSON.stringify(client).includes('private-test'),false);await assert.rejects(client.complete({input:[],schema:{type:'object'}}),{code:'AI_INCOMPLETE'});assert.equal(calls,1);
 });
+test('a generated reference survives failed analysis and can be recovered without generating or charging twice',async()=>{
+ const store=new Store();let generations=0;const reference={imageDataUrl:'data:image/jpeg;base64,/9j/AA==',imageProvenance:'ai-generated',imageModel:'fixture'};
+ const jobs=new AIJobs({store,config:{},assetAI:{chatgpt:{generateReference:async()=>{generations++;return reference;}},draft:async()=>{throw Object.assign(Error('provider unavailable'),{code:'AI_UNAVAILABLE'});}}});
+ const input={requestId:'request-reference-0001',prompt:'Blue car',generateReference:true};const job=jobs.start('owner.near',input);await jobs.running.get(job.id);const failed=jobs.read('owner.near',job.id);assert.equal(failed.status,'failed');assert.equal(failed.reference.imageDataUrl,reference.imageDataUrl);assert.equal(jobs.start('owner.near',input).status,'failed');assert.equal(generations,1);assert.equal(store.list('ai-quota')[0].count,3);store.close();
+});

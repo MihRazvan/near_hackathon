@@ -1,4 +1,5 @@
 import './style.css';
+import {mountOffer} from './offer-setup.mjs';
 import {mountVehicleEditor} from './vehicle-editor.mjs';
 import {mountOnboarding,rememberUndo,rememberEditor} from './onboarding.mjs';
 import { navigate,toast } from '../store.mjs';
@@ -60,7 +61,7 @@ export function legacyAction(target,r){
  toast('This action is unavailable. Refresh the page and try again.');
 }
 export function mountConnected(r){
- mountOnboarding(r);mountCapture(r);
+ mountOnboarding(r);mountCapture(r);mountOffer();
  if(r.id==='X01')mountExperience();
  if(r.id==='P10')mountCampaignRecord(r.params.id);
  const providers=document.querySelector('form[data-live-form="connect-evm"] select');

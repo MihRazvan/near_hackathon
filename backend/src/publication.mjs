@@ -1,3 +1,4 @@
+import {qualifyHub} from './hub.mjs';
 import { HubPublication } from './hub-publication.mjs';
 import { assert, hashObject, walletId, uint } from './core.mjs';
 import { effectiveCodeHash, successfulNearOutcome } from './rpc.mjs';
@@ -11,6 +12,12 @@ export function verifyWalletCall(outcome,transaction,hash){
 }
 export class Publication {
  constructor({store,reads,config,marketplace,now=Date.now}){Object.assign(this,{store,reads,config,marketplace,now});}
+ async capacity(wallet){
+  if(!this.config.hub)return {mode:this.config.factory?'factory':'recoverable',sponsoredSlots:0,paidAvailable:true};
+  const block=await this.reads.block(),c=await qualifyHub(this.reads,this.config,block),usage=await this.reads.view(this.config.hub.accountId,'get_sponsor_usage',{account_id:walletId(wallet)},block);
+  const reserve=uint(c.offer_storage_deposit),limits=[uint(c.sponsor_available)/reserve,uint(c.sponsored_offer_limit)-uint(c.sponsored_offers),uint(c.sponsored_per_owner_limit)-uint(usage)];
+  return {mode:'hub',sponsoredSlots:Number(limits.reduce((a,b)=>a<b?a:b)),reservePerSpot:c.offer_storage_deposit,paidAvailable:!walletId(wallet).startsWith('0x'),observedAt:new Date(this.now()).toISOString()};
+ }
  async prepare(wallet,saleId){
   if(this.config.hub)return new HubPublication(this).prepare(wallet,saleId);
   const actor=walletId(wallet),sale=this.store.get('sale',saleId),factory=this.config.factory;

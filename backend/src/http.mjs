@@ -101,6 +101,8 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    else if(method==='GET'&&path[1]==='lab-clock'&&lab?.sandbox)result=lab.clockState();
    else if(method==='POST'&&path[1]==='lab-restart'&&lab?.sandbox)result=lab.restart(wallet);
    else if(method==='GET'&&path[1]==='integration')result={network:config.network,executionEnabled:config.enabled,budget:budget.totals()};
+   else if(method==='GET'&&path[1]==='publication-capacity')result=await publication.capacity(wallet);
+   else if(method==='GET'&&path[1]==='sale-requests'&&path.length===3)result=marketplace.saleRequest(wallet,path[2]);
    else if(method==='POST'&&path[1]==='assets'&&path.length===2){result=marketplace.createAsset(wallet,body);status=201;}
    else if(method==='PATCH'&&path[1]==='assets'&&path.length===3)result=marketplace.updateAsset(wallet,path[2],body.version,body.asset);
    else if(method==='POST'&&path[1]==='ai'&&path[2]==='jobs'){result=aiJobs.start(wallet,body);status=202;}
@@ -186,5 +188,5 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
   }catch(error){const known=error instanceof AppError;if(!known)console.error('API_INTERNAL_ERROR',error?.name??'Error',String(error?.stack??'').split('\n').slice(1,4).join('\n'));send(known?error.status:500,{error:{code:known?error.code:'INTERNAL_ERROR',message:known?error.message:'The request could not be completed. Your saved progress is retained.'}});}
   finally{if(uploadSlot)activeUploads--;}
  });
- server.headersTimeout=5000;server.requestTimeout=120000;return server;
+ server.aiJobs=aiJobs;server.headersTimeout=5000;server.requestTimeout=120000;return server;
 }

@@ -1,3 +1,4 @@
+import {saveOffer} from './offer-setup.mjs';
 import {onboardingActions,onboardingForms,saveEditor,rememberUndo,useCapturedPhoto} from './onboarding.mjs';
 import {assetFields} from './asset-fields.mjs';
 export {assetFields} from './asset-fields.mjs';
@@ -57,6 +58,7 @@ async function claimCredit(contractId){
 }
 export const actions={
  ...onboardingActions,
+ 'save-quick-offer':async el=>{const f=el.closest('form');if(f.reportValidity())return saveOffer(new FormData(f));},
  'reload-workspace':()=>location.reload(),
  refresh:async()=>{await refresh();toast('Confirmed state refreshed.');},disconnect,
  'connect-near':()=>connect('near'),
@@ -167,6 +169,7 @@ function setDates(minutes){const form=document.querySelector('form[data-live-for
  ['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'].forEach((key,i)=>form.elements.namedItem(key).value=localDate(base+minutes[i]*60000));if(form.elements.namedItem('customMilestones'))form.elements.namedItem('customMilestones').checked=true;form.dataset.dirty='true';}
 export const forms={
  ...onboardingForms,
+ 'quick-offer':data=>saveOffer(data,{publish:true}),
  ...workspaceForms,
  'connect-funded':data=>connect('funded',String(data.get('wallet'))),
  'connect-test':data=>connect('test',String(data.get('wallet'))),'connect-evm':data=>connect('evm',String(data.get('provider'))),

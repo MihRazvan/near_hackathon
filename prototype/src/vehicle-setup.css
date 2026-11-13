@@ -50,3 +50,9 @@
 @media(max-width:1000px) { .vehicle-edit-layout { grid-template-columns:minmax(0,1fr); } .vehicle-panel-settings .grid.three { grid-template-columns:1fr 1fr; } }
 @media(max-width:480px) { .vehicle-panel-settings .grid.three { grid-template-columns:1fr; } }
 .vehicle-reference-wait { display:grid; place-items:center; min-height:340px; padding:28px; border:1px dashed var(--line); font:700 28px/1.2 var(--font-display); text-align:center; background:var(--paper); }
+.photo-panel.is-readonly { pointer-events:none; }
+.vehicle-photo-input.is-dragging { outline:3px solid var(--blue); outline-offset:3px; }
+.vehicle-editor-image.is-processing::after { content:""; position:absolute; left:0; right:0; top:10%; height:2px; background:var(--pink); pointer-events:none; }
+@media(prefers-reduced-motion:no-preference) { .vehicle-editor-image.is-processing::after { animation:vehicle-scan 2.5s ease-in-out infinite alternate; } @keyframes vehicle-scan { from{top:10%} to{top:90%} } }
+.vehicle-edit-fields { padding:0; border:0; margin:0; min-width:0; }
+.vehicle-edit-fields:disabled button { cursor:wait; }

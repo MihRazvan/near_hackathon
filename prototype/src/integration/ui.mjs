@@ -1,3 +1,4 @@
+import {vehicleEditor} from './vehicle-editor.mjs';
 import { esc, link, badge, card, vehicle, empty, short, heading as designHeading, table } from '../ui.mjs';
 import {isTeamTest,deliveryLabel} from './campaign-kind.mjs';
 import { live, assetView, snapshot, usdc, dateTime, byNs, sale, allSales, rawAsset } from './runtime.mjs';
@@ -13,7 +14,7 @@ export const form=(name,body,attrs='')=>`<form data-live-form="${name}" ${attrs}
 export const hidden=(name,value)=>`<input type="hidden" name="${name}" value="${esc(value)}">`;
 export const notice=(title,body,tone='')=>`<div class="notice ${tone}"><div><strong>${title}</strong><p>${body}</p></div></div>`;
 export const transaction=(hash,network='near')=>hash?`<code class="connected-hash">${esc(hash)}</code>`:'Awaiting wallet approval';
-export const scene=(asset,selected='',editor=false,{spots=true}={})=>vehicle(assetView(asset),{large:true,editor,selected,interactive:true,spots});
+export const scene=(asset,selected='',editor=false,{spots=true}={})=>vehicleEditor(asset,selected,{interactive:editor,spots})||vehicle(assetView(asset),{large:true,editor,selected,interactive:true,spots});
 export const own=asset=>asset?.owner===live.session?.wallet;
 export const signedOut=()=>empty('Connect a wallet to continue.','Your listings, placements and money records belong to the account you sign in with.',link('/sign-in?next='+encodeURIComponent(location.pathname+location.search),'Connect wallet','button primary'));
 export function unavailable(title='This record is unavailable.'){return empty(title,'Choose a published space or open a record belonging to your connected wallet.',link('/explore','Explore spaces'));}

@@ -47,6 +47,6 @@ let stopping=false;
 function stop(){
  if(stopping)return;stopping=true;worker.stop();keeper.stop();
  const deadline=setTimeout(()=>process.exit(1),20000);deadline.unref();
- server.close(async()=>{while(worker.isRunning()||keeper.isRunning())await new Promise(resolve=>setTimeout(resolve,50));clearTimeout(deadline);r.store.close();process.exit(0);});server.closeIdleConnections();
+ server.close(async()=>{while(worker.isRunning()||keeper.isRunning())await new Promise(resolve=>setTimeout(resolve,50));await Promise.allSettled([...(server.aiJobs?.running.values()??[])]);clearTimeout(deadline);r.store.close();process.exit(0);});server.closeIdleConnections();
 }
 process.once('SIGINT',stop);process.once('SIGTERM',stop);

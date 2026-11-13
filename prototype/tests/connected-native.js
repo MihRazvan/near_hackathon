@@ -10,11 +10,12 @@ async page => {
  async function connect(label){await go('/settings/wallets');await page.locator('form[data-live-form=connect-test] select').selectOption({label:await page.locator('form[data-live-form=connect-test] option').filter({hasText:label+' ·'}).first().textContent()});await approved(()=>submit('connect-test'));checks.push('Connected '+label);}
  async function act(name){await page.locator(`[data-live-action="${name}"]`).first().click();await idle();if(await page.locator('#connected-notice.orange:visible').count())throw new Error(await page.locator('#connected-notice').textContent());}
  async function assertText(text){if(!await page.getByText(text,{exact:false}).count())throw new Error('Missing visible text: '+text);}
- await connect('Owner');await go('/host/assets/new');
- await page.locator('[name=method]').selectOption('manual');await page.locator('[name=title]').fill('One-cent product qualification');await page.locator('[name=city]').fill('Bucharest');await page.locator('textarea[name=description]').fill('Synthetic demo vehicle; one reviewed advertising panel.');await submit('asset-create');await idle();
+ await connect('Owner');await go('/host/assets/new?mode=describe');
+ await page.locator('textarea[name=prompt]').fill('Synthetic demo vehicle; one editable advertising panel.');if(await page.locator('[data-live-action=vehicle-manual-start]').count())await page.locator('[data-live-action=vehicle-manual-start]').click();else await submit('vehicle-start');await idle();
+ await page.locator('[name=title]').fill('One-cent product qualification');await page.locator('[name=city]').fill('Bucharest');
  const assetId=new URL(page.url()).pathname.split('/')[3];
- await page.locator('[name=reviewed]').check();await submit('asset-edit');await idle();checks.push('Owner reviewed and saved editable surface');
- await go('/host/sales/new?asset='+assetId);await page.locator('[name=title]').fill('One-cent recoverable campaign');await act('quick-dates');await page.locator('[name="price:spot-1"]').fill('0.01');await page.locator('[name=takeoverDefault]').uncheck();await submit('sale-edit');await idle();
+ await submit('asset-edit');await idle();checks.push('Owner reviewed and saved editable surface');
+ await go('/host/sales/new?advanced=1&asset='+assetId);await page.locator('[name=title]').fill('One-cent recoverable campaign');await act('quick-dates');await page.locator('[name="price:spot-1"]').fill('0.01');await page.locator('[name=takeoverDefault]').uncheck();await submit('sale-edit');await idle();
  const saleId=new URL(page.url()).pathname.split('/')[3];
  await approved(()=>page.locator('[data-live-action=publish]').click());await assertText('Published campaign and original booking records.');checks.push('Recoverable publication through product review');
  const fulfillment=await page.getByRole('link',{name:'Manage artwork & delivery'}).getAttribute('href'),contract=new URL(fulfillment,base).searchParams.get('contract');
