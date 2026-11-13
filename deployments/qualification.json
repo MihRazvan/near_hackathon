@@ -5,7 +5,8 @@
   "contract": {
     "codeHash": "5i3hw9oXjH6Ri3fGGZ177U7ckk87oeqtUUVxtYMgPsiS",
     "wasmSha256": "45f29ecac83ae3c31c7e8f300d314484d82184f40f35c4bb92c319f298b5240b",
-    "publishedTermsSha256": "gQufMUiYvCIgv6Vp9TlnYyo/ctFFaO8Q9302yZcJos8="
+    "publishedTermsSha256": "gQufMUiYvCIgv6Vp9TlnYyo/ctFFaO8Q9302yZcJos8=",
+    "wasmFile": "deployments/evidence/marketplace-hub.wasm"
   },
   "record": {
     "saleId": "e22dd301-786f-476c-af74-0df7cd2e6168",
@@ -42,13 +43,15 @@
         "uri": "ipfs://bafkreigeoxej32yxu2fm4t2sdxp36fguwem5pm6imk5ewep6f2dqyhudie",
         "sha256": "c475c89deb17a68ace4f521ddfbf14d4b119d7b3c862ba4b11fe2e870c1e8341",
         "provenance": "synthetic-qualification",
-        "physicalInstallationVerified": false
+        "physicalInstallationVerified": false,
+        "file": "deployments/evidence/artwork.txt"
       },
       "delivery": {
         "uri": "ipfs://bafkreicadz6cevuety7u52d4ugj7hk2c3xcm7idvlg6uudlpaleri4fo6i",
         "sha256": "401e7c2256849e3f4ee87ca193f3ab42ddc4cfa07559bd4a0d6f02c91470aef2",
         "provenance": "synthetic-qualification",
-        "physicalInstallationVerified": false
+        "physicalInstallationVerified": false,
+        "file": "deployments/evidence/delivery.txt"
       }
     },
     "steps": [
