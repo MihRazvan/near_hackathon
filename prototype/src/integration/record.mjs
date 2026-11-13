@@ -29,7 +29,7 @@ const artifact = (item, label) => {
 };
 
 async function read(path) {
-  const response = await fetch('/api/' + path, { credentials: 'same-origin' });
+  const response = await fetch('/api/' + path, { credentials: 'same-origin',signal:AbortSignal.timeout(30000) });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error?.message ?? 'The record could not be loaded.');
   return data;
@@ -44,11 +44,16 @@ export function mountCampaignRecord(id, { force = false } = {}) {
   const prior = records.get(id);
   if (prior?.loading || (!force && prior)) return;
   records.set(id, { loading: true, data: prior?.data });
+  if(!prior?.data)void read('campaign-records/'+encodeURIComponent(id)+'?summary=1').then(data=>{
+    const entry=records.get(id);if(!entry?.loading||entry.data)return;
+    if(data.schema!=='everywhere-campaign-record/v1'||!data.campaign?.asset||data.status!=='checking'||!Array.isArray(data.snapshots)||data.snapshots.length)return;
+    records.set(id,{loading:true,data});changed();if(data.qualification?.matched)void loadEvidence({force});
+  }).catch(()=>{});
   void read('campaign-records/' + encodeURIComponent(id)).then(data => {
     if (data.schema !== 'everywhere-campaign-record/v1' || !data.campaign?.asset || !Array.isArray(data.snapshots)) throw new Error('The campaign record returned an incomplete response.');
     records.set(id, { data, loading: false }); changed();
     if (data.qualification?.matched) void loadEvidence({ force });
-  }).catch(error => { records.set(id, { loading: false, error: error.message }); changed(); });
+  }).catch(error => {const known=records.get(id)?.data;records.set(id, known?{loading:false,data:{...known,status:'unavailable'}}:{loading:false,error:error.message});changed(); });
 }
 
 export async function loadEvidence({ force = false } = {}) {
@@ -91,7 +96,7 @@ export function campaignRecordView(id) {
   if (entry.error) return `<section class="record-empty"><h1 tabindex="-1">This record isn\'t available.</h1><p>${esc(entry.error)}</p><button class="button primary" data-record-action="refresh" data-record-id="${esc(id)}">Try again</button>${link('/explore', 'Explore spaces', 'button')}</section>`;
   const data = entry.data, campaign = data.campaign, qualification = data.qualification, synthetic = qualification?.synthetic;
   return `<article class="campaign-record"><div class="record-topline"><a href="/explore">${icon('arrow')} Marketplace</a><span>${text(data.network)} · public campaign record</span></div><header class="record-heading"><div><h1 tabindex="-1">${synthetic ? 'A real-world right.<br>Recorded as an NFT.' : esc(campaign.title)}</h1><p>${synthetic ? 'A placement NFT, committed artwork and a complete USDC money trail on NEAR mainnet. This qualification used synthetic artwork and delivery evidence.' : `${esc(campaign.asset.name)} in ${esc(campaign.asset.city)}. A read-only record of the published campaign and its settlement.`}</p></div><div class="record-heading-actions"><button class="button" data-record-action="copy" data-record-id="${esc(id)}">${icon('copy')} Copy record link</button><button class="button quiet" ${entry.loading ? 'disabled' : ''} data-record-action="refresh" data-record-id="${esc(id)}">${entry.loading ? 'Refreshing…' : 'Refresh verification'}</button></div></header>
-    ${campaignNotice(campaign)}${data.status !== 'available' ? `<div class="notice orange" role="status">Some chain state is temporarily unavailable. Missing state is not confirmation of a payment or campaign outcome.</div>` : ''}
+    ${campaignNotice(campaign)}${data.status==='checking'?'<p class="record-muted" role="status">Published campaign loaded. Verifying its current NEAR state...</p>':data.status !== 'available' ? `<div class="notice orange" role="status">Some chain state is temporarily unavailable. Missing state is not confirmation of a payment or campaign outcome.</div>` : ''}
     ${synthetic ? `<div class="record-provenance">${icon('shield')} <span>Recorded mainnet qualification · historical test campaign with synthetic delivery evidence.</span>${link('/experience', 'Try the interactive example', 'record-link')}</div>` : ''}
     <div class="record-overview">${recordCover(campaign.asset, synthetic)}<section class="record-schedule"><h2>Campaign dates</h2><dl class="record-facts">${[['Booking deadline', 'biddingClose'], ['Artwork deadline', 'artworkDue'], ['Installation deadline', 'installationDue'], ['Service start', 'serviceStart'], ['Service end', 'serviceEnd'], ['Review deadline', 'reviewEnd']].map(([label, key]) => `<div><dt>${label}</dt><dd>${text(time(campaign.schedule?.[key]))}</dd></div>`).join('')}</dl><p class="record-muted">${synthetic ? 'Dates are those of the completed qualification run. The interactive example compresses its timeline.' : 'Dates and rules were published by the space owner.'}</p></section></div>
     ${data.snapshots.map(snapshot => placement(snapshot, campaign, data.network)).join('') || '<section class="record-empty"><h2>Waiting for a qualified chain read.</h2><p>No state is presented as verified until its source can be checked.</p></section>'}

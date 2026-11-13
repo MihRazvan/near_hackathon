@@ -7,7 +7,7 @@ globalThis.location={origin:'http://localhost',pathname:'/sign-in',search:''};
 globalThis.window=new EventTarget();window.CustomEvent=CustomEvent;
 window.history={pushState(_state,_title,path){const u=new URL(path,location.origin);Object.assign(location,{pathname:u.pathname,search:u.search});}};
 globalThis.document={querySelector:()=>null,activeElement:null};
-const {live,refresh,connect,disconnect}=await import('../src/integration/runtime.mjs');
+const {live,api,refresh,refreshBalances,noteWorkspaceMutation,connect,disconnect}=await import('../src/integration/runtime.mjs');
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const workspace=(wallet,chainPending=false,patch={})=>({wallet,chainPending,sales:[],snapshots:[],owners:[],unavailable:[],time:new Date().toISOString(),profile:{displayName:wallet},placements:[],issues:[],placementMessages:[],dashboard:{assets:[],sales:[],bookings:[],campaigns:[],incomingBookings:[]},...patch});
 const response=value=>Response.json(value);
@@ -82,4 +82,41 @@ test('an unavailable initial account read publishes a recoverable error instead 
  reset({wallet:'owner.near'});let renders=0;const changed=()=>renders++;window.addEventListener('app:changed',changed);
  globalThis.fetch=async()=>Response.json({error:{message:'Service temporarily unavailable'}},{status:503});
  try{await assert.rejects(refresh({local:true,render:false}),/Service temporarily unavailable/);assert.equal(live.data,null);assert.equal(live.session.wallet,'owner.near');assert.equal(renders,1);assert.match(live.error,/temporarily unavailable/);}finally{window.removeEventListener('app:changed',changed);}
+});
+test('USDC registration and funding polls need only the connected wallet balance',async()=>{
+ const session={wallet:'owner.near'};reset(session);const data=workspace(session.wallet);live.data=data;const calls=[];
+ globalThis.fetch=async path=>{calls.push(path);assert.equal(path,'/api/wallet/balances');return response({wallet:session.wallet,intentsUsdc:'10000',tokenStorageRegistered:true});};
+ await refreshBalances({render:false});assert.deepEqual(calls,['/api/wallet/balances']);assert.equal(live.data,data);assert.equal(live.balances.tokenStorageRegistered,true);
+});
+test('an action completion requests its own placement rather than the whole marketplace',async()=>{
+ const session={wallet:'owner.near'};reset(session);live.data=workspace(session.wallet);const calls=[];
+ globalThis.fetch=async path=>{calls.push(path);return response(path.startsWith('/api/workspace?')?workspace(session.wallet,false,{scopedContracts:['offer'],sales:[{spots:[{contractId:'offer'}]}],snapshots:[{accountId:'offer'}]}):{intentsUsdc:'0'});};
+ await refresh({contracts:['offer'],render:false});assert(calls.includes('/api/workspace?contract=offer'));assert(!calls.includes('/api/workspace'));assert.equal(live.catalog.snapshots[0].accountId,'offer');
+});
+test('stalled reads have a retryable timeout while a signed write never gets a read deadline or automatic retry',async()=>{
+ reset();let calls=0;
+ globalThis.fetch=async(_path,options)=>{calls++;return new Promise((_resolve,reject)=>options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true}));};
+ const keepAlive=setTimeout(()=>{},1000);
+ try{await assert.rejects(api('workspace',undefined,{timeoutMs:5}),{code:'READ_TIMEOUT'});assert.equal(calls,1);}finally{clearTimeout(keepAlive);}
+ globalThis.fetch=async(_path,options)=>{calls++;assert.equal(options.signal,undefined);return response({status:'recorded'});};
+ assert.equal((await api('intents/original/relay',{signature:'test-public-signature'},{timeoutMs:1})).status,'recorded');assert.equal(calls,2);
+});
+test('a new photo draft acknowledged while chain reads are pending survives an older workspace response',async()=>{
+ const session={wallet:'owner.near'};reset(session);live.data=workspace(session.wallet,true);const gate=deferred();
+ globalThis.fetch=async path=>response(path==='/api/workspace'?await gate.promise:{intentsUsdc:'0'});
+ const pending=refresh({background:true,render:false});live.data.dashboard.assets.push({id:'new-photo',version:1});noteWorkspaceMutation();
+ gate.resolve(workspace(session.wallet));await pending;assert.equal(live.data.dashboard.assets[0].id,'new-photo');assert.equal(live.data.chainPending,false);
+});
+test('a price-change retry refreshes the quoted placement before returning to checkout and never opens a payment',async()=>{
+ const session={wallet:'owner.near'};reset(session);const sale={id:'sale',spots:[{id:'door',contractId:'offer'}]};live.data=workspace(session.wallet);live.catalog.sales=[sale];const calls=[];
+ globalThis.fetch=async path=>{
+  calls.push(path);
+  if(path==='/api/bookings')return response({id:'quote',contractId:'offer',amount:'20000',saleId:'sale',spotId:'door'});
+  if(path==='/api/bookings/quote/cancel')return response({status:'cancelled'});
+  if(path==='/api/workspace?contract=offer')return response(workspace(session.wallet,false,{sales:[sale],scopedContracts:['offer'],snapshots:[{accountId:'offer',state:{next_price:'20000'}}]}));
+  if(path==='/api/wallet/balances')return response({intentsUsdc:'100000'});
+  throw Error('Unexpected request '+path);
+ };
+ const {forms}=await import('../src/integration/actions.mjs');const data=new FormData();for(const [k,v]of Object.entries({saleId:'sale',spotId:'door',campaignId:'existing-campaign',rules:'on',expectedAmount:'10000'}))data.set(k,v);
+ await assert.rejects(forms['prepare-booking'](data),/price changed/);assert(calls.includes('/api/workspace?contract=offer'));assert.equal(live.catalog.snapshots[0].state.next_price,'20000');assert.equal(location.pathname,'/checkout/sale');assert(!calls.some(p=>p.includes('wallet-requests')||p.includes('/relay')));
 });

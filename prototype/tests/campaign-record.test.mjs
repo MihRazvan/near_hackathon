@@ -9,6 +9,12 @@ test('recorded commitments preserve CIDv0/path artifacts and do not mislabel a r
  globalThis.fetch=async()=>Response.json(fixture('ordinary'));mountCampaignRecord('ordinary');await tick();const html=campaignRecordView('ordinary');
  assert.match(html,/Public campaign &lt;test&gt;/);assert.match(html,/Owner motorcycle/);assert.match(html,/record-asset-summary/);assert.doesNotMatch(html,/van-dublin-ad/);assert.match(html,/NFT has not been issued/);assert.match(html,/gateway.pinata.cloud\/ipfs\/QmRecorded\/file.txt/);assert.match(html,/payer.near/);assert.doesNotMatch(html,/Inspect the NFT/);
 });
+test('published record details appear before a held chain response and are never labelled verified prematurely',async()=>{
+ let release;const gate=new Promise(resolve=>release=resolve),id='fast-record',data=fixture(id);
+ globalThis.fetch=async path=>{if(String(path).endsWith('?summary=1'))return Response.json({...data,status:'checking',snapshots:[]});await gate;return Response.json(data);};
+ mountCampaignRecord(id);await tick();let html=campaignRecordView(id);assert.match(html,/Public campaign &lt;test&gt;/);assert.match(html,/Verifying its current NEAR state/);assert.doesNotMatch(html,/class="record-placement"|Some chain state is temporarily unavailable/);
+ release();await tick();html=campaignRecordView(id);assert.match(html,/class="record-placement"/);assert.doesNotMatch(html,/Verifying its current NEAR state/);
+});
 test('historical receipts remain inspectable during RPC outages and mismatch warnings and coverage are visible',async()=>{
  const record=fixture('history',true);record.status='unavailable';record.snapshots=[];
  globalThis.fetch=async path=>Response.json(path.includes('/evidence/')?{schema:'everywhere-qualification/v1',network:'mainnet',verification:{status:'mismatch',checkedAt:'2026-11-11T12:00:00Z',receiptsVerifiedAt:'2026-11-10T12:00:00Z'},record:{steps:[{label:'Real purchase',transactionHash:'public-hash',explorerUrl:'https://nearblocks.io/txns/public-hash'}],coverage:[{feature:'NFT creative handoff',status:'not-recorded',note:'Not part of the V3 mainnet run'}]}}:record);

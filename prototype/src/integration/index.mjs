@@ -37,7 +37,8 @@ export function renderConnected(r){
  else if(r.scope==='ops')body=opsView(r);
  // Account/draft data is available immediately. Financial and fulfillment views
  // wait for this wallet's verified live state, never an invented zero balance.
- if(live.session&&((live.data?.chainPending&&(['B06','B07','B08','B09','B11','B12','O14','O15','O16','O19','O20'].includes(r.id)||r.scope==='ops'))||(['B06','B11'].includes(r.id)&&!live.balances))){
+ const query=new URLSearchParams(location.search),chainConversation=r.id==='S02'&&!['bookings','incomingBookings'].some(key=>live.data?.dashboard?.[key]?.some(b=>b.id===r.params.threadId)),chainIssue=r.id==='S09'&&(query.has('contract')||query.has('booking'))||r.id==='S10'&&live.data?.issues?.some(i=>i.id===r.params.id);
+ if(live.session&&((live.data?.chainPending&&(['B06','B07','B08','B09','B11','B12','O14','O15','O16','O19','O20'].includes(r.id)||r.scope==='ops'||chainConversation||chainIssue))||(['B06','B11'].includes(r.id)&&!live.balances))){
   const failed=live.chainError||live.balanceError;
   body=empty(failed?'Campaign status is unavailable.':'Checking your live campaign status.',failed?'Your account and drafts are available. Retry the status check before continuing.':'Your account is connected. Current placements and balances are loading.',act('refresh','Refresh status','','button primary'));
  }

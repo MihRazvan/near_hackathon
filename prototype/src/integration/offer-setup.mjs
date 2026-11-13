@@ -1,5 +1,6 @@
 import {vehicleEditor} from './vehicle-editor.mjs';
 import {live,api,rawAsset,refresh,nativeUnits,sale} from './runtime.mjs';
+import {publicationCapacity} from './publication-capacity.mjs';
 import {navigate,toast} from '../store.mjs';
 import {esc,heading,form,hidden,input,textArea,check,select,submit,act,link,notice} from './ui.mjs';
 import {defaultOwnerSchedule} from './owner-state.mjs';
@@ -22,7 +23,7 @@ export async function saveOffer(data,{publish=false}={}){
  const schedule=campaignSchedule(Object.fromEntries(['biddingClose','serviceStart','serviceEnd'].map(k=>[k,String(data.get(k))]))),memo=saved(id),requestId=memo.requestId??crypto.randomUUID();
  const spots=asset.spots.map(p=>({id:p.id,priceCents:cents(data.get('price:'+p.id)),...(data.get('rule:'+p.id)==='inherit'?{}:{takeoverEnabled:data.get('rule:'+p.id)==='on'})}));
  const guard=()=>{if(live.session?.wallet!==wallet)throw new Error('The connected wallet changed. Reopen this draft with its owner wallet.');};
- let capacity;if(publish)try{capacity=await api('publication-capacity');}catch{}
+ let capacity;if(publish)try{capacity=await publicationCapacity({force:true,background:false});}catch{}
  const sponsored=capacity?.mode==='hub'&&capacity.sponsoredSlots>=spots.length,canPublish=!wallet.startsWith('0x')||sponsored;
  if(publish&&canPublish&&asset.photoDataUrl&&!asset.coverMediaId){if(!data.has('publicCover'))throw new Error('Agree to publish the photo on public IPFS, or keep this offer as a private draft.');const media=await api('media',{base64:asset.photoDataUrl.split(',')[1],mime:asset.photoDataUrl.slice(5,asset.photoDataUrl.indexOf(';')),publicContentAcknowledged:true});guard();asset=await api('assets/'+id,{version:asset.version,asset:{...asset,city,coverMediaId:media.id}},{method:'PATCH'});}
  else if(city!==asset.city){asset=await api('assets/'+id,{version:asset.version,asset:{...asset,city}},{method:'PATCH'});}
@@ -38,5 +39,5 @@ export async function saveOffer(data,{publish=false}={}){
 export function mountOffer(){
  const f=document.querySelector('form[data-live-form="quick-offer"]');if(!f)return;const wallet=live.session.wallet,asset=rawAsset(f.elements.namedItem('assetId').value);
  f.addEventListener('input',()=>{const memo=saved(asset.id),data=new FormData(f);localStorage.setItem(storageKey(asset.id),JSON.stringify({...memo,...Object.fromEntries(data),takeoverDefault:data.has('takeoverDefault'),publicCover:data.has('publicCover')}));});
- void api('publication-capacity').then(c=>{if(!f.isConnected||live.session?.wallet!==wallet)return;const enough=c.sponsoredSlots>=asset.spots.length,el=f.querySelector('[data-publication-capacity]');el.textContent=enough?'Complimentary publication is available for these placements.':c.paidAvailable?(c.reservePerSpot?'Publication deposit: '+nativeUnits(BigInt(c.reservePerSpot??'0')*BigInt(asset.spots.length))+' NEAR, plus wallet fees. Unused reserves can return after settlement.':'Your wallet review will show the publication deposit and fees.'):'Complimentary publication is currently full. Save your draft and return when space is available.';if(!enough&&!c.paidAvailable){const b=f.querySelector('button[type="submit"]');b.disabled=true;b.textContent='Publication currently full';}}).catch(()=>{if(f.isConnected)f.querySelector('[data-publication-capacity]').textContent='Publication availability could not be checked. Your draft can still be saved.';});
+ void publicationCapacity().then(c=>{if(!f.isConnected||live.session?.wallet!==wallet)return;const enough=c.sponsoredSlots>=asset.spots.length,el=f.querySelector('[data-publication-capacity]');el.textContent=enough?'Complimentary publication is available for these placements.':c.paidAvailable?(c.reservePerSpot?'Publication deposit: '+nativeUnits(BigInt(c.reservePerSpot??'0')*BigInt(asset.spots.length))+' NEAR, plus wallet fees. Unused reserves can return after settlement.':'Your wallet review will show the publication deposit and fees.'):'Complimentary publication is currently full. Save your draft and return when space is available.';if(!enough&&!c.paidAvailable){const b=f.querySelector('button[type="submit"]');b.disabled=true;b.textContent='Publication currently full';}}).catch(()=>{if(f.isConnected)f.querySelector('[data-publication-capacity]').textContent='Publication availability could not be checked. Your draft can still be saved.';});
 }

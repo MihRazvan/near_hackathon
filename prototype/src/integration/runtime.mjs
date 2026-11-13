@@ -1,4 +1,5 @@
 import {referenceImage} from './reference-images.mjs';
+import {mergeScopedWorkspace} from './workspace-refresh.mjs';
 import { state, navigate, toast } from '../store.mjs';
 import { esc, short } from '../ui.mjs';
 
@@ -20,15 +21,18 @@ export function currentPerson(){
  return {id:live.session.wallet,ownerId:live.session.wallet,wallet:live.session.wallet,
   name:name&&name!==live.session.wallet?name:short(live.session.wallet),brand:live.data?.profile?.brand??'',role:location.pathname.startsWith('/host')?'owner':location.pathname.startsWith('/ops')?'ops':'buyer'};
 }
-export async function api(path,body,{method=body===undefined?'GET':'POST',session=live.session,signal}={}){
- const response=await fetch('/api/'+path,{method,signal,credentials:'include',headers:{...(body===undefined?{}:{'Content-Type':'application/json'}),...(session?.token?{Authorization:'Bearer '+session.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
- let value;try{value=await response.json();}catch{throw new Error('The service is temporarily unavailable. Your saved progress and transaction records are retained.');}
+export async function api(path,body,{method=body===undefined?'GET':'POST',session=live.session,signal,timeoutMs=30000}={}){
+ const deadline=method==='GET'?AbortSignal.timeout(timeoutMs):null,readSignal=deadline&&signal?AbortSignal.any([signal,deadline]):deadline??signal;
+ let response,value;
+ try{response=await fetch('/api/'+path,{method,signal:readSignal,credentials:'include',headers:{...(body===undefined?{}:{'Content-Type':'application/json'}),...(session?.token?{Authorization:'Bearer '+session.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});value=await response.json();}
+ catch(error){if(signal?.aborted)throw error;if(deadline?.aborted){const timeout=new Error('Loading took too long. Try the status check again; your saved progress and original transaction records are retained.');timeout.code='READ_TIMEOUT';throw timeout;}throw new Error('The service is temporarily unavailable. Your saved progress and transaction records are retained.');}
  if(!response.ok){const error=new Error(value.error?.message??'The request could not be completed.');error.code=value.error?.code;error.status=response.status;throw error;}return value;
 }
 // Refreshes belong to the session and to their data lane. An old public or
 // previous-wallet read must never delay a new sign-in or overwrite its data.
 const refreshes=new Map();
 let localRevision=0;
+export function noteWorkspaceMutation(){localRevision++;}
 function applyWorkspace(data,{local,revision}){
  const previous=live.data;
  if(local){
@@ -39,53 +43,60 @@ function applyWorkspace(data,{local,revision}){
   data.chainPending=same?previous.chainPending!==false:true;
   live.catalog={...live.catalog,sales:data.sales,owners:data.owners,snapshots:live.catalog?.snapshots??[],time:live.catalog?.time??data.time,unavailable:live.catalog?.unavailable??[]};
  }else{
+  if(data.scopedContracts)data=mergeScopedWorkspace(previous,data,live.catalog);
   // A delayed chain response can hydrate rights without undoing a profile or
   // draft that was saved through the independent database lane in the meantime.
   if(revision!==localRevision&&previous?.wallet===data.wallet){
-   const keys=['snapshots','unavailable','time','placements','issues','placementMessages','chainPending'];
+   const keys=['snapshots','unavailable','time','placements','issues','placementMessages','chainPending','scopedContracts'];
    data={...data,...previous,...Object.fromEntries(keys.map(key=>[key,data[key]]))};
   }
   live.catalog={sales:data.sales,snapshots:data.snapshots,owners:data.owners,time:data.time,unavailable:data.unavailable};live.chainError=null;
  }
  live.data=data;live.config.aiAvailable=live.publicAiAvailable||data.ai?.available===true;
 }
-export async function refresh({render=true,local=false,background=false,force=!background}={}){
- const session=live.session,lane=local?'local':'live';
+export async function refresh({render=true,local=false,balancesOnly=false,contracts,background=false,force=!background}={}){
+ if(balancesOnly&&!live.session)throw new Error('Connect your wallet to check its balance.');
+ // Initial discovery still needs all rights. Subsequent writes update only their
+ // own placements; balance polls never rescan unrelated campaigns.
+ if(live.data?.chainPending)contracts=undefined;
+ const session=live.session,lane=balancesOnly?'balances':local?'local':'live';
  let lanes=refreshes.get(session);if(!lanes){lanes=new Map();refreshes.set(session,lanes);}
  const prior=lanes.get(lane);if(prior&&!force)return prior.promise;
  if(prior)prior.controller.abort(); // Supersede read-only work, never a wallet write.
  const record={controller:new AbortController(),revision:localRevision},signal=record.controller.signal;
  lanes.set(lane,record);
  const active=()=>live.session===session&&lanes.get(lane)===record;
- const notify=()=>{if(render&&(!background||(!live.busy&&!document.activeElement?.matches('input,textarea,select')&&!document.querySelector('form[data-dirty="true"]'))))changed();};
+ const notify=()=>{if(render&&(!background||(!live.busy&&!document.activeElement?.matches('input,textarea,select')&&!document.querySelector('[data-photo-editor]')&&!document.querySelector('form[data-dirty="true"]')&&!document.querySelector('form[data-editing-geometry="true"]'))))changed();};
  record.promise=(async()=>{
   // Balances are independent of marketplace state. Starting them together also
   // avoids queueing wallet reads behind the entire public inventory scan.
-  const balances=!local&&session?api('wallet/balances',undefined,{session,signal}).then(value=>({value}),error=>({error})):null;
-  const funding=!local&&session&&live.config?.network==='mainnet'&&session.wallet.startsWith('0x')?api('wallet-funding',undefined,{session,signal}).then(value=>({value}),error=>({error})):null;
+  const balances=(!local||balancesOnly)&&session?api('wallet/balances',undefined,{session,signal}).then(value=>({value}),error=>({error})):null;
+  const funding=!local&&!balancesOnly&&session&&live.config?.network==='mainnet'&&session.wallet.startsWith('0x')?api('wallet-funding',undefined,{session,signal}).then(value=>({value}),error=>({error})):null;
   try{
    if(session){
-    const data=await api('workspace'+(local?'?local=1':''),undefined,{session,signal});if(!active())return;
-    applyWorkspace(data,{local,revision:record.revision});notify();
-    if(balances){const result=await balances;if(!active())return;if(result.error)live.balanceError=result.error.message;else{live.balances=result.value;live.balanceError=null;}}
+    if(!balancesOnly){const query=local?'?local=1':contracts?.length?'?'+new URLSearchParams(contracts.map(id=>['contract',id])):'';
+     const data=await api('workspace'+query,undefined,{session,signal});if(!active())return;
+     applyWorkspace(data,{local,revision:record.revision});notify();}
+    if(balances){const result=await balances;if(!active())return;if(result.error){live.balanceError=result.error.message;if(balancesOnly)throw result.error;}else{live.balances=result.value;live.balanceError=null;}}
     if(funding){const result=await funding;if(!active())return;if(!result.error)live.fundingRecords=result.value;}
    }else{
     const catalog=await api('catalog',undefined,{session,signal});if(!active())return;
     live.catalog=catalog;live.data=null;live.balances=null;if(live.config)live.config.aiAvailable=!!live.publicAiAvailable;
    }
-   if(!local)live.catalogLoading=false;
+   if(!local&&!balancesOnly)live.catalogLoading=false;
   }catch(error){
    if(!active()||signal.aborted)return;
    if(error.status===401){live.session=null;clearWorkspace();sessionStorage.removeItem(KEY);}
-   if(!local)live.chainError=error.message;
+   if(!local&&!balancesOnly)live.chainError=error.message;
    live.error=error.message;if(error.status===401||(local&&!live.data))changed();throw error;
   }finally{
-   if(lanes.get(lane)===record){lanes.delete(lane);if(!lanes.size)refreshes.delete(session);if(active()||live.session===session){if(!local)live.catalogLoading=false;notify();}}
+   if(lanes.get(lane)===record){lanes.delete(lane);if(!lanes.size)refreshes.delete(session);if(active()||live.session===session){if(!local&&!balancesOnly)live.catalogLoading=false;notify();}}
    if(live.refreshing===record.promise)live.refreshing=null;
   }
  })();live.refreshing=record.promise;return record.promise;
 }
 function hydrate(){void refresh({background:true}).catch(()=>{});}
+export const refreshBalances=options=>refresh({...options,balancesOnly:true});
 export async function initialize(){
  live.config=await api('config');
  live.publicAiAvailable=live.config.aiAvailable===true;
@@ -110,7 +121,7 @@ export async function initialize(){
  try{if(live.session){await refresh({local:true,render:false});hydrate();}else await refresh({render:false});}catch{}
  state.connectedPerson=currentPerson();
  const idle=()=>document.visibilityState!=='hidden'&&!live.busy&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,select')
-  &&!document.querySelector('form[data-dirty="true"]');
+  &&!document.querySelector('form[data-dirty="true"]')&&!document.querySelector('form[data-editing-geometry="true"]');
  // Payment actions reconcile immediately; idle dashboards need fewer reads and
  // hidden tabs must not keep consuming the shared chain-provider allowance.
  setInterval(()=>{if(idle())hydrate();},live.config.production?30000:12000);
@@ -171,8 +182,8 @@ export async function walletRequest(kind,plan,title,perform){
 }
 async function waitForRequest(initial,session,transactionHash){
  setProgress('Confirming your request on NEAR…');
- let request=initial;
- for(let i=0;i<16;i++){
+ let request=initial;const deadline=performance.now()+20000;
+ for(let i=0;i<16&&performance.now()<deadline;i++){
   if(request?.status==='confirmed')return request;
   if(['failed','rejected'].includes(request?.status))throw new Error('This request did not complete. Its original receipt is saved in Payment help.');
   if(!request?.id)return request;
@@ -214,7 +225,7 @@ export async function intentPlan(plan,title){
  });
 }
 export async function nativeAction(contractId,kind,extra={}){const plan=await api('native-actions',{contractId,kind,...extra});return nativePlan(plan,kind.replaceAll('-',' '));}
-export async function poll(predicate,{attempts=25}={}){for(let i=0;i<attempts;i++){await refresh({render:false});if(predicate())return true;await new Promise(r=>setTimeout(r,400));}return false;}
+export async function poll(predicate,{attempts=25,timeoutMs=20000}={}){const deadline=performance.now()+timeoutMs;for(let i=0;i<attempts&&performance.now()<deadline;i++){await refreshBalances({render:false});if(predicate())return true;await new Promise(r=>setTimeout(r,400));}return false;}
 export function allSales(){const own=live.data?.dashboard?.sales??[];return [...own,...(live.catalog?.sales??[]).filter(s=>!own.some(o=>o.id===s.id))];}
 export function sale(id){return allSales().find(s=>s.id===id);}
 export function snapshot(id){return live.catalog?.snapshots.find(s=>s.accountId===id);}

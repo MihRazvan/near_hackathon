@@ -4,11 +4,12 @@ import {assetFields} from './asset-fields.mjs';
 export {assetFields} from './asset-fields.mjs';
 import {isTeamTest} from './campaign-kind.mjs';
 import { navigate,toast } from '../store.mjs';
-import { live,api,refresh,connect,disconnect,review,nativePlan,intentPlan,nativeAction,poll,sale,snapshot,allSales,booking,rawAsset,amount,fileData,upload,rerender,nativeUnits,ensureSigningWallet } from './runtime.mjs';
+import { live,api,refresh,refreshBalances,connect,disconnect,review,nativePlan,intentPlan,nativeAction,poll,sale,snapshot,allSales,booking,rawAsset,amount,fileData,upload,rerender,nativeUnits,ensureSigningWallet } from './runtime.mjs';
 import { fundingAmount,campaignSchedule } from './checkout-state.mjs';
 import { photoData } from './photos.mjs';
 import {verifyOriginalIntent} from './recovery-state.mjs';
 import { workspaceForms } from './workspace-actions.mjs';
+import {affectedContracts} from './workspace-refresh.mjs';
 
 const cents=value=>{const n=BigInt(amount(String(value)));if(n%10000n)throw new Error('Spot prices must use whole USDC cents.');return (n/10000n).toString();};
 const currentForm=()=>document.querySelector('form[data-live-form="asset-edit"]');
@@ -17,18 +18,32 @@ async function artifact(data){const selected=data.get('mediaId'),uri=String(data
  if(uri&&(selected||data.get('file')?.size))throw new Error('Use one artifact source at a time. Remove the IPFS link to select or upload a file.');
  if(selected)return selected;if(uri)return (await api('media/import',{uri,publicContentAcknowledged:data.has('public')})).id;
  const m=await upload(data.get('file'),{text:String(data.get('notes')??''),acknowledged:data.has('public')});return m.id;}
-async function confirmAction(contractId,kind,extra={}){const result=await nativeAction(contractId,kind,extra);await refresh({force:true});toast(result?.status==='confirmed'?'Your campaign is updated.':'Your request is recorded. Confirmation is still being checked.');}
+async function refreshSale(id){
+ await refresh({local:true,render:false});
+ const contracts=sale(id)?.spots.map(s=>s.contractId).filter(Boolean)??[];
+ if(contracts.length)await refresh({contracts});else rerender();
+}
+async function confirmAction(contractId,kind,extra={}){const result=await nativeAction(contractId,kind,extra);await refresh({contracts:[contractId]});toast(result?.status==='confirmed'?'Your campaign is updated.':'Your request is recorded. Confirmation is still being checked.');}
 async function recoverOne(r){
  const hash=sessionStorage.getItem('everywhere-wallet-hash:'+r.id);
  return api('wallet-requests/'+r.id+'/reconcile',hash&&r.kind!=='intent'?{transactionHash:hash}:{});
+}
+async function refreshRecovered(requests){
+ const wallet=live.session?.wallet;await refresh({local:true,render:false});
+ if(!wallet||live.session?.wallet!==wallet)throw new Error('Reconnect the wallet that started this recovery.');
+ const contracts=affectedContracts(live.data,requests,live.catalog?.sales);
+ for(let i=0;i<contracts.length;i+=20)await refresh({contracts:contracts.slice(i,i+20),render:false});
+ if(!contracts.length)await refreshBalances({render:false});rerender();
 }
 function localDate(value){const d=new Date(value);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
 async function payBooking(id){
  const b=booking(id);if(!b||b.owner!==live.session.wallet)throw new Error('Open a booking belonging to this wallet.');let request;
  if(live.session.wallet.startsWith('0x'))request=await intentPlan(await api('intents/'+b.planId),'Pay '+(Number(b.amount)/1e6).toFixed(2)+' USDC for this placement');
  else request=await nativePlan(await api('bookings/'+b.id+'/native-plan',{}),'Pay for this placement from your NEAR wallet');
- for(let i=0;i<20;i++){if(request?.id)await api('wallet-requests/'+request.id+'/reconcile',{});await refresh({render:false});
+ const deadline=performance.now()+20000;
+ for(let i=0;i<20&&performance.now()<deadline;i++){if(request?.id&&!['confirmed','failed'].includes(request.status))request=await api('wallet-requests/'+request.id+'/reconcile',{});await refresh({local:true,render:false});
   if(['accepted','rejected','failed'].includes(booking(b.id)?.status))break;await new Promise(r=>setTimeout(r,300));}
+ if(booking(b.id)?.accepted)await refresh({contracts:[b.contractId],render:false});
  rerender();toast(booking(b.id)?.accepted?'Your placement is confirmed.':'Your payment is recorded. We are checking its original receipt.');
 }
 async function prepareBooking(data,{pay=live.config.production}={}){
@@ -40,18 +55,18 @@ async function prepareBooking(data,{pay=live.config.production}={}){
   const field=document.querySelector('form[data-live-form="prepare-booking"] [name="campaignId"]');
   if(field){const option=document.createElement('option');option.value=campaignId;option.textContent=String(data.get('name'));field.append(option);field.value=campaignId;}}
  const b=await api('bookings',{campaignId,saleId:String(data.get('saleId')),spotId:String(data.get('spotId')),testCampaignAcknowledged:data.has('testCampaignAcknowledged')});
- if(data.get('expectedAmount')&&String(data.get('expectedAmount'))!==b.amount){await api('bookings/'+b.id+'/cancel',{});await refresh({local:true,render:false});navigate('/checkout/'+b.saleId+'?spot='+b.spotId+'&campaign='+encodeURIComponent(campaignId));throw new Error('The price changed while you were booking. Review the updated price before paying.');}
+ if(data.get('expectedAmount')&&String(data.get('expectedAmount'))!==b.amount){await api('bookings/'+b.id+'/cancel',{});await refresh({contracts:[b.contractId],render:false});navigate('/checkout/'+b.saleId+'?spot='+b.spotId+'&campaign='+encodeURIComponent(campaignId));throw new Error('The price changed while you were booking. Review the updated price before paying.');}
  await refresh({local:true,render:false});navigate('/payments/'+b.id);if(pay)await payBooking(b.id);return b;
 }
 async function ensureUsdcStorage(){
- await refresh({render:false});if(live.balances?.tokenStorageRegistered)return;
+ await refreshBalances({render:false});if(live.balances?.tokenStorageRegistered)return;
  await nativePlan(await api('token-actions',{kind:'token-storage'}),'Set up USDC in your wallet');
  if(!await poll(()=>live.balances?.tokenStorageRegistered))throw new Error('Your USDC registration is still being confirmed. Return here before withdrawing.');
 }
 async function claimCredit(contractId){
- const result=await api('claims',{contractId});
- for(let i=0;i<25;i++){if(result.id)await api('operations/'+result.id).catch(error=>{if(error.status!==404)throw error;});
-  try{await refresh({render:false});if(snapshot(contractId)?.credits[live.session.wallet]?.available==='0')break;}catch(error){if(error.code!=='PENDING_WITHDRAWAL')throw error;}
+ const result=await api('claims',{contractId}),deadline=performance.now()+30000;
+ for(let i=0;i<25&&performance.now()<deadline;i++){if(result.id)await api('operations/'+result.id).catch(error=>{if(error.status!==404)throw error;});
+  try{await refresh({contracts:[contractId],render:false});if(snapshot(contractId)?.credits[live.session.wallet]?.available==='0')break;}catch(error){if(error.code!=='PENDING_WITHDRAWAL')throw error;}
   await new Promise(r=>setTimeout(r,300));}
  if(snapshot(contractId)?.credits[live.session.wallet]?.available!=='0')throw new Error('Your original claim is still being confirmed. Check its status before withdrawing.');
  return result;
@@ -106,16 +121,17 @@ export const actions={
    await review('Publish with recoverable NEAR collateral',{spots:result.plan.spots.map(p=>({spotId:p.spotId,contractId:p.contractId})),collateralNEAR:nativeUnits(result.plan.collateralPerSpot),...result.assessment});
    const started=await api('provision-plans/'+result.id+'/start',{reviewed:true});
    if(started.status==='budget-blocked')throw new Error('Publication exceeds the current local execution limits. No new transaction was sent. Review Account recovery for the exact funding assessment.');
-   for(let i=0;i<100;i++){await new Promise(r=>setTimeout(r,500));const status=await api('provision-plans/'+result.id);if(status.status==='needs-recovery')throw new Error('Original publication needs recovery: '+status.errorCode+'. Review its retained account before continuing.');if(['published','waiting-original-receipt'].includes(status.status))break;}
-   await refresh();toast(sale(el.dataset.id)?.status==='published'?'Your sale is published.':'Publication is recorded. Resume the original plan from this sale to reconcile its transactions.');return;
+   const deadline=performance.now()+30000;
+   for(let i=0;i<100&&performance.now()<deadline;i++){await new Promise(r=>setTimeout(r,500));const status=await api('provision-plans/'+result.id);if(status.status==='needs-recovery')throw new Error('Original publication needs recovery: '+status.errorCode+'. Review its retained account before continuing.');if(['published','waiting-original-receipt'].includes(status.status))break;}
+   await refreshSale(el.dataset.id);toast(sale(el.dataset.id)?.status==='published'?'Your sale is published.':'Publication is recorded. Resume the original plan from this sale to reconcile its transactions.');return;
   }
   for(const record of result.plans){if(record.status==='confirmed')continue;await nativePlan(record.plan,'Publish advertising spot '+record.plan.spotId);}
-  await refresh();toast(sale(el.dataset.id)?.status==='published'?'Your sale is published.':'Publication is pending. Recover the original requests to continue.');
+  await refreshSale(el.dataset.id);toast(sale(el.dataset.id)?.status==='published'?'Your sale is published.':'Publication is pending. Recover the original requests to continue.');
  },
  'cancel-unsent-request':async el=>{await api('wallet-requests/'+el.dataset.id+'/cancel-unsent',{});await refresh({local:true});toast('The unopened request was cancelled.');},
  'cancel-unsent-funding':async el=>{await api('wallet-funding/'+el.dataset.id+'/cancel-unsent',{});await refresh({local:true});toast('The unopened Base request was cancelled.');},
- 'resume-intent':async el=>{await ensureSigningWallet();const r=await api('wallet-requests/'+el.dataset.id+'/resume-intent',{});if(r.status==='rejected'){const plan=await verifyOriginalIntent(await api('intents/'+r.planId),r);await intentPlan(plan,'Retry your original payment with the same amount and nonce');}await refresh({force:true});toast('Your original request has been checked.');},
- 'resume-publication':async el=>{await api('provision-plans/'+el.dataset.id+'/start',{reviewed:true});await refresh();toast('The original publication plan is being reconciled. No replacement account was created.');},
+ 'resume-intent':async el=>{await ensureSigningWallet();const r=await api('wallet-requests/'+el.dataset.id+'/resume-intent',{});if(r.status==='rejected'){const plan=await verifyOriginalIntent(await api('intents/'+r.planId),r);await intentPlan(plan,'Retry your original payment with the same amount and nonce');}await refreshRecovered([r]);toast('Your original request has been checked.');},
+ 'resume-publication':async el=>{await api('provision-plans/'+el.dataset.id+'/start',{reviewed:true});await refresh({local:true});toast('The original publication plan is being reconciled. No replacement account was created.');},
  'pay-booking':el=>payBooking(el.dataset.id),
  'cancel-booking':async el=>{await api('bookings/'+el.dataset.id+'/cancel',{});await refresh({local:true});toast('Unsent booking cancelled.');},
  faucet:async()=>{const r=await api('lab-wallet/faucet',{});if(r.status!=='confirmed')throw new Error('The original faucet transaction is pending. Reconcile it before trying another wallet.');await refresh();toast('This wallet\'s test funding is confirmed.');},
@@ -133,14 +149,15 @@ export const actions={
   for(const id of contracts)await claimCredit(id);
   if(live.session?.wallet!==wallet)throw new Error('Reconnect the original wallet to finish withdrawing.');
   if(wallet.startsWith('0x')){navigate('/buy/money');if(total<150000n){toast('Your earnings are in your balance. You can withdraw to Base when the current routing minimum is met.');return;}live.exitQuote=await api('routes',{direction:'exit',amount:total.toString(),dry:false});rerender();toast('Your withdrawal quote is ready. Confirm delivery to your Base wallet.');return;}
-  await ensureUsdcStorage();await nativePlan(await api('token-actions',{kind:'withdraw-native',amount:total.toString()}),'Withdraw your campaign earnings');await refresh();toast('Your earnings withdrawal is recorded.');
+  await ensureUsdcStorage();await nativePlan(await api('token-actions',{kind:'withdraw-native',amount:total.toString()}),'Withdraw your campaign earnings');await refreshBalances();toast('Your earnings withdrawal is recorded.');
  },
- 'register-storage':async()=>{await nativePlan(await api('token-actions',{kind:'token-storage'}),'Register this wallet for native USDC');await refresh();toast('Native USDC storage registration recorded.');},
- 'reconcile-operation':async el=>{await api('operations/'+el.dataset.id);await refresh();toast('Original payout transaction checked.');},
+ 'register-storage':async()=>{await nativePlan(await api('token-actions',{kind:'token-storage'}),'Register this wallet for native USDC');await refreshBalances();toast('Native USDC storage registration recorded.');},
+ 'reconcile-operation':async el=>{await api('operations/'+el.dataset.id);await refresh({local:true});toast('Original payout transaction checked.');},
  'recover-all':async()=>{
-  for(const r of live.data.requests.filter(r=>!['confirmed','failed','rejected'].includes(r.status)))await recoverOne(r);
+  const requests=live.data.requests.filter(r=>!['confirmed','failed','rejected'].includes(r.status));
+  for(const r of requests)await recoverOne(r);
   for(const r of live.fundingRecords??[])if(!['confirmed','failed','cancelled'].includes(r.phase))await api('wallet-funding/'+r.id+'/reconcile',{});
-  await refresh();toast('Original requests checked. Unknown outcomes remain pending.');
+  await refreshRecovered(requests);toast('Original requests checked. Unknown outcomes remain pending.');
  },
  'finalize-success':el=>confirmAction(el.dataset.contract,'finalize-success'),
  'finalize-failure':el=>confirmAction(el.dataset.contract,'finalize-failure'),
@@ -160,9 +177,9 @@ export const actions={
    const hash=session.kind==='funded'?(await api('funded-wallet/send-base',{operationId:r.id},{session})).transactionHash:await live.wallets.sendBase(r.transaction);sessionStorage.setItem('everywhere-base-hash:'+r.id,hash);
    await api('wallet-funding/'+r.id+'/reconcile',{transactionHash:hash},{session});
   }catch(error){if(error.code===4001)await api('wallet-funding/'+r.id+'/reject',{code:4001},{session});throw error;}
-  live.fundQuote=null;await refresh();toast('Original Base transfer recorded. Wait for finality and the actual Intents balance before buying.');
+  live.fundQuote=null;await refreshBalances();await refresh({local:true});toast('Original Base transfer recorded. Wait for finality and the actual Intents balance before buying.');
  },
- 'exit-route':async el=>{const plan=await api('exit-intent',{routeId:el.dataset.id});await intentPlan(plan,'Return your Intents USDC to your original Base wallet');live.exitQuote=null;await refresh();toast('Return request recorded. Verify destination delivery in the route history.');},
+ 'exit-route':async el=>{const plan=await api('exit-intent',{routeId:el.dataset.id});await intentPlan(plan,'Return your Intents USDC to your original Base wallet');live.exitQuote=null;await refreshBalances();await refresh({local:true});toast('Return request recorded. Verify destination delivery in the route history.');},
  'check-route':async el=>{live.routeResult=await api('routes/'+el.dataset.id+(el.dataset.direction==='exit'?'/reconcile':''));rerender();},
 };
 function setDates(minutes){const form=document.querySelector('form[data-live-form="sale-edit"]'),base=Date.parse(live.catalog.time);
@@ -198,7 +215,7 @@ export const forms={
  'campaign-create':async data=>{const c=await api('campaigns',{name:String(data.get('name')),budgetMicroUsdc:amount(data.get('budget'))});await refresh({local:true,render:false});navigate('/buy/campaigns/'+c.id);},
  'prepare-booking':data=>prepareBooking(data),
  nomination:async data=>{const plan=await api('nomination',{contractId:String(data.get('contractId')),recipientId:String(data.get('recipientId'))});const r=await intentPlan(plan,'Nominate your final placement NFT recipient');
-  for(let i=0;i<20;i++){await api('wallet-requests/'+r.id+'/reconcile',{});await refresh({render:false});if(snapshot(data.get('contractId'))?.state.nominated_recipient===data.get('recipientId'))break;await new Promise(r=>setTimeout(r,300));}rerender();},
+  for(let i=0;i<20;i++){await api('wallet-requests/'+r.id+'/reconcile',{});await refresh({contracts:[String(data.get('contractId'))],render:false});if(snapshot(data.get('contractId'))?.state.nominated_recipient===data.get('recipientId'))break;await new Promise(r=>setTimeout(r,300));}rerender();},
  'nft-transfer':async data=>{
   const creative=data.get('purpose')==='creative-control';
   if(creative&&!data.has('transferAcknowledged'))throw new Error('Confirm that the recipient will control this placement\'s creative.');
@@ -207,22 +224,22 @@ export const forms={
  artwork:async data=>{const mediaId=await artifact(data);await confirmAction(String(data.get('contractId')),'artwork',{mediaId});},
  'delivery-proof':async data=>{const mediaId=await artifact(data);await confirmAction(String(data.get('contractId')),'delivery-proof',{mediaId});},
  issue:async data=>{const contractId=String(data.get('contractId')),mediaId=await artifact(data),issue=await api('placements/'+contractId+'/issues',{reason:String(data.get('reason')),mediaId});
-  await refresh({render:false});navigate('/support/cases/'+issue.id);
+  await refresh({local:true,render:false});navigate('/support/cases/'+issue.id);
   if(snapshot(contractId)?.mode==='hub')await confirmAction(contractId,'open-issue',{caseId:issue.id});
  },
  'issue-decision':async data=>{const mediaId=await artifact(data);await confirmAction(String(data.get('contractId')),'issue-decision',{caseId:String(data.get('caseId')),open:data.get('decision')==='open',mediaId});},
  support:async data=>{const ticket=await api('support',{subject:String(data.get('subject')),message:String(data.get('message'))});await refresh({local:true,render:false});navigate('/support/cases/'+ticket.id);},
- message:async data=>{await api('placements/'+data.get('contractId')+'/messages',{message:String(data.get('message'))});await refresh();toast('Message saved to this placement conversation.');},
+ message:async data=>{const wallet=live.session.wallet,id=String(data.get('contractId')),messages=await api('placements/'+id+'/messages',{message:String(data.get('message'))});if(live.session?.wallet!==wallet)throw new Error('Your wallet changed. Reopen the conversation.');live.data.placementMessages=[...(live.data.placementMessages??[]).filter(m=>m.contractId!==id),...messages];rerender();toast('Message saved to this placement conversation.');},
  'withdraw-native':async data=>{
   if(BigInt(amount(data.get('amount')))>BigInt(live.balances?.intentsUsdc??0))throw new Error('Choose an amount within your available balance.');
   if(live.session.wallet.startsWith('0x')){const plan=await api('withdrawal-intent',{recipientId:String(data.get('recipientId')),amount:amount(data.get('amount'))});await intentPlan(plan,'Withdraw USDC to the selected NEAR account');}
-  else {await ensureUsdcStorage();await nativePlan(await api('token-actions',{kind:'withdraw-native',amount:amount(data.get('amount'))}),'Withdraw your USDC into your NEAR wallet');}await refresh();
+  else {await ensureUsdcStorage();await nativePlan(await api('token-actions',{kind:'withdraw-native',amount:amount(data.get('amount'))}),'Withdraw your USDC into your NEAR wallet');}await refreshBalances();await refresh({local:true});
  },
- 'deposit-intents':async data=>{await nativePlan(await api('token-actions',{kind:'deposit-intents',amount:amount(data.get('amount'))}),'Deposit native USDC into your own Intents balance');await refresh();},
+ 'deposit-intents':async data=>{await nativePlan(await api('token-actions',{kind:'deposit-intents',amount:amount(data.get('amount'))}),'Deposit native USDC into your own Intents balance');await refreshBalances();await refresh({local:true});},
  'fund-quote':async data=>{live.fundQuote=await api('routes',{direction:'fund',amount:amount(data.get('amount')),dry:false});rerender();},
  'exit-quote':async data=>{live.exitQuote=await api('routes',{direction:'exit',amount:amount(data.get('amount')),dry:false});rerender();},
- 'recover-request':async data=>{await api('wallet-requests/'+data.get('id')+'/reconcile',data.get('hash')?{transactionHash:String(data.get('hash')).trim()}:{});await refresh();toast('The original request was checked against its signed plan.');},
- 'recover-funding':async data=>{await api('wallet-funding/'+data.get('id')+'/reconcile',data.get('hash')?{transactionHash:String(data.get('hash')).trim()}:{});await refresh();toast('Original Base funding receipt checked.');},
+ 'recover-request':async data=>{const request=await api('wallet-requests/'+data.get('id')+'/reconcile',data.get('hash')?{transactionHash:String(data.get('hash')).trim()}:{});await refreshRecovered([request]);toast('The original request was checked against its signed plan.');},
+ 'recover-funding':async data=>{await api('wallet-funding/'+data.get('id')+'/reconcile',data.get('hash')?{transactionHash:String(data.get('hash')).trim()}:{});await refreshBalances();await refresh({local:true});toast('Original Base funding receipt checked.');},
  'advance-clock':async data=>{
   await api('lab-clock',{saleId:String(data.get('saleId')),stage:String(data.get('stage'))});
   const notice=document.querySelector('#connected-notice');if(notice){notice.hidden=false;notice.textContent='Advancing the local chain and checking finalized timestamps…';}
