@@ -66,7 +66,7 @@ try{
  assert.doesNotMatch(await page.locator('body').innerText(),/List the first space/);
  browseGate.resolve();await page.locator('.asset-card').waitFor();
  assert.match(await page.locator('.asset-card').innerText(),/City van[\s\S]*Checking availability/i);
- await page.locator('.asset-card h3 a').click();await page.locator('.placement-picker').waitFor();
+ await page.locator('.market-card-link').click();await page.locator('.placement-picker').waitFor();
  assert.match(await page.locator('.placement-booking').innerText(),/Checking availability/);
  assert.equal(await page.locator('a[href^="/checkout/"]').count(),0);
  await page.getByRole('link',{name:'Sign in',exact:true}).click();
@@ -78,8 +78,8 @@ try{
  await page.getByRole('button',{name:'Connect NEAR wallet · Meteor',exact:true}).waitFor();
  // Sign-in and public navigation work while the chain response is still held.
  await page.locator('.mobile-nav-links a[href="/explore"]').click();await page.locator('.asset-card').waitFor();
- await page.locator('.asset-card h3 a').click();
- catalogGate.resolve();await page.getByRole('link',{name:'Book this placement',exact:true}).waitFor();
+ await page.locator('.market-card-link').click();
+ catalogGate.resolve();await page.getByRole('link',{name:'Reserve this spot',exact:true}).waitFor();
  assert.match(await page.locator('.placement-booking-price').innerText(),/0\.01 USDC/);
  assert.equal(new URL(page.url()).search,'?sale=sale');
  report.push('Homepage, published vehicles, deep links and wallet choice work before chain reads finish; checkout only appears after verification');
@@ -87,7 +87,7 @@ try{
  {
   const catalogGate=deferred(),test=await setup({catalogGate});
   const catalogRequest=test.page.waitForRequest(r=>r.url().endsWith('/api/catalog'));
-  await test.page.goto(origin);await catalogRequest;
+  await test.page.goto(origin+'/explore');await catalogRequest;
   await test.page.locator('.search-bar [name="q"]').fill('Dublin');
   const catalogResponse=test.page.waitForResponse(r=>r.url().endsWith('/api/catalog'));
   catalogGate.resolve();await catalogResponse;
@@ -115,7 +115,7 @@ try{
   assert.equal(await test.page.locator('#startup').count(),0);
   assert.equal(await test.page.locator('a[href^="/checkout/"]').count(),0);
   options.failCatalog=false;await test.page.getByRole('button',{name:'Check availability',exact:true}).click();
-  await test.page.getByRole('link',{name:'Book this placement',exact:true}).waitFor();
+  await test.page.getByRole('link',{name:'Reserve this spot',exact:true}).waitFor();
   report.push('A chain outage leaves the site usable and a retry recovers verified availability');await test.context.close();
  }
  {

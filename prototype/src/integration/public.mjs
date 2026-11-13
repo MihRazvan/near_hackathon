@@ -1,34 +1,34 @@
 import {listingView} from './listing-view.mjs';
 import {listingPlacements,groupedListings} from './listing-groups.mjs';
 import { live,sale,snapshot,usdc } from './runtime.mjs';
-import { esc,link,badge,card,empty,heading,select,input,submit,scene,unavailable,act } from './ui.mjs';
+import { esc,link,card,empty,heading,select,input,submit,unavailable,act } from './ui.mjs';
 import {listingAvailability,micro} from './buyer-state.mjs';
 import { homeView, categoryLinks } from './marketing.mjs';
-import { outwardArrow } from '../brand.mjs';
-import {isTeamTest,deliveryLabel} from './campaign-kind.mjs';
+import {isTeamTest} from './campaign-kind.mjs';
+import {marketCard} from './market-card.mjs';
 const clock=()=>Date.parse(live.catalog?.time)||Date.now();
 const assetFor=offer=>offer.publication?.manifest.asset;
 const stateFor=(offer,spot)=>listingAvailability(spot,snapshot(spot.contractId),clock());
 const placements=offer=>listingPlacements(offer,live.catalog?.sales??[]);
 const availablePlacements=offer=>placements(offer).filter(e=>stateFor(e.sale,e.spot).available);
 const availableSpots=offer=>availablePlacements(offer).map(e=>e.spot);
-const checking=offer=>placements(offer).some(e=>stateFor(e.sale,e.spot).kind==='checking');
+const checking=offer=>placements(offer).some(e=>stateFor(e.sale,e.spot).kind==='checking'&&(!Number.isFinite(Date.parse(e.sale.schedule?.biddingClose))||Date.parse(e.sale.schedule.biddingClose)>clock()));
 const catalogStatus=()=>`<div class="market-invitation" role="status" ${live.catalogLoading?'aria-busy="true"':''}><div><h3>${live.catalogLoading?'Loading available spaces.':'Spaces could not load.'}</h3><p>${live.catalogLoading?'You can explore the site while availability is checked.':'Try again to check current availability.'}</p></div>${live.catalogLoading?'':act('refresh','Try again','','button primary')}</div>`;
 const campaignQuery=()=>new URLSearchParams(location.search).get('campaign');
 const campaignInput=()=>campaignQuery()?`<input type="hidden" name="campaign" value="${esc(campaignQuery())}">`:'';
 const spaceUrl=(offer,spot)=>'/spaces/'+encodeURIComponent(offer.assetId)+'?sale='+encodeURIComponent(offer.id)+(spot?'&spot='+encodeURIComponent(spot.id):'')+(campaignQuery()?'&campaign='+encodeURIComponent(campaignQuery()):'');
 function offerCards(offers){
  if(!offers.length)return '';
- return `<div class="asset-grid ${offers.length===4?'asset-grid-four':''}">${offers.map(offer=>{
+ return `<div class="asset-grid market-grid">${offers.map(offer=>{
   const asset=assetFor(offer);if(!asset)return '';
   const available=availablePlacements(offer),prices=available.map(e=>stateFor(e.sale,e.spot).price),price=prices.reduce((a,b)=>micro(a)<micro(b)?a:b,prices[0]);
   const members=placements(offer),completed=members.every(e=>snapshot(e.spot.contractId)?.state.outcome==='success'),minted=members.some(e=>snapshot(e.spot.contractId)?.state.nft_minted),delivered=members.some(e=>snapshot(e.spot.contractId)?.campaign.delivery_proof);
   const closedStatus=checking(offer)?live.catalogLoading?'Checking availability':'Availability unavailable':completed?'Campaign complete':delivered?'Delivery recorded':minted?'Placement NFT issued':'Booking closed';
-  return `<article class="asset-card"><a class="card-visual" href="${esc(spaceUrl(offer))}">${scene(asset,'',false,{spots:false})}</a><div class="asset-card-body"><div class="listing-location"><span>${esc(asset.city)}</span><span>${esc(asset.assetType)}</span></div><h3>${link(spaceUrl(offer),esc(asset.title),'text-link')}</h3><p>${esc(offer.title)}</p><div class="card-tags">${isTeamTest(offer)?badge('Team test · AI-generated vehicle'):''}${badge(available.length?available.length+' '+(available.length===1?'spot':'spots')+' available':closedStatus)}${available.length?badge(available.some(e=>e.spot.takeoverEnabled)?'Takeovers enabled':'Fixed booking'):''}${minted&&available.length?badge('Placement NFT issued'):''}</div><div class="card-price"><div><strong>${price?usdc(price):'View campaign'}</strong><small>${price?'from · '+deliveryLabel(offer):deliveryLabel(offer)}</small></div><a href="${esc(spaceUrl(offer))}" class="listing-open" aria-label="View ${esc(asset.title)}">${outwardArrow}</a></div></div></article>`;
+  return marketCard({asset,href:available.length||checking(offer)?spaceUrl(offer):'/records/'+encodeURIComponent(offer.id),price:price?usdc(price):null,status:closedStatus,count:members.length,demo:isTeamTest(offer)||asset.imageProvenance==='ai-generated',action:available.length||checking(offer)?'View spots':'View record'});
  }).join('')}</div>`;
 }
 function searchForm(q=new URLSearchParams()){
- return `<form action="/explore" method="get" class="search-bar">${campaignInput()}${input('q','Where do you want to show up?',q.get('q')??'','search','placeholder="City, vehicle or owner"')}${select('type','Space type',[['','All spaces'],['car','Cars'],['van','Vans'],['bike','Bikes'],['motorcycle','Motorcycles'],['truck','Trucks'],['other','Other surfaces']],q.get('type')??'')}${submit('Find spaces')}</form>`;
+ return `<form action="/explore" method="get" class="search-bar marketplace-search">${campaignInput()}<input type="hidden" name="type" value="${esc(q.get('type')??'')}">${input('q','Where will your ad go?',q.get('q')??q.get('city')??'','search','placeholder="Search a city or vehicle"')}<details class="market-filters"><summary>Filters</summary><div class="market-filter-fields">${select('availability','Campaigns',[['available','Available to book'],['all','Include past campaigns']],q.get('availability')??'available')}${select('sort','Sort by',[['newest','Recently listed'],['price','Price: low to high']],q.get('sort')??'newest')}${submit('Apply filters')}${link('/explore','Clear filters','text-link')}</div></details>${submit('Find spaces')}</form>`;
 }
 export function publicView(r){
  const q=new URLSearchParams(location.search),all=live.catalog?.sales??[],sales=groupedListings(all,s=>s.spots.some(p=>stateFor(s,p).available));
@@ -42,9 +42,9 @@ export function publicView(r){
   const term=(q.get('q')??q.get('city')??'').trim().toLowerCase(),type=q.get('type')??'',all=q.get('availability')==='all',sort=q.get('sort')??'newest';
   let values=sales.filter(s=>{const a=assetFor(s),owner=live.catalog?.owners?.find(o=>o.wallet===s.owner);return a&&(!term||[a.title,a.description,a.city,s.title,owner?.name,owner?.brand].some(v=>String(v??'').toLowerCase().includes(term)))&&(!type||a.assetType===type)&&(all||availableSpots(s).length||checking(s));});
   if(sort==='price')values.sort((a,b)=>{const cheapest=s=>availableSpots(s).map(p=>micro(stateFor(s,p).price)).reduce((a,b)=>a<b?a:b,10n**30n);const x=cheapest(a),y=cheapest(b);return x<y?-1:x>y?1:0;});else values=[...values].sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
-  return heading('THE MARKETPLACE','FIND YOUR PLACE.','Real surfaces. Clear campaign dates. Printing and installation included.')+searchForm(q)+categoryLinks(type)+
-   `<form action="/explore" method="get" class="explore-controls">${campaignInput()}<input type="hidden" name="q" value="${esc(q.get('q')??q.get('city')??'')}"><input type="hidden" name="type" value="${esc(type)}"><div class="filter-row">${select('availability','Show',[['available','Available to book'],['all','All published campaigns']],all?'all':'available')}${select('sort','Sort by',[['newest','Recently listed'],['price','Price: low to high']],sort)}${submit('Apply filters')}${link('/explore','Clear filters','text-link')}</div></form><p class="tiny muted">${values.length} ${values.length===1?'campaign':'campaigns'} · prices cover the full advertised period</p>`+
-   (values.length?offerCards(values):!live.catalog||live.catalogLoading?catalogStatus():empty('No spaces match just yet.','Try another area or include past campaigns to see more inventory.',link('/explore?availability=all','Browse all campaigns','button primary')));
+  return `<section class="marketplace-page"><div class="marketplace-heading"><h1 tabindex="-1">Find your next spot.</h1><p>Pick a vehicle. Choose a panel. Put your brand out there.</p></div>`+searchForm(q)+categoryLinks(type)+
+   `<p class="market-results">${values.length} ${values.length===1?'vehicle':'vehicles'}${term?' matching your search':''}</p>`+
+   (values.length?offerCards(values):!live.catalog||live.catalogLoading?catalogStatus():empty('No spaces match just yet.','Try another area or include past campaigns to see more inventory.',link('/explore?availability=all','Browse all campaigns','button primary')))+'</section>';
  }
  if(r.id==='P03'){
   const offer=sale(q.get('sale'))??sales.find(s=>s.assetId===r.params.slug&&availableSpots(s).length)??sales.find(s=>s.assetId===r.params.slug);if(!offer||offer.status!=='published')return !live.catalog||live.catalogLoading?catalogStatus():unavailable('This campaign is unavailable.');

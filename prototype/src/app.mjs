@@ -13,6 +13,7 @@ import { state, navigate } from './store.mjs';
 import { matchRoute, canonicalDestination } from './routes.mjs';
 import { siteHeader, accountContext, accountArea } from './shell.mjs';
 import './marketplace-account.css';
+import './marketplace.css';
 import { closeModal } from './ui.mjs';
 
 const app = document.querySelector('#app');
@@ -70,8 +71,8 @@ document.addEventListener('click',async event=>{
   const generic=event.target.closest('[data-action]');
   if(generic){event.preventDefault();if(generic.dataset.action==='close-modal')closeModal();else await run(()=>legacyAction(generic,currentRoute));return;}
   const a=event.target.closest('a[href]');
-  if(!a||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||a.hasAttribute('download')||a.target&&a.target!=='_self')return;
-  const url=new URL(a.href,location.href);
+  if(!a||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||a.hasAttribute('download')||a.getAttribute('target')&&a.getAttribute('target')!=='_self')return;
+  const url=new URL(a.getAttribute('href'),location.href);
   if(url.origin!==location.origin||!/^https?:$/.test(url.protocol)||(url.hash&&url.pathname===location.pathname&&url.search===location.search))return;
   if(a.hasAttribute('data-placement-select')&&url.pathname===location.pathname){
     event.preventDefault();const position=window.scrollY;history.pushState(null,'',url.pathname+url.search);render();window.scrollTo(0,position);
