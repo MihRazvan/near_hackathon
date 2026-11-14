@@ -99,6 +99,8 @@ Open **http://127.0.0.1:4318**. A fresh checkout has an empty workspace with tra
 
 The [public CI](https://github.com/MihRazvan/near_hackathon/actions/workflows/verify.yml) tests Node 22.23/24.12 and the desktop/mobile UI, including accessibility. macOS arm64 rebuilds the exact deployed WASM. Linux runs the lifecycle on a local chain using the hash-checked deployed binary: **32 checks and 23 genuine EVM signatures**, including a rejected former-holder request and the same request succeeding for the current holder. The run ends with zero liabilities or pending withdrawals.
 
+A separate read-only CI job checks all eleven recorded mainnet receipts and current state. Its dedicated archival RPC URL stays in a repository secret; the verification result is public.
+
 [All verification modes, commands and boundaries](VERIFY.md) | [Pinned source rebuild](BUILD.md)
 
 ## Deployments and evidence

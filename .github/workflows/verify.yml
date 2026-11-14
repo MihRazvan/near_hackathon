@@ -14,6 +14,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  mainnet-evidence:
+    name: Mainnet receipts and current state / read-only
+    # Only trusted main runs receive the provider credential. No wallet keys,
+    # signing code, application runtime or personal environment files are used.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      NEAR_EVIDENCE_HISTORY_RPC_URL: ${{ secrets.NEAR_EVIDENCE_HISTORY_RPC_URL }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.12.0'
+      - name: Verify all recorded receipts and fresh mainnet state
+        run: |
+          node -e "if(!process.env.NEAR_EVIDENCE_HISTORY_RPC_URL)throw Error('Configure the archival RPC repository secret before running this check')"
+          node backend/bin/verify-evidence.mjs --history-rpc "$NEAR_EVIDENCE_HISTORY_RPC_URL" > mainnet-evidence.json
+          cat mainnet-evidence.json
+      - name: Preserve the actual public verification result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mainnet-verification
+          path: mainnet-evidence.json
+          retention-days: 14
+          if-no-files-found: error
+
   quick:
     name: Clean application / Node ${{ matrix.node }}
     runs-on: ubuntu-24.04

@@ -113,6 +113,8 @@ The explicit `--history-rpc` selects an archival provider for old receipts while
 
 The separate [`verify-team-campaigns.mjs`](backend/bin/verify-team-campaigns.mjs) checks seven published team offers, the recorded van NFT handoff and cargo-bike payouts. [`team-campaigns.json`](deployments/team-campaigns.json) distinguishes transaction evidence, recorded credit samples and generated vehicle references. Live ownership/availability can change after setup.
 
+Trusted main-branch [CI runs](https://github.com/MihRazvan/near_hackathon/actions/workflows/verify.yml) also execute the mainnet verifier with a dedicated archival URL stored as `NEAR_EVIDENCE_HISTORY_RPC_URL` in repository Actions secrets. The job queries the external provider directly, checks fresh current state through the public provider pool, and publishes its actual result. It has no wallet credentials and cannot send transactions. Pull requests do not receive the archival secret. Local checks still accept `--history-rpc`; they never discover personal environment files.
+
 ## Scope and trust
 
 - The hub stores offer terms, authorized purchases, financial credits, NFT ownership, artwork commitments and service/issue state on chain.
