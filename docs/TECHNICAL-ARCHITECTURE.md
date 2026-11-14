@@ -2,7 +2,7 @@
 
 [Overview](../README.md) | [Project brief](PROJECT-BRIEF.md) | [User flow](USER-FLOW.md) | [Contracts](CONTRACTS.md) | [Verify](../VERIFY.md) | [Docs](README.md)
 
-Everywhere presents a conventional marketplace while separating inventory and orchestration from NEAR-enforced placement rights and financial obligations. The current contract is the shared marketplace hub; the application frontend remains in the historically named `prototype/` directory.
+The API stores vehicle listings and coordinates wallet actions. The shared NEAR hub enforces placement rights and tracks payments and balances. The frontend is in `prototype/`, the directory name used since the first version.
 
 ![Application services and NEAR architecture](assets/architecture.png)
 
@@ -26,26 +26,26 @@ The [lockfiles](../README.md#documentation) pin dependencies. Runtime AI and hos
 ## From a vehicle to an offer
 
 1. A signed-in owner creates a private vehicle draft from a photo, a private phone capture, a description or the labelled sample.
-2. NEAR AI output becomes editable normalized geometry. The owner confirms the panel layout and dimensions rather than treating an AI guess as a manufacturing specification.
+2. NEAR AI returns editable panel outlines in image coordinates. The owner confirms the layout and physical dimensions before production.
 3. The owner creates a campaign with fixed dates, all-in prices and per-panel takeover rules. The API prepares a terms commitment and operation plan.
-4. Wallet approval authorizes the actual publication. The shared hub binds each offer to its original listing and terms; sponsorship remains bounded by live balances and policy limits.
-5. The application reconciles the result before marking publication confirmed. A saved private draft does not itself publish or allocate storage on NEAR.
+4. The owner approves publication in their wallet. The shared hub binds each offer to its original listing and terms; sponsorship remains bounded by live balances and policy limits.
+5. The application checks the transaction result before confirming publication. Private drafts stay off chain and allocate no NEAR storage.
 
 ## Payment and recovery
 
 ### EVM wallet
 
-The application builds a specific intent plan. The user reviews it and signs an ERC-191 message. The relayer submits that signed intent to the configured NEAR Intents verifier; the verifier and hub enforce the actor, target offer, amount, expected state and committed terms. Relaying does not grant the server an unrestricted user spending key.
+The application prepares an intent for the user to review and sign with ERC-191. The relayer sends it to the configured NEAR Intents verifier. The verifier and hub check the signer, offer, amount, expected state and committed terms; the server can relay that signed action without receiving the user's spending key.
 
-USDC already in the supported Intents balance can fund an action. Base funding uses a separate 1Click quote and wallet-approved transfer. Route costs, minimums, status and refunds belong to the provider's actual quote and observed delivery. The local-chain test does not establish a live Base route.
+USDC already in the supported Intents balance can fund an action. Base funding uses a separate 1Click quote and wallet-approved transfer. The provider's quote sets routing costs and minimums. The app follows delivery and refund status. Live Base routing needs its own test outside the local-chain run.
 
 ### Native NEAR wallet
 
-NEP-413 authenticates the session. The wallet signs required contract or token actions. Native USDC withdrawal may first require token storage registration; the application checks the receiving account's state rather than treating a session as payment authorization.
+NEP-413 authenticates the session, and the wallet signs each required contract or token action separately. Before a native USDC withdrawal, the app checks whether the receiving account needs token storage registration.
 
 ### Durable operation recovery
 
-[`wallet-requests.mjs`](../backend/src/wallet-requests.mjs) and the executor retain operation identity, signed-plan binding and transaction/delivery observations. A lost HTTP response is an unknown outcome to reconcile, not permission to authorize another transfer. The browser checks its original recorded operation after reload or restart.
+[`wallet-requests.mjs`](../backend/src/wallet-requests.mjs) and the executor retain operation identity, signed-plan binding and transaction/delivery observations. After a lost HTTP response, the app checks the original transaction before requesting another transfer. The browser checks its original recorded operation after reload or restart.
 
 The [original-intent tests](../backend/tests/original-intent-recovery.test.mjs), [provision-recovery tests](../backend/tests/provision-recovery.test.mjs) and [production Sandbox interface](../prototype/tests/production-browser.mjs) exercise these boundaries.
 
@@ -57,7 +57,7 @@ After booking closes, the final payer receives a NEP-171 token. The current hold
 
 Artwork is stored as public content only with explicit consent. The media implementation verifies the retrieved bytes against their SHA-256. The hub commits the artifact URI/hash and revision, and dynamic token metadata follows the accepted artwork. Owner approval locks an exact revision. Installation evidence similarly commits submitted bytes and refers to the relevant approved artwork.
 
-A CID, SHA-256 or NFT is not an independent oracle for physical installation. [Contract rules](CONTRACTS.md) and [human review flow](USER-FLOW.md#campaign-arbiter) describe the remaining authority.
+The CID and SHA-256 bind the submitted file; the NFT records who controls its artwork. Physical installation still needs [owner evidence and human review](USER-FLOW.md#campaign-arbiter), under the [contract rules](CONTRACTS.md).
 
 ## Trust boundaries
 
@@ -71,13 +71,13 @@ A CID, SHA-256 or NFT is not an independent oracle for physical installation. [C
 | Keeper → settlement | Success is constrained by service/review times, locked artwork, evidence and no unresolved issues | Automation cannot independently observe a physical installation. |
 | AI → panel layout | Output is editable and owner-confirmed | No guaranteed dimensions, automatic placement accuracy or vehicle-ownership proof. |
 
-No measured impressions, GPS routes, carbon offsets or exposure statistics are fabricated.
+The app has no measured-impression, GPS-route, carbon-offset or exposure-reporting service.
 
 ## Hosting and source identity
 
-Production uses the [Docker image](../Dockerfile) and [Railway configuration](../.railway/railway.ts), one persistent API instance and a SQLite volume. The static frontend also requires working API and wallet-adapter routes. Credentials are explicitly configured server secrets; private development files are not deployed as public assets.
+Production uses the [Docker image](../Dockerfile) and [Railway configuration](../.railway/railway.ts), one persistent API instance and a SQLite volume. The static frontend also requires working API and wallet-adapter routes. The server reads credentials from configured secrets. Private development files are excluded from public assets.
 
-Pinned [macOS arm64 CI](https://github.com/MihRazvan/near_hackathon/actions/workflows/verify.yml) rebuilds source and requires exact equality with the deployed 477,522-byte WASM. Linux unit-tests source and executes a separately hash-checked committed deployment in Sandbox. Its report explicitly does not establish Linux source/deployment equality. [Build recipe and host limits](../BUILD.md).
+Pinned [macOS arm64 CI](https://github.com/MihRazvan/near_hackathon/actions/workflows/verify.yml) rebuilds source and requires exact equality with the deployed 477,522-byte WASM. Linux unit-tests source and executes a separately hash-checked committed deployment in Sandbox. The Linux report records that the source build differs from the deployed bytes. [Build recipe and host limits](../BUILD.md).
 
 ## Verify this architecture
 
@@ -87,4 +87,4 @@ node scripts/verify.mjs --offline
 node scripts/verify-sandbox.mjs --hub-artifact deployed --json
 ```
 
-The deeper Sandbox command installs/downloads prerequisites as needed and uses valueless local tokens. It runs actual signatures, the pinned Intents verifier and hub through the connected interface. Injected wallet UI, synthetic media transport, live Base routes and physical delivery are distinct coverage boundaries. [Full verification guide](../VERIFY.md).
+The Sandbox command installs or downloads missing prerequisites and uses valueless local tokens. It runs signed actions through the pinned Intents verifier and hub from the app interface. The wallet UI is injected and the media transport is synthetic; live Base routing and physical delivery need separate checks. [Full verification guide](../VERIFY.md).

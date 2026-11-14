@@ -18,18 +18,18 @@ Open **http://127.0.0.1:4318**. The backend serves `prototype/dist`, `/wallets.j
 
 ## User journeys
 
-- **Navigation:** Marketplace handles discovery and checkout. Dashboard is for listing owners, starting with a first-campaign prompt; existing campaigns, saved vehicles and earnings stay on that page. Profile holds bookings, placement NFTs, saved spaces, balance/wallet access and account details. Messages remain inside the relevant booking. Legacy aggregate URLs redirect to these consolidated pages.
-- **Marketplace:** browse published vehicles, filter spaces, select surfaces, review campaign dates/rules and book available spots.
-- **Advertiser workspace:** group marketplace bookings across owners, approve USDC purchases or takeovers, submit artwork, follow fulfillment, message owners, raise issues and manage refunds/withdrawals.
-- **Spot editor:** select directly on the photo without navigation; drag to move or draw, use edge/corner handles to resize, and choose rectangular, angled or oval outlines. Delete/Backspace remove the selected spot outside text fields; Cmd/Ctrl+Z undoes and Shift+Z redoes. Empty layouts remain saved drafts, and publishing requires at least one spot.
-- **Owner workspace:** describe or photograph a vehicle, review/edit surfaces, publish priced campaign periods, approve artwork, provide installation evidence and manage earnings.
-- **Account and operations:** connect/switch wallets, edit profiles, reconcile original payment requests, and resolve cases as the campaign's authorized arbiter.
+- Marketplace handles discovery and checkout. Dashboard is for listing owners, starting with a first-campaign prompt; existing campaigns, saved vehicles and earnings stay on that page. Profile holds bookings, placement NFTs, saved spaces, balance/wallet access and account details. Messages remain inside the relevant booking. Legacy aggregate URLs redirect to these consolidated pages.
+- Browse published vehicles, filter spaces, select surfaces, review campaign dates/rules and book available spots.
+- Advertisers group marketplace bookings across owners, approve USDC purchases or takeovers, submit artwork, follow fulfillment, message owners, raise issues and manage refunds/withdrawals.
+- In the spot editor, select directly on the photo without navigation; drag to move or draw, use edge/corner handles to resize, and choose rectangular, angled or oval outlines. Delete/Backspace remove the selected spot outside text fields; Cmd/Ctrl+Z undoes and Shift+Z redoes. Empty layouts remain saved drafts, and publishing requires at least one spot.
+- Owners describe or photograph a vehicle, review/edit surfaces, publish priced campaign periods, approve artwork, provide installation evidence and manage earnings.
+- Connect/switch wallets, edit profiles, reconcile original payment requests, and resolve cases as the campaign's authorized arbiter.
 
 Wallets sign actual authentication and transaction requests. EVM wallets use Intents for hub actions; native NEAR wallets use the NEAR connector. Production hides development identities and local test controls. The final NEP-171 placement right belongs directly to the final payer after booking closes, including an EVM payer; the normal flow needs no separate NFT-recipient nomination.
 
 Manual photo and surface editing is available without AI. A configured NEAR AI provider can analyze a photo or generate a labelled reference from a description, then suggest editable 2D surfaces. The private personal AI companion is a separate optional owner-only path. Owners confirm panel fit and physical printing measurements.
 
-Campaign status, balances and earnings come from recorded state. Installation evidence is owner-supplied, disputes involve an arbiter, and placement NFTs do not prove physical installation. Reports do not fabricate audience impressions or GPS measurements.
+Campaign status, balances and earnings come from recorded state. Installation evidence is owner-supplied, disputes involve an arbiter, and placement NFTs do not prove physical installation. The app has no measured-impression or GPS-reporting service.
 
 ## Code map
 
@@ -59,7 +59,7 @@ The [Docker deployment](../Dockerfile) serves the compiled frontend with the per
 
 ## Visual identity
 
-The production identity uses folded street-poster shapes, pink/cobalt accents, Bricolage Grotesque display type and Hanken Grotesk interface text. Marketplace and onboarding pages use photographs and labelled generated references; working screens prioritize readable forms, financial states and stable editing geometry. Brief motion respects reduced-motion preferences.
+The production identity uses folded street-poster shapes, pink/cobalt accents, Bricolage Grotesque display type and Hanken Grotesk interface text. Marketplace and onboarding pages use photographs and labelled generated references; forms, payment status and the editor use the same fonts and colors. Animations respect reduced-motion preferences.
 
 - `src/brand.mjs` contains the shared wordmark and mark.
 - `src/identity.css` defines fonts, tokens, public pages and shared controls.

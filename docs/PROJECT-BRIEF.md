@@ -4,9 +4,9 @@
 
 ## The idea
 
-**Advertise on everything. Start with vehicles.** A space owner creates a listing from a photo or description, reviews AI-proposed panels and publishes campaign dates and all-in prices. An advertiser books an individual placement in USDC. An enabled takeover can replace that booking before production.
+Everywhere starts with vehicle ad space. An owner adds a photo or description, edits the panels AI suggests, and publishes campaign dates with prices that include printing and installation. Advertisers book individual placements in USDC. Where the owner allows takeovers, another buyer can replace a booking before production.
 
-After booking closes, the final advertiser receives a placement NFT. Its holder controls artwork during the editing window and can hand that work to a studio by transferring the NFT. The original wallets keep their financial claims.
+After booking closes, the final advertiser receives a placement NFT. Its holder can manage the artwork during the editing window or transfer that right to a studio. Refunds and earnings stay with the wallets originally owed them.
 
 ## What makes the implementation different
 
@@ -21,34 +21,32 @@ After booking closes, the final advertiser receives a placement NFT. Its holder 
 
 ## Hackathon fit
 
-The official [hackathon FAQ](https://nearhackathon.com/#faq) says Claude Code and Codex screen whether projects run and match their README, with human judges making the decisions. The evidence links below let either reviewer follow implementation claims. They are not an invented scoring rubric or a guarantee of selection.
+The [hackathon FAQ](https://nearhackathon.com/#faq) says Claude Code and Codex check whether projects run and do what their README describes. Human judges make the final decisions.
 
-| Selected track | Fit | Deliberate boundary |
+| Selected track | Implementation | Limits |
 | --- | --- | --- |
-| [NFTs That Do Something](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/10-nfts.md) (`nfts`) | **NEP-171**, **dynamic NFTs**, and transferable **access rights** to campaign artwork | Offers share one hub. Each NFT is not a NEAR sub-account and does not own the original parties' money. |
+| [NFTs That Do Something](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/10-nfts.md) (`nfts`) | NEP-171, dynamic NFTs and transferable artwork access | Offers share one hub. Individual NFTs have no NEAR sub-accounts or funds of their own. |
 | [Open Innovation](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/13-open.md) (`open`) | A physical-advertising marketplace combines AI-assisted inventory, takeovers, creative ownership and inspectable settlement | AI does not independently establish dimensions, vehicle ownership, installation or exposure. |
 | [Real-World Money](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/08-realworld.md) (`realworld`) | USDC service payments, NEAR Intents authorization, bounded sponsorship, recoverable credits, native withdrawal and quoted Base routes | Local Sandbox qualification does not establish a public Base bridge or genuine physical service delivery. |
 
-The track briefs offer example builds and suggested tools. Everywhere's fit is the implementation described here; it does not claim every example feature in those prompts. It does not claim Chain Signatures, an autonomous AI treasury, per-NFT sub-accounts, carbon credits or measured advertising impressions.
+The briefs' example builds are optional. Chain Signatures, autonomous AI treasuries, per-NFT sub-accounts, carbon credits and measured advertising impressions are outside this implementation.
 
 ## What was built here
 
-Everywhere develops the pre-existing **Pitboard** vehicle-sponsorship concept and takeover idea. This repository contains the Everywhere application, connected wallet flows, NEAR contracts, shared marketplace hub, AI-assisted editor and verification suites.
+Everywhere builds on the earlier Pitboard vehicle-sponsorship concept and takeover idea. This repository contains the app, wallet integration, NEAR contracts, shared hub, AI-assisted editor and verification tools.
 
 - The earlier static marketplace prototype begins at [46483c9](https://github.com/MihRazvan/near_hackathon/commit/46483c9).
 - NEAR contract implementation begins at [ae3efa1](https://github.com/MihRazvan/near_hackathon/commit/ae3efa1).
 - The current contract is [`contracts/marketplace-hub`](../contracts/marketplace-hub/); earlier campaign/factory crates remain labelled historical.
 
-The commit history provides provenance. The original Pitboard idea is not presented as newly invented.
-
-Development used Codex and Claude for AI-assisted implementation and review under team direction. Runtime photo/prompt inference uses the separately configured NEAR AI provider. The personal subscription companion is a private development feature, not a public shared credential. Original code is [MIT licensed](../LICENSE); [third-party assets](../prototype/public/ASSETS.md) keep their own licenses.
+The team used Codex and Claude for implementation and review. The app uses NEAR AI to process vehicle photos and descriptions. A separate personal subscription companion runs on its owner's computer. Original code is [MIT licensed](../LICENSE); [third-party assets](../prototype/public/ASSETS.md) keep their own licenses.
 
 ## What is verified and what remains
 
-- **Application:** public marketplace, owner editor, campaign management, wallet sessions and recovery paths have executable tests.
-- **Contract behavior:** current hub unit tests and real local-chain qualifications cover original-creditor accounting, NFT authority, fulfillment gates, disputes, payouts and withdrawal.
-- **Source identity:** public macOS arm64 CI reproduces the exact deployed WASM. Linux tests source and executes the separately hash-checked deployed binary; it does not claim Linux source equality.
-- **Mainnet:** recorded qualifications use real USDC transactions, final NFTs and synthetic artwork/delivery. Fresh historical checks depend on provider availability.
-- **Physical pilot:** the team selected its Pitboard motorcycle and Everywhere branding. Real installation and evidence remain pending.
+- Tests cover the marketplace, owner editor, campaign management, wallet sessions and payment recovery.
+- Hub unit tests and local-chain runs cover financial ownership, NFT artwork access, delivery requirements, disputes, payouts and withdrawal.
+- macOS arm64 CI reproduces the exact deployed WASM. Linux tests the source and runs the hash-checked deployed binary; its compiled output differs from the deployment.
+- Recorded mainnet tests use real USDC and final NFTs with synthetic artwork/delivery. Fresh receipt checks depend on RPC availability.
+- The planned physical pilot uses the Pitboard motorcycle and Everywhere branding. Installation and evidence are still pending.
 
-[Run the checks](../VERIFY.md) · [Inspect deployments and media provenance](DEPLOYMENTS.md) · [Demo placeholders and inspection route](DEMO.md)
+[Run the checks](../VERIFY.md) · [Inspect deployments and media provenance](DEPLOYMENTS.md) · [Demo and product walkthrough](DEMO.md)

@@ -2,7 +2,7 @@
 
 [Overview](../README.md) | [Project brief](PROJECT-BRIEF.md) | [User flow](USER-FLOW.md) | [Architecture](TECHNICAL-ARCHITECTURE.md) | [Verify](../VERIFY.md) | [Docs](README.md)
 
-The current implementation is the **shared NEAR marketplace hub**. Each offer has isolated terms and accounting, and its final placement NFT controls the campaign's creative authority. A new vehicle listing does not require deploying another copy of the contract.
+The shared NEAR marketplace hub handles each offer's terms and accounting. Its placement NFTs determine who can submit campaign artwork. New vehicle listings use the same contract.
 
 | Identity | Link |
 | --- | --- |
@@ -12,7 +12,7 @@ The current implementation is the **shared NEAR marketplace hub**. Each offer ha
 | Deployment and token configuration | [`deployments/mainnet.json`](../deployments/mainnet.json) |
 | Pinned source/deployment build | [`BUILD.md`](../BUILD.md), [`deployments/build.json`](../deployments/build.json) |
 
-Older marketplace, campaign and factory crates are historical experiments. Their deployment/nomination descriptions are not the current shared-hub flow. [Contract directory guide](../contracts/README.md).
+The older marketplace, campaign and factory crates contain earlier experiments, including the old recipient-nomination flow. [Contract directory guide](../contracts/README.md).
 
 ## Lifecycle
 
@@ -27,11 +27,11 @@ Older marketplace, campaign and factory crates are historical experiments. Their
 | Settlement | Permissionless success only after all success gates; designated arbiter handles disputed/failure outcomes | No unresolved issues, required fulfillment and completed service/review |
 | Claims / withdrawal | Original creditors claim; withdrawal callbacks reconcile actual transfer outcomes | No duplicate credit, no redirection or cross-offer spending |
 
-An unbooked offer has a separate closure path. Storage reserve reclamation belongs to its original funder after all financial obligations settle; a token transfer is not a transfer of that reserve.
+An unbooked offer has a separate closure path. Once all financial obligations settle, the original funder can reclaim the storage reserve. NFT transfers leave that entitlement with the funder.
 
 ## NFT authority
 
-The hub implements **NEP-171 ownership and transfer**, **dynamic metadata**, and time-bounded **creative access rights**. It deliberately uses a shared hub rather than per-token sub-accounts.
+The hub implements NEP-171 ownership and transfer. Artwork revisions update token metadata, and the current holder has creative access during the editing window. Tokens share the hub contract and have no separate sub-accounts.
 
 - The final payer receives the placement token after booking closes, including an EVM payer.
 - Artwork authorization uses the current placement owner. Once minted, the NFT holder is the authority.
@@ -54,9 +54,9 @@ cargo test --locked -p marketplace-hub --lib
 
 The active-window tests `former_payer_cannot_submit_artwork_after_nft_transfer_during_active_window` and `transferred_nft_owner_revises_active_artwork_without_receiving_original_creditors_money` separately prove rejection and new-holder revisions, metadata updates and unchanged creditors.
 
-The [real local-chain browser scenario](../prototype/tests/production-browser.mjs) additionally bypasses the UI/API preflight: former holder B signs an actual direct Intents artwork request, which fails in a hub receipt. Current holder A signs the same action, deadlines and gas parameters with a fresh nonce and succeeds. A then submits verified UI artwork revision 2; B receives control back and submits revision 3, which the owner approves and the delivery proof references.
+The [local-chain browser scenario](../prototype/tests/production-browser.mjs) also sends a request past the UI/API checks: former holder B signs a direct Intents artwork request, which fails in a hub receipt. Current holder A signs the same action, deadlines and gas parameters with a fresh nonce and succeeds. A then submits verified UI artwork revision 2; B receives control back and submits revision 3, which the owner approves and the delivery proof references.
 
-Optimized WASM can expose a trap rather than the panic message. The matched positive request establishes payload/gas validity, while the Rust unit test separately asserts the exact `placement owner only` rejection. The direct control artifact is synthetic and unpinned; later UI artifacts are digest-verified. [Reports and coverage boundaries](../VERIFY.md#full-interface-on-a-local-chain).
+Optimized WASM can report rejection as a trap, hiding the panic message. The matched positive request establishes payload/gas validity, while the Rust unit test separately asserts the exact `placement owner only` rejection. The direct control artifact is synthetic and unpinned; later UI artifacts are digest-verified. [Reports and coverage boundaries](../VERIFY.md#full-interface-on-a-local-chain).
 
 ## Financial claims stay with original wallets
 
@@ -68,12 +68,12 @@ Optimized WASM can expose a trap rather than the panic message. The matched posi
 | Successful campaign earnings | Space owner | No |
 | Reclaimable offer storage reserve | Original reserve funder | No |
 
-A studio receiving creative control must not also receive somebody else's refund or earnings. The token does not own those funds and is not itself a NEAR account. The Intents balance and hub liabilities remain subject to their original offer/accounting rules.
+Giving a studio creative control leaves the advertiser's refund and the owner's earnings with their original wallets. The token holds no funds and is not a NEAR account; the Intents balance and hub liabilities follow the offer's accounting rules.
 
 Withdrawal state and callbacks preserve pending principal, prevent duplicate credit and retain creditor identity when transfers fail or must be reconciled. See `start_withdrawal`, `on_withdrawal` and the callback/independent-offer tests in the [hub test suite](../contracts/marketplace-hub/src/tests.rs).
 
 ## Fulfillment, disputes and trust
 
-Elapsed time alone cannot prove physical delivery. Successful settlement requires the configured service/review periods, locked artwork, installation evidence and no unresolved issue. Participants can open issues; a separate configured arbiter resolves disputed cases. Evidence hashes commit bytes, not whether an ad was actually installed.
+Elapsed time alone cannot prove physical delivery. Successful settlement requires the configured service/review periods, locked artwork, installation evidence and no unresolved issue. Participants can open issues; a separate configured arbiter resolves disputed cases. Evidence hashes identify the submitted bytes. The arbiter judges the physical delivery.
 
 The hub retains an upgrade key. Backend code-hash pinning detects a changed deployment but does not make it immutable. These tests and source checks are not an external security audit. [Trust boundaries](TECHNICAL-ARCHITECTURE.md#trust-boundaries) and [evidence provenance](../deployments/evidence/README.md) remain part of the implementation description.

@@ -2,7 +2,7 @@
 
 [Overview](../README.md) | [User flow](USER-FLOW.md) | [Architecture](TECHNICAL-ARCHITECTURE.md) | [Contracts](CONTRACTS.md) | [Verify](../VERIFY.md) | [Deployments](DEPLOYMENTS.md)
 
-Everywhere makes physical advertising placements bookable in USDC and gives the final advertiser a transferable NEP-171 creative right. Start with the product, then follow a claim to its implementation and executable evidence.
+Advertisers book physical ad space in USDC. After booking closes, the final advertiser receives a NEP-171 NFT with artwork access. These guides cover the product and its implementation.
 
 | Read | Question it answers |
 | --- | --- |
@@ -25,7 +25,7 @@ node scripts/verify.mjs
 node scripts/verify.mjs --offline
 ```
 
-The quick verifier uses isolated state and configuration. It does not load personal keys or authorize public-chain actions. The [verification guide](../VERIFY.md) describes its reports and failure modes.
+The quick verifier runs with its own state and configuration, without personal keys or public-chain transactions. The [verification guide](../VERIFY.md) describes its reports and failure modes.
 
 ## Implementation entry points
 
@@ -38,4 +38,4 @@ The quick verifier uses isolated state and configuration. It does not load perso
 | Mainnet identity and evidence | [`deployments`](../deployments/) |
 | CI checks | [`verify.yml`](../.github/workflows/verify.yml) |
 
-The `prototype` directory name is historical: it contains the working application. Older marketplace/factory crates and the backend lab preserve earlier experiments and are labelled as such. Private research, operational journals, personal credentials and internal planning documents are not part of this public docs set.
+The working application is in `prototype`; the name dates from the first version. Older marketplace/factory crates and the backend lab contain the earlier experiments. Private research, credentials and operational records stay outside the public docs.
