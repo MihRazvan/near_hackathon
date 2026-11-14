@@ -44,13 +44,15 @@ export function verifyReceipt(step,outcome,manifest){
  const digest=hashObject(selected);if(step.receiptDigest)assert(digest===step.receiptDigest,'EVIDENCE_MISMATCH','Scoped receipt digest differs from verified evidence');
  return {id:step.id,transactionHash:step.transactionHash,receiptDigest:digest,blockHashes:[...new Set(selected.map(r=>r.blockHash))]};
 }
-export async function verifyEvidence(manifest,{rpc,now=Date.now}={}){
+export async function verifyEvidence(manifest,{rpc,now=Date.now,onProgress=()=>{}}={}){
  assert(manifest.schema==='everywhere-qualification/v1'&&manifest.network==='mainnet','INVALID_EVIDENCE','Expected a mainnet qualification manifest');
  const reads=new NearReads(rpc,{network:'mainnet',now});await reads.status();
  // These are historical hashes. Read their existing status without waiting on
  // nodes that do not retain them; verifyReceipt still requires FINAL and every
  // successful receipt before accepting any evidence.
- const results=[];for(const step of manifest.record.steps){const outcome=await rpc.call('tx',{tx_hash:step.transactionHash,sender_account_id:step.signerId,wait_until:'NONE'});results.push(verifyReceipt(step,outcome,manifest));}
+ const results=[];onProgress({stage:'historical-receipts',verified:0,total:manifest.record.steps.length});
+ for(const step of manifest.record.steps){const outcome=await rpc.call('tx',{tx_hash:step.transactionHash,sender_account_id:step.signerId,wait_until:'NONE'});results.push(verifyReceipt(step,outcome,manifest));onProgress({stage:'historical-receipts',verified:results.length,total:manifest.record.steps.length});}
+ onProgress({stage:'current-state',verified:results.length,total:manifest.record.steps.length});
  const record=manifest.record,config={hub:{accountId:record.hubId,codeHash:manifest.contract.codeHash},assets:MAINNET};
  const s=await hubSnapshot(reads,config,{id:record.offerId,offerId:record.offerId,hubId:record.hubId,codeHash:manifest.contract.codeHash});
  assert(s.state.outcome==='success'&&s.state.total_received===record.amounts.received&&s.state.total_withdrawn===record.amounts.withdrawn&&s.state.total_pending===record.amounts.pending&&s.state.storage_reclaimed===true&&s.rights.current_owner_id===record.actors.buyerB&&s.rights.original_payer_id===record.actors.buyerB&&s.campaign.terms.sale_id===record.saleId,'EVIDENCE_MISMATCH','Current offer accounting, identity or NFT differs from evidence');

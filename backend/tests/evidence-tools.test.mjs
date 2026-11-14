@@ -8,10 +8,15 @@ import {EvidenceRpc,EVIDENCE_RPC_ENDPOINTS} from '../src/evidence-rpc.mjs';
 import {verifyOfflineEvidence} from '../src/evidence-offline.mjs';
 const root=new URL('../../',import.meta.url).pathname,manifest=JSON.parse(await readFile(new URL('../../deployments/qualification.json',import.meta.url)));
 const unavailable=()=>Object.assign(Error('private upstream response must stay private'),{code:'RPC_UNAVAILABLE'});
-test('evidence reads automatically fail over across all three public providers and prefer the working provider afterward',async()=>{
- const calls=[],rpc=new EvidenceRpc(undefined,{rpcFactory:url=>({call:async(method,params,options)=>{calls.push({host:new URL(url).hostname,method,params,timeout:options.timeoutMs});if(new URL(url).hostname!=='archival-rpc.mainnet.near.org')throw unavailable();return {ok:true};}})});
- assert.equal(EVIDENCE_RPC_ENDPOINTS.length,3);assert.deepEqual(await rpc.call('tx',{tx_hash:'recorded',wait_until:'FINAL'}),{ok:true});await rpc.call('block',{finality:'final'});
- assert.deepEqual(calls.map(c=>c.host),['near.drpc.org','free.rpc.fastnear.com','archival-rpc.mainnet.near.org','archival-rpc.mainnet.near.org']);assert.ok(calls.every(c=>c.timeout<=8000));assert.equal(calls[1].params.wait_until,'FINAL');
+test('historical receipts prefer archival while current state keeps its own successful provider',async()=>{
+ const calls=[],rpc=new EvidenceRpc(undefined,{rpcFactory:url=>({call:async(method,params,options)=>{const host=new URL(url).hostname;calls.push({host,method,params,timeout:options.timeoutMs});if(method==='tx'&&host!=='archival-rpc.mainnet.near.org')throw Object.assign(Error('old tx'),{code:'UNKNOWN_TRANSACTION'});return {ok:true};}})});
+ assert.equal(EVIDENCE_RPC_ENDPOINTS.length,3);await rpc.call('status',[]);await rpc.call('tx',{tx_hash:'recorded',wait_until:'NONE'});await rpc.call('block',{finality:'final'});await rpc.call('tx',{tx_hash:'another',wait_until:'NONE'});
+ assert.deepEqual(calls.map(c=>c.host),['near.drpc.org','archival-rpc.mainnet.near.org','near.drpc.org','archival-rpc.mainnet.near.org']);assert.ok(calls.every(c=>c.timeout<=(c.method==='tx'?15000:8000)));assert.equal(calls[1].params.wait_until,'NONE');
+ assert.equal(new URL(rpc.diagnostics().stateEndpoint).hostname,'near.drpc.org');assert.equal(new URL(rpc.diagnostics().historicalEndpoint).hostname,'archival-rpc.mainnet.near.org');
+});
+test('current-state reads fail over across all public providers and remember their working state provider',async()=>{
+ const calls=[],rpc=new EvidenceRpc(undefined,{rpcFactory:url=>({call:async()=>{calls.push(new URL(url).hostname);if(!url.includes('archival-rpc'))throw unavailable();return 'state';}})});
+ assert.equal(await rpc.call('query',{}),'state');await rpc.call('block',{});assert.deepEqual(calls,['near.drpc.org','free.rpc.fastnear.com','archival-rpc.mainnet.near.org','archival-rpc.mainnet.near.org']);
 });
 test('historical data unavailable at one provider falls back, while evidence mismatches stop instead of shopping for a passing provider',async()=>{
  let count=0;const rpc=new EvidenceRpc(undefined,{rpcFactory:()=>({call:async()=>{count++;if(count===1)throw Object.assign(Error('old tx'),{code:'UNKNOWN_TRANSACTION'});return 'historical outcome';}})});
@@ -53,4 +58,45 @@ test('the CLI offline mode succeeds without installed dependencies and with all 
   const tampered=spawnSync(process.execPath,['--import',disable,join(dir,'backend/bin/verify-evidence.mjs'),'--offline'],{encoding:'utf8',timeout:10000,env:{PATH:process.env.PATH}});
   assert.equal(tampered.status,1);assert.equal(JSON.parse(tampered.stderr).status,'mismatch');
  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('explicit history provider is exclusive for receipts and cannot take over current-state reads',async()=>{
+ const calls=[],rpc=new EvidenceRpc(['https://state.example/private-key'],{historyEndpoints:['https://archive.example/history-key?token=secret'],rpcFactory:url=>({call:async(method)=>{calls.push([new URL(url).hostname,method]);return 'ok';}})});
+ await rpc.call('status',[]);await rpc.call('tx',{});await rpc.call('query',{});
+ assert.deepEqual(calls,[['state.example','status'],['archive.example','tx'],['state.example','query']]);assert.ok(!JSON.stringify(rpc.diagnostics()).includes('key'));assert.ok(!JSON.stringify(rpc.diagnostics()).includes('secret'));
+});
+test('missing history is reported separately and does not assert that a transaction never existed',async()=>{
+ const rpc=new EvidenceRpc(undefined,{rpcFactory:()=>({call:async()=>{throw Object.assign(Error('private upstream'),{code:'UNKNOWN_TRANSACTION'});}})});
+ await assert.rejects(rpc.call('tx',{}),error=>error.code==='HISTORY_UNAVAILABLE'&&error.message.includes('--history-rpc')&&error.message.includes('does not establish')&&!error.message.includes('private upstream'));
+ assert.equal(rpc.diagnostics().failures.length,3);assert.ok(rpc.diagnostics().failures.every(f=>f.code==='UNKNOWN_TRANSACTION'));
+});
+test('verification-only HTTP retries respect Retry-After and return a distinct rate-limit result within the deadline',async()=>{
+ let time=0;const called=[],rpc=new EvidenceRpc(['https://archive.example/private?api_key=secret'],{now:()=>time,sleep:async ms=>time+=ms,fetchImpl:async()=>{called.push(time);return new Response('',{status:429,headers:{'retry-after':'3'}});}});
+ await assert.rejects(rpc.call('tx',{}),error=>error.code==='RPC_RATE_LIMITED'&&error.message.includes('429')&&error.message.includes('--history-rpc'));
+ assert.deepEqual(called,[0,3000,6000]);assert.ok(time<=8000);assert.ok(!JSON.stringify(rpc.diagnostics()).includes('private'));assert.ok(!JSON.stringify(rpc.diagnostics()).includes('secret'));
+});
+test('verification retries an actual transient read and keeps public upstream payloads out of diagnostics',async()=>{
+ let time=0,count=0;const rpc=new EvidenceRpc(['https://state.example/private'],{now:()=>time,sleep:async ms=>time+=ms,fetchImpl:async()=>++count===1?new Response('',{status:503}):new Response(JSON.stringify({jsonrpc:'2.0',result:{chain_id:'mainnet'}}),{status:200})});
+ assert.deepEqual(await rpc.call('status',[]),{chain_id:'mainnet'});assert.equal(count,2);assert.equal(time,500);
+ const noHistory=new EvidenceRpc(['https://archive.example/secret'],{fetchImpl:async()=>new Response(JSON.stringify({jsonrpc:'2.0',error:{cause:{name:'UNKNOWN_TRANSACTION'},message:'private upstream response'}}),{status:200})});
+ await assert.rejects(noHistory.call('tx',{}),{code:'HISTORY_UNAVAILABLE'});assert.ok(!JSON.stringify(noHistory.diagnostics()).includes('secret'));assert.ok(!JSON.stringify(noHistory.diagnostics()).includes('private'));
+});
+test('an incomplete response body cannot hang verification beyond its total read deadline',async()=>{
+ let signal;const rpc=new EvidenceRpc(['https://state.example'],{fetchImpl:async(_url,options)=>{signal=options.signal;return {ok:true,status:200,json:()=>new Promise(()=>{})};}});
+ const start=performance.now();await assert.rejects(rpc.call('status',[],{timeoutMs:30}),{code:'RPC_UNAVAILABLE'});assert.ok(performance.now()-start<1000);assert.equal(signal.aborted,true);
+});
+test('CLI rejects incompatible or missing arguments without network access and documents unavailable exit code',()=>{
+ for(const args of [['--offline','https://rpc.example'],['--history-rpc'],['--history-rpc','--offline'],['https://one.example','https://two.example']]){
+  const result=spawnSync(process.execPath,['backend/bin/verify-evidence.mjs',...args],{cwd:root,encoding:'utf8',timeout:10000,env:{PATH:process.env.PATH}});assert.equal(result.status,1,result.stderr);assert.equal(JSON.parse(result.stderr).status,'invalid');
+ }
+ const help=spawnSync(process.execPath,['backend/bin/verify-evidence.mjs','--help'],{cwd:root,encoding:'utf8',timeout:10000,env:{PATH:process.env.PATH}});assert.equal(help.status,0);assert.match(help.stdout,/--history-rpc/);assert.match(help.stdout,/2 online verification unavailable/);
+});
+
+test('an exclusive archival URL has independent lane queues and enough bounded time for parallel current-state reads',async()=>{
+ let time=0;const calls=[],rpc=new EvidenceRpc(['https://archival-rpc.mainnet.near.org/private?key=secret'],{now:()=>time,sleep:async ms=>time+=ms,fetchImpl:async(_url,options)=>{const request=JSON.parse(options.body);calls.push({method:request.method,time});return new Response(JSON.stringify({jsonrpc:'2.0',result:'ok'}),{status:200});}});
+ await rpc.call('tx',{});await rpc.call('query',{});
+ assert.equal(time,0,'Current state does not wait for the historical lane’s next 8-second slot');
+ assert.deepEqual(await Promise.all(Array.from({length:9},(_,i)=>rpc.call('query',{account_id:'public-'+i}))),Array(9).fill('ok'));
+ assert.ok(time<=15000,'The nine scoped reads finish inside the bounded archival state budget');assert.equal(calls.length,11);
+ assert.ok(!JSON.stringify(rpc.diagnostics()).includes('secret'));
 });
