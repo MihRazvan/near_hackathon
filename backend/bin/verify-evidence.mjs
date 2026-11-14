@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {verifyOfflineEvidence} from '../src/evidence-offline.mjs';
 const root=fileURLToPath(new URL('../../',import.meta.url)),args=process.argv.slice(2);
-const usage='Usage: node backend/bin/verify-evidence.mjs [<https-state-rpc-url>] [--history-rpc <https-archival-rpc-url>]\n       node backend/bin/verify-evidence.mjs --offline\nDefault: independent current-state and archival-history provider preferences.\nA positional URL alone is used exclusively for every read. --history-rpc explicitly replaces only historical receipt providers.\nOffline: committed file integrity only; no network or chain verification.\nExit codes: 0 verified, 1 mismatch/invalid input/local-file failure, 2 online verification unavailable.';
+const usage='Usage: node backend/bin/verify-evidence.mjs [<https-state-rpc-url>] [--history-rpc <https-archival-rpc-url>]\n       node backend/bin/verify-evidence.mjs --offline\nDefault: independent current-state and archival-history provider preferences.\nPublic archival requests are paced 20 seconds apart; eleven receipts usually need several minutes.\nA positional URL alone is used exclusively for every read. --history-rpc explicitly replaces only historical receipt providers.\nOffline: committed file integrity only; no network or chain verification.\nExit codes: 0 verified, 1 mismatch/invalid input/local-file failure, 2 online verification unavailable.';
 let rpc,offline=false,progress={stage:'local-manifest',verified:0};
 const invalidManifest=file=>Object.assign(Error(`Invalid JSON or manifest structure in ${file}. Restore the committed evidence manifest and retry.`),{code:'INVALID_EVIDENCE'});
 const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -40,7 +40,10 @@ try{
    const [{EvidenceRpc},{verifyEvidence}]=await Promise.all([import('../src/evidence-rpc.mjs'),import('../src/evidence-verifier.mjs')]);
    rpc=new EvidenceRpc(endpoint?[endpoint]:undefined,{...(historyEndpoint?{historyEndpoints:[historyEndpoint]}:{})});
    progress={stage:'network',verified:0,total:manifest.record.steps.length};
-   const result=await verifyEvidence(manifest,{rpc,onProgress:value=>progress=value});
+   const result=await verifyEvidence(manifest,{rpc,onProgress:value=>{
+    progress=value;
+    if(process.stderr.isTTY)console.error(value.stage==='historical-receipts'?`Historical receipts: ${value.verified}/${value.total}. Public archive reads are paced; a custom --history-rpc can be faster.`:'Checking current finalized state.');
+   }});
    console.log(JSON.stringify({...result,rpc:rpc.diagnostics()},null,2));
   }
  }

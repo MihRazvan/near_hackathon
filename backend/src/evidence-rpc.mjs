@@ -43,17 +43,23 @@ class VerificationProvider {
  }
  async call(method,params,{timeoutMs=8000}={}){
   const lane=method==='tx'?'history':'state',schedule=this.schedules[lane];
-  const interval=this.archival?(lane==='history'?8000:1500):250,deadline=this.now()+timeoutMs;
+  const interval=this.archival?(lane==='history'?20000:1500):250,deadline=this.now()+timeoutMs;
   let last;
   for(let attempt=0;attempt<3;attempt++){
    try{await this.slot(deadline,schedule,interval);}catch(error){throw last??error;}
    const remaining=deadline-this.now();
    if(remaining<=0)throw last??failure('RPC_UNAVAILABLE','Provider read deadline expired.');
    const controller=new AbortController();let timer,delay;
-   const expired=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(failure('RPC_UNAVAILABLE','Provider read deadline expired.'));},remaining);});
+   const expired=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(failure('RPC_UNAVAILABLE','Provider read deadline expired.'));},Math.min(remaining,8000));});
    try{
     const response=await Promise.race([this.fetch(this.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:'everywhere-evidence',method,params}),signal:controller.signal}),expired]);
-    if(response.status===429){delay=retryAfter(response,this.now());throw failure('RPC_RATE_LIMITED','Provider rejected the read with HTTP 429.');}
+    if(response.status===429){
+     delay=retryAfter(response,this.now());
+     // The free archive can exhaust a longer quota even at a low request rate.
+     // Give its bucket time to refill instead of sending three quick retries.
+     if(this.archival&&lane==='history')delay=Math.max(delay,60000*(attempt+1));
+     throw failure('RPC_RATE_LIMITED','Provider rejected the read with HTTP 429.');
+    }
     if(!response.ok)throw failure([502,503,504].includes(response.status)?'RPC_UNAVAILABLE':'RPC_REJECTED',`Provider rejected the read with HTTP ${response.status}.`);
     const value=await Promise.race([response.json(),expired]);
     if(!value||typeof value!=='object'||Array.isArray(value)||(!('result' in value)&&!value.error))throw failure('RPC_UNAVAILABLE','Provider returned an incomplete JSON-RPC response.');
@@ -76,7 +82,7 @@ class VerificationProvider {
  }
 }
 export class EvidenceRpc {
- constructor(endpoints=EVIDENCE_RPC_ENDPOINTS,{historyEndpoints,rpcFactory,fetchImpl=fetch,now=Date.now,sleep=pause,endpointTimeoutMs=8000,historyTimeoutMs=15000}={}){
+ constructor(endpoints=EVIDENCE_RPC_ENDPOINTS,{historyEndpoints,rpcFactory,fetchImpl=fetch,now=Date.now,sleep=pause,endpointTimeoutMs=8000,historyTimeoutMs=240000}={}){
   const validate=list=>{assert(Array.isArray(list)&&list.length>0&&list.length<=4,'INVALID_RPC_URL','Choose one to four NEAR RPC endpoints.',400);return [...new Set(list.map(evidenceEndpoint))];};
   const state=validate(endpoints),history=historyEndpoints?validate(historyEndpoints):[...state].sort((a,b)=>Number(new URL(b).hostname==='archival-rpc.mainnet.near.org')-Number(new URL(a).hostname==='archival-rpc.mainnet.near.org'));
   this.endpoints=[...new Set([...state,...history])];assert(this.endpoints.length<=4,'INVALID_RPC_URL','Choose at most four distinct NEAR RPC endpoints.',400);
@@ -84,13 +90,17 @@ export class EvidenceRpc {
   this.clients=this.endpoints.map(url=>rpcFactory?rpcFactory(url):new VerificationProvider(url,{fetchImpl,now,sleep}));
   Object.assign(this,{now,endpointTimeoutMs,historyTimeoutMs,active:0,tried:new Set(),failures:[],preferred:{state:this.pools.state[0],history:this.pools.history[0]}});
  }
- async call(method,params,{timeoutMs=30000,...options}={}){
+ async call(method,params,{timeoutMs,...options}={}){
   assert(READS.has(method),'VERIFY_READ_ONLY','Evidence verification only permits read-only RPC methods.',400);
+  // The public archive needs time for its next slot and bounded 429 retries.
+  // Other reads keep the short deadline; callers can still supply a tighter one.
+  timeoutMs??=method==='tx'?300000:30000;
   const lane=method==='tx'?'history':'state',pool=this.pools[lane],first=this.preferred[lane],order=[first,...pool.filter(index=>index!==first)],deadline=this.now()+timeoutMs,errors=[];
   for(const index of order){
    const remaining=deadline-this.now();if(remaining<=0)break;this.tried.add(index);
    try{
-    const budget=lane==='history'?this.historyTimeoutMs:new URL(this.endpoints[index]).hostname==='archival-rpc.mainnet.near.org'?Math.max(this.endpointTimeoutMs,18000):this.endpointTimeoutMs;
+    const publicArchive=new URL(this.endpoints[index]).hostname==='archival-rpc.mainnet.near.org';
+    const budget=lane==='history'?(publicArchive?this.historyTimeoutMs:Math.min(this.historyTimeoutMs,15000)):publicArchive?Math.max(this.endpointTimeoutMs,18000):this.endpointTimeoutMs;
     const value=await this.clients[index].call(method,params,{...options,timeoutMs:Math.min(budget,remaining)});
     this.active=index;this.preferred[lane]=index;return value;
    }catch(error){

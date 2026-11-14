@@ -11,7 +11,7 @@ const unavailable=()=>Object.assign(Error('private upstream response must stay p
 test('historical receipts prefer archival while current state keeps its own successful provider',async()=>{
  const calls=[],rpc=new EvidenceRpc(undefined,{rpcFactory:url=>({call:async(method,params,options)=>{const host=new URL(url).hostname;calls.push({host,method,params,timeout:options.timeoutMs});if(method==='tx'&&host!=='archival-rpc.mainnet.near.org')throw Object.assign(Error('old tx'),{code:'UNKNOWN_TRANSACTION'});return {ok:true};}})});
  assert.equal(EVIDENCE_RPC_ENDPOINTS.length,3);await rpc.call('status',[]);await rpc.call('tx',{tx_hash:'recorded',wait_until:'NONE'});await rpc.call('block',{finality:'final'});await rpc.call('tx',{tx_hash:'another',wait_until:'NONE'});
- assert.deepEqual(calls.map(c=>c.host),['near.drpc.org','archival-rpc.mainnet.near.org','near.drpc.org','archival-rpc.mainnet.near.org']);assert.ok(calls.every(c=>c.timeout<=(c.method==='tx'?15000:8000)));assert.equal(calls[1].params.wait_until,'NONE');
+ assert.deepEqual(calls.map(c=>c.host),['near.drpc.org','archival-rpc.mainnet.near.org','near.drpc.org','archival-rpc.mainnet.near.org']);assert.ok(calls.every(c=>c.timeout<=(c.method==='tx'?240000:8000)));assert.equal(calls[1].params.wait_until,'NONE');
  assert.equal(new URL(rpc.diagnostics().stateEndpoint).hostname,'near.drpc.org');assert.equal(new URL(rpc.diagnostics().historicalEndpoint).hostname,'archival-rpc.mainnet.near.org');
 });
 test('current-state reads fail over across all public providers and remember their working state provider',async()=>{
@@ -85,6 +85,31 @@ test('an incomplete response body cannot hang verification beyond its total read
  let signal;const rpc=new EvidenceRpc(['https://state.example'],{fetchImpl:async(_url,options)=>{signal=options.signal;return {ok:true,status:200,json:()=>new Promise(()=>{})};}});
  const start=performance.now();await assert.rejects(rpc.call('status',[],{timeoutMs:30}),{code:'RPC_UNAVAILABLE'});assert.ok(performance.now()-start<1000);assert.equal(signal.aborted,true);
 });
+
+test('public archival receipts are paced without delaying current-state reads or mistaking throttling for evidence failure',async()=>{
+ let time=0;const calls=[],rpc=new EvidenceRpc(['https://near.drpc.org'],{historyEndpoints:['https://archival-rpc.mainnet.near.org'],now:()=>time,sleep:async ms=>time+=ms,fetchImpl:async(url,options)=>{
+  const method=JSON.parse(options.body).method;calls.push({host:new URL(url).hostname,method,time});
+  // A brief initial throttle must retry inside the archive budget, not spill
+  // into current-state providers that do not retain these old transactions.
+  return calls.length===1?new Response('',{status:429}):new Response(JSON.stringify({jsonrpc:'2.0',result:'receipt'}),{status:200});
+ }});
+ assert.equal(await rpc.call('tx',{tx_hash:'first'}),'receipt');
+ assert.equal(await rpc.call('query',{account_id:'market.near'}),'receipt');
+ assert.equal(await rpc.call('tx',{tx_hash:'second'}),'receipt');
+ assert.equal(await rpc.call('tx',{tx_hash:'third'}),'receipt');
+ assert.deepEqual(calls.filter(c=>c.method==='tx').map(c=>c.time),[0,60000,80000,100000]);
+ assert.equal(calls.find(c=>c.method==='query').time,60000);
+ assert.equal(new URL(rpc.diagnostics().historicalEndpoint).hostname,'archival-rpc.mainnet.near.org');
+});
+
+test('persistent public-archive throttling stops after bounded cooldowns and honors a tighter caller deadline',async()=>{
+ let time=0;const calls=[],rpc=new EvidenceRpc(['https://archival-rpc.mainnet.near.org'],{now:()=>time,sleep:async ms=>time+=ms,fetchImpl:async()=>{calls.push(time);return new Response('',{status:429});}});
+ await assert.rejects(rpc.call('tx',{}),{code:'RPC_RATE_LIMITED'});
+ assert.deepEqual(calls,[0,60000,180000]);assert.ok(time<300000);
+ let shortTime=0,count=0;const bounded=new EvidenceRpc(['https://archival-rpc.mainnet.near.org'],{now:()=>shortTime,sleep:async ms=>shortTime+=ms,fetchImpl:async()=>{count++;return new Response('',{status:429});}});
+ await assert.rejects(bounded.call('tx',{}, {timeoutMs:45000}),{code:'RPC_RATE_LIMITED'});
+ assert.equal(count,1);assert.equal(shortTime,0,'A 60-second retry cannot fit a 45-second total deadline');
+});
 test('CLI rejects incompatible or missing arguments without network access and documents unavailable exit code',()=>{
  for(const args of [['--offline','https://rpc.example'],['--history-rpc'],['--history-rpc','--offline'],['https://one.example','https://two.example']]){
   const result=spawnSync(process.execPath,['backend/bin/verify-evidence.mjs',...args],{cwd:root,encoding:'utf8',timeout:10000,env:{PATH:process.env.PATH}});assert.equal(result.status,1,result.stderr);assert.equal(JSON.parse(result.stderr).status,'invalid');
@@ -95,7 +120,7 @@ test('CLI rejects incompatible or missing arguments without network access and d
 test('an exclusive archival URL has independent lane queues and enough bounded time for parallel current-state reads',async()=>{
  let time=0;const calls=[],rpc=new EvidenceRpc(['https://archival-rpc.mainnet.near.org/private?key=secret'],{now:()=>time,sleep:async ms=>time+=ms,fetchImpl:async(_url,options)=>{const request=JSON.parse(options.body);calls.push({method:request.method,time});return new Response(JSON.stringify({jsonrpc:'2.0',result:'ok'}),{status:200});}});
  await rpc.call('tx',{});await rpc.call('query',{});
- assert.equal(time,0,'Current state does not wait for the historical lane’s next 8-second slot');
+ assert.equal(time,0,'Current state does not wait for the historical lane’s next 20-second slot');
  assert.deepEqual(await Promise.all(Array.from({length:9},(_,i)=>rpc.call('query',{account_id:'public-'+i}))),Array(9).fill('ok'));
  assert.ok(time<=15000,'The nine scoped reads finish inside the bounded archival state budget');assert.equal(calls.length,11);
  assert.ok(!JSON.stringify(rpc.diagnostics()).includes('secret'));
