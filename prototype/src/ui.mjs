@@ -36,6 +36,7 @@ const paths = {
   check: "m5 12 4 4L20 5",
   chevron: "m9 5 7 7-7 7",
   wallet: "M3 6h17v14H3zM3 6V3h15v3M15 11h7v5h-7z",
+  camera: "M3 6h4l2-3h6l2 3h4v15H3zM16 13a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
   car: "M3 11 6 5h12l3 6v8h-3v-3H6v3H3zM3 11h18M6 13h2M16 13h2",
   calendar: "M3 5h18v16H3zM7 2v6M17 2v6M3 10h18",
   chart: "M4 19V9M10 19V4M16 19v-7M22 21H2",
