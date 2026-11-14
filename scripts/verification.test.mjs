@@ -17,7 +17,7 @@ test('verification child environment drops wallet/provider secrets and cannot en
  }finally{for(const name of names)if(original[name]===undefined)delete process.env[name];else process.env[name]=original[name];}
 });
 
-test('offline entry runs from another working directory without dependencies or network APIs and reports integrity-only scope',async()=>{
+test('offline entry runs from another working directory without dependencies, with parent networking blocked, and reports integrity-only scope',async()=>{
  const cwd=await mkdtemp(join(tmpdir(),'everywhere-offline-'));
  const guard=`import http from 'node:http';import https from 'node:https';globalThis.fetch=()=>{throw Error('Network is forbidden in offline verification')};http.request=http.get=https.request=https.get=globalThis.fetch;`;
  try{

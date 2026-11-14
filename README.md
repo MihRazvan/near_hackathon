@@ -51,7 +51,7 @@ node backend/bin/verify-evidence.mjs https://archival-rpc.mainnet.near.org
 # Optional custom HTTPS RPC; used exclusively.
 ```
 
-Historical receipt availability and archival rate limits can prevent an online check. An unavailable provider is not a successful verification or an evidence mismatch. Offline success checks committed bytes and manifest consistency only; it does not establish live ownership, transaction finality, physical installation or a source rebuild. Use the [separate build check](VERIFY.md#source-and-deployed-artifact) to reproduce the committed WASM. [Evidence provenance](deployments/evidence/README.md) documents these boundaries.
+Historical receipt availability and archival rate limits can prevent an online check. An unavailable provider is not a successful verification or an evidence mismatch. Offline success checks committed bytes and manifest consistency only; it does not establish live ownership, transaction finality, physical installation or a source rebuild. The [separate build check](VERIFY.md#source-and-deployed-artifact) requires exact deployed-WASM equality, currently qualified on macOS arm64; Linux compilation differs and is not represented as reproduction. [Evidence provenance](deployments/evidence/README.md) documents these boundaries.
 
 ## The NFT thesis
 

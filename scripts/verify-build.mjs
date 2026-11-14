@@ -2,12 +2,14 @@
 // Rebuild source and compare bytes. No signer, runtime configuration or RPC.
 import {copyFile, mkdir, readFile, rename, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
-import {ROOT, cleanEnvironment, commandOutput, ensureRust, makeRun, parseFlags, prerequisite, readJson, requireBasicTools, runLogged, saveReport, sha256} from './verification-support.mjs';
+import {ROOT,isEntryPoint, cleanEnvironment, commandOutput, ensureRust, makeRun, parseFlags, prerequisite, readJson, requireBasicTools, runLogged, saveReport, sha256} from './verification-support.mjs';
 
 const help = `Usage: node scripts/verify-build.mjs [--check-only] [--skip-install] [--json]
 Rebuild the marketplace hub with pinned Rust 1.95.0 and Binaryen 133; compare
 its bytes with the committed mainnet deployment artifact and manifest.
-Requires Node.js 22.23+, rustup, Python 3, bash and tar on Linux or macOS.
+Requires Node.js 22.23+, rustup, Python 3, bash and tar. Exact deployment
+reproduction is qualified on macOS arm64; Linux output is known to differ.
+Every attempted build still requires exact equality; mismatches fail.
 Default: installs the pinned Rust toolchain/target if needed and downloads the
 platform's SHA256-pinned official Binaryen archive into ignored .local storage.
 --skip-install requires the toolchain, target and verified archive already cached.
@@ -22,6 +24,17 @@ export function base58(bytes) {
   while(value){result=alphabet[Number(value%58n)]+result;value/=58n;}
   for(const byte of bytes){if(byte!==0)break;result='1'+result;}
   return result;
+}
+
+export function compareBuildArtifact(bytes, committed, expected, manifestCodeHash) {
+  const digest=sha256(bytes),codeHash=base58(Buffer.from(digest,'hex'));
+  const artifact={bytes:bytes.length,sha256:digest,nearCodeHash:codeHash,matchesCommitted:bytes.equals(committed)};
+  const comparison={artifact,expectedArtifact:{...expected,committedBytes:committed.length,committedSha256:sha256(committed),manifestCodeHash}};
+  if(!artifact.matchesCommitted||digest!==expected.sha256||bytes.length!==expected.bytes||codeHash!==expected.nearCodeHash||codeHash!==manifestCodeHash) {
+    throw Object.assign(new Error('Rebuilt contract differs from the committed deployed artifact or pinned manifest. Do not treat this as a verified build.'),{exitCode:1,...comparison,
+      action:'Inspect actual and expected artifact digests in this report. Exact reproduction is qualified on macOS arm64; Linux builds currently differ. Use the explicitly pinned deployed artifact for Linux Sandbox execution, not as a source-equality claim.'});
+  }
+  return comparison;
 }
 
 async function optimizer(run, pin, flags) {
@@ -72,17 +85,16 @@ async function main() {
     if(flags['check-only']){await saveReport(run,{status:'prerequisites-ready',kind:'build',toolchain:rust,platform:process.platform+'-'+process.arch,scope:'Prerequisite checks only; no compilation, downloads, chain reads or deployment.'},flags);return;}
     const tool=await optimizer(run,pin,flags);
     const env=cleanEnvironment({HUB_WASM_OPT:tool.path,HUB_WASM_OPT_SHA256:tool.sha256,RUSTUP_TOOLCHAIN:pin.compiler});
-    await runLogged(run,'compile-hub','bash',['scripts/build-hub.sh'],{env,quiet:flags.json});
-    const bytes=await readFile(join(ROOT,'target/proof-artifacts/marketplace-hub.wasm')),committed=await readFile(join(ROOT,pin.expected.artifact)),digest=sha256(bytes);
-    const codeHash=base58(Buffer.from(digest,'hex')),manifest=await readJson('deployments/qualification.json');
-    if(!bytes.equals(committed)||digest!==pin.expected.sha256||bytes.length!==pin.expected.bytes||codeHash!==pin.expected.nearCodeHash||codeHash!==manifest.contract.codeHash)throw Object.assign(new Error('Rebuilt contract differs from the committed deployed artifact or pinned manifest. Do not treat this as a verified build.'),{exitCode:1});
+    await runLogged(run,'compile-hub','bash',['scripts/build-hub.sh','--reproduce-deployment'],{env,quiet:flags.json});
+    const bytes=await readFile(join(ROOT,'target/proof-artifacts/marketplace-hub.wasm')),committed=await readFile(join(ROOT,pin.expected.artifact));
+    const manifest=await readJson('deployments/qualification.json'),comparison=compareBuildArtifact(bytes,committed,pin.expected,manifest.contract.codeHash);
     const inputs={};for(const path of ['Cargo.toml','Cargo.lock','rust-toolchain.toml','contracts/marketplace-hub/Cargo.toml','contracts/marketplace-hub/src/lib.rs'])inputs[path]=sha256(await readFile(join(ROOT,path)));
     const top=commandOutput('git',['rev-parse','--show-toplevel']);
     const sourceCommit=top.ok&&resolve(top.output)===resolve(ROOT)?commandOutput('git',['rev-parse','HEAD']).output:null;
-    await saveReport(run,{status:'build-verified',kind:'build',sourceCommit,toolchain:rust,platform:process.platform+'-'+process.arch,optimizer:{version:tool.version,archive:tool.archive,archiveSha256:tool.archiveSha256,binarySha256:tool.sha256},artifact:{bytes:bytes.length,sha256:digest,nearCodeHash:codeHash,matchesCommitted:true},sourceInputs:inputs,scope:'Compiled source matches the committed deployment binary. No RPC reads, deployment, wallet keys or public funds are used; live chain state is a separate check.'},flags);
+    await saveReport(run,{status:'build-verified',kind:'build',sourceCommit,toolchain:rust,platform:process.platform+'-'+process.arch,optimizer:{version:tool.version,archive:tool.archive,archiveSha256:tool.archiveSha256,binarySha256:tool.sha256},...comparison,sourcePathNormalization:pin.sourcePaths,sourceInputs:inputs,scope:'Compiled source matches the committed deployment binary. No RPC reads, deployment, wallet keys or public funds are used; live chain state is a separate check.'},flags);
   } catch(error) {
     const exitCode=error.exitCode===2?2:1;
-    await saveReport(run,{status:exitCode===2?'prerequisites-unavailable':'failed',kind:'build',message:error.message,...(error.action?{action:error.action}:{})},flags);process.exitCode=exitCode;
+    await saveReport(run,{status:exitCode===2?'prerequisites-unavailable':'failed',kind:'build',message:error.message,...(error.action?{action:error.action}:{}),...(error.artifact?{artifact:error.artifact,expectedArtifact:error.expectedArtifact,platform:process.platform+'-'+process.arch}:{})},flags);process.exitCode=exitCode;
   }
 }
-if(process.argv[1]&&new URL(import.meta.url).pathname===process.argv[1])await main();
+if(isEntryPoint(import.meta.url))await main();

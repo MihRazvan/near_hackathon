@@ -5,9 +5,8 @@ import {spawn,spawnSync} from 'node:child_process';
 import {createServer} from 'node:net';
 import {mkdir,readFile,readdir,writeFile,open} from 'node:fs/promises';
 import {join,relative,resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
-import {ROOT,cleanEnvironment} from './verification-support.mjs';
+import {ROOT,isEntryPoint,cleanEnvironment} from './verification-support.mjs';
 
 export function parseOptions(args){
  const result={offline:false,skipInstall:false,json:false,help:false};
@@ -93,4 +92,4 @@ export async function main(args=process.argv.slice(2)){
  if(options.json)console.log(JSON.stringify(result,null,2));else console.log((exitCode===0?'Verification passed.':report.error)+'\nReport: '+result.reportPath+'\n'+report.scope);
  return exitCode;
 }
-if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1]))process.exitCode=await main();
+if(isEntryPoint(import.meta.url))process.exitCode=await main();

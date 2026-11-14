@@ -1,12 +1,18 @@
 import {spawn, spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {closeSync, lstatSync, mkdirSync, openSync, readFileSync, writeFileSync} from 'node:fs';
+import {closeSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, writeFileSync} from 'node:fs';
 import {mkdir, mkdtemp, open, readFile, writeFile} from 'node:fs/promises';
 import {homedir} from 'node:os';
 import {delimiter, join, relative, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('../', import.meta.url));
+
+export function isEntryPoint(metaUrl, argv = process.argv) {
+  if (!argv[1]) return false;
+  try { return realpathSync(fileURLToPath(metaUrl)) === realpathSync(resolve(argv[1])); }
+  catch { return false; }
+}
 const verificationDirectory = join(ROOT, '.local/verification');
 const safeEnvironmentFile = join(verificationDirectory, 'disabled.env');
 const environmentContents = 'INTEGRATION_ALLOW_MAINNET=false\nAPP_KEEPER_ENABLED=false\nINTEGRATION_ALLOW_FUNDED_BROWSER_WALLETS=false\n';

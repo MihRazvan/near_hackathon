@@ -3,6 +3,29 @@ set -euo pipefail
 TASK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$TASK_ROOT"
 export PATH="$HOME/.cargo/bin:$PATH"
+if [[ "${1:-}" == "--reproduce-deployment" && "$#" == 1 ]]; then
+  if [[ -n "${RUSTFLAGS:-}${CARGO_ENCODED_RUSTFLAGS:-}" ]]; then
+    echo 'Reproduction requires a clean Rust flag environment.' >&2
+    exit 1
+  fi
+  HUB_REPRODUCTION_REGISTRY_PREFIX="$(python3 - <<'PY'
+import json
+from pathlib import Path
+prefix=json.loads(Path('deployments/build.json').read_text())['sourcePaths']['registryPrefix']
+if not isinstance(prefix,str) or not prefix.startswith('/') or any(c in prefix for c in '\n\r\x1f'):
+ raise SystemExit('Invalid pinned Rust registry source prefix')
+print(prefix)
+PY
+)"
+  export HUB_REPRODUCTION_REGISTRY_PREFIX
+  # Panic locations are part of this historical Wasm. Normalize their labels to
+  # its original registry prefix without relocating files or patching the Wasm.
+  TASK_CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
+  export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$TASK_CARGO_HOME/registry/src=$HUB_REPRODUCTION_REGISTRY_PREFIX"
+elif [[ "$#" != 0 ]]; then
+  echo 'Usage: bash scripts/build-hub.sh [--reproduce-deployment]' >&2
+  exit 1
+fi
 cargo build --locked --release --target wasm32-unknown-unknown -p marketplace-hub
 TASK_TARGET_DIR="${CARGO_TARGET_DIR:-target}"
 if [[ "$TASK_TARGET_DIR" != /* ]]; then TASK_TARGET_DIR="$TASK_ROOT/$TASK_TARGET_DIR"; fi
@@ -38,6 +61,7 @@ if os.environ.get('HUB_WASM_OPT'):
 Path('target/proof-artifacts/hub-manifest.json').write_text(json.dumps({
  'contract':'marketplace-hub','artifact':str(p),'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),
  'unoptimized_bytes':len(raw),'unoptimized_sha256':hashlib.sha256(raw).hexdigest(),'optimizer':optimizer,
+ 'registry_source_prefix':os.environ.get('HUB_REPRODUCTION_REGISTRY_PREFIX'),
  'initializer':'new','version':1,'settlement':'intents',
  'offer_storage_bytes':60000,'offer_storage_deposit_yocto':'600000000000000000000000',
  'initial_sponsor_limit':0,'default_sponsored_per_owner_limit':8,

@@ -100,3 +100,33 @@ test('an exclusive archival URL has independent lane queues and enough bounded t
  assert.ok(time<=15000,'The nine scoped reads finish inside the bounded archival state budget');assert.equal(calls.length,11);
  assert.ok(!JSON.stringify(rpc.diagnostics()).includes('secret'));
 });
+
+test('malformed local manifests fail as invalid evidence before RPC imports in online and offline modes',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'everywhere-invalid-manifest-'));
+ try{
+  const disable=join(dir,'disable-network.mjs'),importMarker=join(dir,'rpc-imported');
+  await writeFile(disable,"import net from 'node:net';globalThis.fetch=()=>{throw Error('Network must not run');};net.Socket.prototype.connect=function(){throw Error('Network must not run');};");
+  for(const file of ['backend/bin/verify-evidence.mjs','backend/src/evidence-offline.mjs','backend/src/core.mjs','deployments/mainnet.json','deployments/qualification.json',manifest.contract.wasmFile,...Object.values(manifest.record.artifacts).map(a=>a.file)]){await mkdir(join(dir,file,'..'),{recursive:true});await writeFile(join(dir,file),await readFile(join(root,file)));}
+  const sentinel="import {writeFileSync} from 'node:fs';writeFileSync(new URL('../../rpc-imported',import.meta.url),'unexpected');throw Error('RPC import must not run');";
+  for(const file of ['backend/src/evidence-rpc.mjs','backend/src/evidence-verifier.mjs'])await writeFile(join(dir,file),sentinel);
+  const missingArtifacts=structuredClone(manifest);delete missingArtifacts.record.artifacts;
+  const nullArtifact=structuredClone(manifest);nullArtifact.record.artifacts.artwork=null;
+  const invalidStep=structuredClone(manifest);invalidStep.record.steps[0].requirements=null;
+  const invalidAmounts=structuredClone(manifest);invalidAmounts.record.amounts=null;
+  for(const input of ['{invalid json with private marker','null','{}',...([missingArtifacts,nullArtifact,invalidStep,invalidAmounts].map(value=>JSON.stringify(value)))]){
+   await writeFile(join(dir,'deployments/qualification.json'),input);
+   for(const args of [[],['--offline']]){
+    const run=spawnSync(process.execPath,['--import',disable,join(dir,'backend/bin/verify-evidence.mjs'),...args],{encoding:'utf8',timeout:10000,env:{PATH:process.env.PATH}});
+    assert.equal(run.status,1,run.stderr);assert.equal(run.stdout,'');
+    const error=JSON.parse(run.stderr);assert.equal(error.status,'invalid');assert.equal(error.code,'INVALID_EVIDENCE');assert.match(error.message,/deployments\/qualification\.json/);assert.equal(error.message.includes('private marker'),false);assert.equal(error.rpc,undefined);if(!args.length)assert.equal(error.progress.stage,'local-manifest');
+   }
+  }
+  await writeFile(join(dir,'deployments/qualification.json'),JSON.stringify(manifest));
+  for(const deployment of ['{invalid deployment JSON','null']){
+  await writeFile(join(dir,'deployments/mainnet.json'),deployment);
+  const offline=spawnSync(process.execPath,['--import',disable,join(dir,'backend/bin/verify-evidence.mjs'),'--offline'],{encoding:'utf8',timeout:10000,env:{PATH:process.env.PATH}});
+  assert.equal(offline.status,1,offline.stderr);const error=JSON.parse(offline.stderr);assert.equal(error.status,'invalid');assert.equal(error.code,'INVALID_EVIDENCE');assert.match(error.message,/deployments\/mainnet\.json/);
+  }
+  await assert.rejects(readFile(importMarker),{code:'ENOENT'});
+ }finally{await rm(dir,{recursive:true,force:true});}
+});

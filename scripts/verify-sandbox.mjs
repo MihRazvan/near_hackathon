@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 // Orchestrates the existing real local-chain qualification, never public funds.
+import {base58} from './verify-build.mjs';
 import {createRequire} from 'node:module';
 import {access, copyFile, mkdir, readFile, readdir} from 'node:fs/promises';
 import {createServer} from 'node:net';
-import {join, relative} from 'node:path';
-import {ROOT, cleanEnvironment, commandOutput, ensureRust, makeRun, parseFlags, prerequisite, readJson, requireBasicTools, runLogged, saveReport, sha256} from './verification-support.mjs';
+import {join, relative, resolve} from 'node:path';
+import {ROOT,isEntryPoint, cleanEnvironment, commandOutput, ensureRust, makeRun, parseFlags, prerequisite, readJson, requireBasicTools, runLogged, saveReport, sha256} from './verification-support.mjs';
 
-const help=`Usage: node scripts/verify-sandbox.mjs [--check-only] [--skip-install] [--browser chrome|chromium] [--json]
+const help=`Usage: node scripts/verify-sandbox.mjs [--check-only] [--skip-install] [--browser chrome|chromium] [--hub-artifact rebuild|deployed] [--json]
 Prepare pinned build inputs and run owner → purchase → takeover → NFT transfer →
 artwork → fulfillment → issue resolution → payouts through the actual interface
 against a fresh NEAR Sandbox 2.14.0 chain with valueless fixture tokens.
 Requires Node.js 22.23+, npm, rustup, Python 3, bash and tar on Linux or macOS.
 Default: locked npm installs, pinned Rust/optimizer setup, hash-checked public
 Intents binary download, local fixture builds and browser qualification.
+--hub-artifact rebuild (default) requires exact source-to-deployed byte equality.
+--hub-artifact deployed compiles source but executes the hash-verified committed
+WASM; it does not establish source equality on that host. Use this on Linux.
 Chrome is used when installed; otherwise bundled Chromium is installed locally.
 --skip-install requires dependencies, pinned inputs and a browser already present.
 --check-only checks prerequisites without installing, compiling, starting a chain,
@@ -72,9 +76,15 @@ async function pinnedIntents(run,flags) {
   return {sha256:sha256(await readFile(path)),codeHash:pin.intents_account.response.result.code_hash};
 }
 
+export function verifyDeployedHubBytes(bytes,pin,manifest) {
+  const digest=sha256(bytes),codeHash=base58(Buffer.from(digest,'hex'));
+  if(!bytes.subarray(0,8).equals(Buffer.from([0,97,115,109,1,0,0,0]))||bytes.length!==pin.expected.bytes||digest!==pin.expected.sha256||digest!==manifest.contract.wasmSha256||codeHash!==pin.expected.nearCodeHash||codeHash!==manifest.contract.codeHash)throw new Error('The committed hub artifact does not match its pinned deployment bytes and code hash.');
+  return {bytes:bytes.length,sha256:digest,nearCodeHash:codeHash};
+}
+
 async function main() {
   let flags;
-  try{flags=parseFlags(process.argv.slice(2),{values:['--browser']});if(flags.browser&&!['chrome','chromium'].includes(flags.browser))throw prerequisite('Unsupported browser choice.','Choose --browser chrome or --browser chromium.');}
+  try{flags=parseFlags(process.argv.slice(2),{values:['--browser','--hub-artifact']});if(flags.browser&&!['chrome','chromium'].includes(flags.browser))throw prerequisite('Unsupported browser choice.','Choose --browser chrome or --browser chromium.');if(flags['hub-artifact']&&!['rebuild','deployed'].includes(flags['hub-artifact']))throw prerequisite('Unsupported hub artifact choice.','Choose --hub-artifact rebuild or --hub-artifact deployed.');}
   catch(error){const result={schema:'everywhere-verification/v1',status:'prerequisites-unavailable',kind:'sandbox',message:error.message,action:error.action};if(process.argv.includes('--json'))console.log(JSON.stringify(result,null,2));else console.error(result.message+'\n'+result.action);process.exitCode=2;return;}
   if(flags.help){console.log(help);return;}
   const run=await makeRun('sandbox');
@@ -83,12 +93,25 @@ async function main() {
     if(!['linux','darwin'].includes(process.platform))throw prerequisite('The Sandbox fixture requires Linux or macOS.','Use Linux/WSL2 or macOS.');
     if(!commandOutput('npm',['--version']).ok)throw prerequisite('npm is not available.','Install npm with Node.js and retry.');
     if(!await portAvailable())throw prerequisite('The existing Sandbox harness requires free local port 4330.','Stop the local process using 127.0.0.1:4330, then retry.');
+    const artifactMode=flags['hub-artifact']||'rebuild';
+    const pin=await readJson('deployments/build.json'),manifest=await readJson('deployments/qualification.json');
+    const committed=await readFile(join(ROOT,pin.expected.artifact)),artifact=verifyDeployedHubBytes(committed,pin,manifest);
+    const artifactProvenance={mode:artifactMode,...artifact,sourceEquality:artifactMode==='rebuild'?'required-before-execution':'not-established',scope:artifactMode==='rebuild'?'Exact source rebuild must match the committed artifact.':'Source compilation only; local chain executes the independently hash-checked committed deployed artifact.'};
     const toolchain=await ensureRust(run,flags);
     await ensureDependencies(run,flags);
     const browser=await ensureBrowser(run,flags),intents=await pinnedIntents(run,flags);
-    if(flags['check-only']){await saveReport(run,{status:'prerequisites-ready',kind:'sandbox',toolchain,browser:browser.channel,intents,scope:'Local prerequisite checks only; no chain started and no transactions signed.'},flags);return;}
+    if(flags['check-only']){await saveReport(run,{status:'prerequisites-ready',kind:'sandbox',toolchain,browser:browser.channel,intents,artifactProvenance,scope:'Local prerequisite checks only; no chain started and no transactions signed.'},flags);return;}
     const env=cleanEnvironment({...browser.env,PLAYWRIGHT_CHANNEL:browser.channel,...(browser.channel==='chromium'?{PLAYWRIGHT_BROWSERS_PATH:browserDirectory}:{}),CARGO_TARGET_DIR:join(ROOT,'target'),RUSTUP_TOOLCHAIN:toolchain});
-    await runLogged(run,'verify-contract-build',process.execPath,['scripts/verify-build.mjs','--json',...(flags['skip-install']?['--skip-install']:[])],{env,quiet:flags.json});
+    if(artifactMode==='rebuild'){
+      await runLogged(run,'verify-contract-build',process.execPath,['scripts/verify-build.mjs','--json',...(flags['skip-install']?['--skip-install']:[])],{env,quiet:flags.json});
+      verifyDeployedHubBytes(await readFile(join(ROOT,'target/proof-artifacts/marketplace-hub.wasm')),pin,manifest);
+      artifactProvenance.sourceEquality='verified';
+    }else{
+      await runLogged(run,'compile-hub-source','cargo',['build','--locked','--release','--target','wasm32-unknown-unknown','-p','marketplace-hub'],{env,quiet:flags.json});
+      await mkdir(join(ROOT,'target/proof-artifacts'),{recursive:true});
+      await copyFile(join(ROOT,pin.expected.artifact),join(ROOT,'target/proof-artifacts/marketplace-hub.wasm'));
+      verifyDeployedHubBytes(await readFile(join(ROOT,'target/proof-artifacts/marketplace-hub.wasm')),pin,manifest);
+    }
     await runLogged(run,'build-fixture-token','cargo',['build','--locked','--release','--target','wasm32-unknown-unknown','-p','proof-test-token'],{env,quiet:flags.json});
     await mkdir(join(ROOT,'target/proof-artifacts'),{recursive:true});await copyFile(join(ROOT,'target/wasm32-unknown-unknown/release/proof_test_token.wasm'),join(ROOT,'target/proof-artifacts/test-token.wasm'));
     await runLogged(run,'build-local-chain','cargo',['build','--locked','-p','technical-proof','--bin','hub-lab-chain'],{env,quiet:flags.json});
@@ -98,11 +121,11 @@ async function main() {
     const created=(await readdir(resultDirectory)).filter(name=>name.startsWith('run-')&&!before.has(name));
     if(created.length!==1)throw new Error('Could not identify the fresh Sandbox result; do not reuse an earlier qualification report.');
     const result=JSON.parse(await readFile(join(resultDirectory,created[0],'result.json'),'utf8'));
-    if(result.network!=='isolated NEAR Sandbox'||result.productionMode!==true||result.finalOutcome!=='success'||result.offerLiabilities!=='0'||result.pendingWithdrawals!=='0'||result.totalReceived!==result.totalWithdrawn||!Array.isArray(result.checks)||!result.checks.length)throw new Error('The fresh Sandbox report did not satisfy the required terminal accounting and production-interface assertions.');
-    await saveReport(run,{status:'sandbox-verified',kind:'sandbox',network:result.network,toolchain,browser:browser.channel,intents,hubCodeHash:result.hubCodeHash,signatures:result.signatures,checks:result.checks,accounting:{totalReceived:result.totalReceived,totalWithdrawn:result.totalWithdrawn,offerLiabilities:result.offerLiabilities,pendingWithdrawals:result.pendingWithdrawals},coverageLimits:result.coverageLimits,scope:'Fresh local NEAR execution and real cryptographic signatures using generated test identities and valueless tokens. Synthetic pinning transport and injected wallet UI; no physical installation or public Base bridge is established.'},flags);
+    if(result.hubCodeHash!==artifact.nearCodeHash||result.network!=='isolated NEAR Sandbox'||result.productionMode!==true||result.finalOutcome!=='success'||result.offerLiabilities!=='0'||result.pendingWithdrawals!=='0'||result.totalReceived!==result.totalWithdrawn||!Array.isArray(result.checks)||!result.checks.length)throw new Error('The fresh Sandbox report did not satisfy the required terminal accounting and production-interface assertions.');
+    await saveReport(run,{status:'sandbox-verified',kind:'sandbox',artifactProvenance,network:result.network,toolchain,browser:browser.channel,intents,hubCodeHash:result.hubCodeHash,signatures:result.signatures,checks:result.checks,nftAuthority:{positiveCurrentHolderControl:result.nftAuthority?.positiveCurrentHolderControl,newHolderArtworkRevision:result.nftAuthority?.newHolderArtworkRevision,finalArtworkRevision:result.nftAuthority?.finalArtworkRevision,rejectedFormerHolderArtworkReceipt:result.nftAuthority?.rejectedFormerHolderArtworkReceipt},accounting:{totalReceived:result.totalReceived,totalWithdrawn:result.totalWithdrawn,offerLiabilities:result.offerLiabilities,pendingWithdrawals:result.pendingWithdrawals},coverageLimits:result.coverageLimits,scope:'Fresh local NEAR execution and real cryptographic signatures using generated test identities and valueless tokens. Synthetic pinning transport and injected wallet UI; no physical installation or public Base bridge is established.'},flags);
   }catch(error){
     const exitCode=error.exitCode===2?2:1;
     await saveReport(run,{status:exitCode===2?'prerequisites-unavailable':'failed',kind:'sandbox',message:error.message,...(error.action?{action:error.action}:{})},flags);process.exitCode=exitCode;
   }
 }
-if(process.argv[1]&&new URL(import.meta.url).pathname===process.argv[1])await main();
+if(isEntryPoint(import.meta.url))await main();

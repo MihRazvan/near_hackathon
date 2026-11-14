@@ -3,17 +3,45 @@
   "contract": "marketplace-hub",
   "compiler": "1.95.0",
   "target": "wasm32-unknown-unknown",
-  "cargoArguments": ["build", "--locked", "--release", "--target", "wasm32-unknown-unknown", "-p", "marketplace-hub"],
+  "cargoArguments": [
+    "build",
+    "--locked",
+    "--release",
+    "--target",
+    "wasm32-unknown-unknown",
+    "-p",
+    "marketplace-hub"
+  ],
+  "sourcePaths": {
+    "registryPrefix": "/Users/razvan/.cargo/registry/src",
+    "normalization": "Rust --remap-path-prefix normalizes registry panic-location labels to the prefix embedded in the existing deployed artifact. It does not relocate source files or patch Wasm bytes.",
+    "reason": "The existing deployed Wasm includes Rust dependency panic locations. Keep these historical labels stable across Cargo home directories without editing the deployed artifact."
+  },
   "optimizer": {
     "name": "Binaryen wasm-opt",
     "version": "version_133",
     "release": "https://github.com/WebAssembly/binaryen/releases/tag/version_133",
-    "arguments": ["-Oz", "--enable-bulk-memory"],
+    "arguments": [
+      "-Oz",
+      "--enable-bulk-memory"
+    ],
     "archives": {
-      "darwin-arm64": {"file": "binaryen-version_133-arm64-macos.tar.gz", "sha256": "ad66da82ac13f163e424b1643f16c6dfcccc98b5966296b43e52d3cab04f84a8"},
-      "darwin-x64": {"file": "binaryen-version_133-x86_64-macos.tar.gz", "sha256": "13a9b90be775c6389ce3d1f879cb8627bea56708ba8c122983941d53a8199b95"},
-      "linux-arm64": {"file": "binaryen-version_133-aarch64-linux.tar.gz", "sha256": "89c07ea56faf38d0fbecf36ca8ec0721756716185f265b568e133d427f299bf8"},
-      "linux-x64": {"file": "binaryen-version_133-x86_64-linux.tar.gz", "sha256": "2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489"}
+      "darwin-arm64": {
+        "file": "binaryen-version_133-arm64-macos.tar.gz",
+        "sha256": "ad66da82ac13f163e424b1643f16c6dfcccc98b5966296b43e52d3cab04f84a8"
+      },
+      "darwin-x64": {
+        "file": "binaryen-version_133-x86_64-macos.tar.gz",
+        "sha256": "13a9b90be775c6389ce3d1f879cb8627bea56708ba8c122983941d53a8199b95"
+      },
+      "linux-arm64": {
+        "file": "binaryen-version_133-aarch64-linux.tar.gz",
+        "sha256": "89c07ea56faf38d0fbecf36ca8ec0721756716185f265b568e133d427f299bf8"
+      },
+      "linux-x64": {
+        "file": "binaryen-version_133-x86_64-linux.tar.gz",
+        "sha256": "2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489"
+      }
     }
   },
   "expected": {
@@ -25,6 +53,6 @@
   "observedReproduction": {
     "date": "2026-11-14",
     "platform": "darwin-arm64",
-    "scope": "Source rebuild matched the committed deployed binary exactly. Other platform archives are pinned inputs, not a claim that each platform has been tested."
+    "scope": "Source rebuild matched the committed deployed binary exactly on the original macOS arm64 host, including after registry-prefix normalization. Independent macOS CI must also require exact equality. Linux x64 was tested with the same pinned compiler and normalized source prefix and produced different bytes; its successful source compilation is not deployment reproduction."
   }
 }

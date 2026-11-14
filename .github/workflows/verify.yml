@@ -82,8 +82,36 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+  deployed-build:
+    name: Exact deployed bytes / macOS arm64
+    # GitHub documents macos-15 as its free public ARM64 standard runner.
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.12.0'
+      - name: Require the qualified compiler host architecture
+        run: node -e "if(process.platform!=='darwin'||process.arch!=='arm64')process.exit(1)"
+      - name: Rebuild source and require exact committed deployment bytes
+        run: node scripts/verify-build.mjs --json
+      - name: Preserve actual build diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: exact-deployed-build
+          path: |
+            .local/verification/build-*/report.json
+            .local/verification/build-*/*.log
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: warn
+
   protocol:
-    name: Reproducible contract and real local-chain lifecycle
+    name: Linux source tests and pinned deployed-binary local lifecycle
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -101,8 +129,6 @@ jobs:
         run: rustup show
       - name: Run current and historical contract unit suites
         run: bash scripts/test-contracts.sh
-      - name: Rebuild and compare deployed contract bytes
-        run: node scripts/verify-build.mjs --json
       - name: Install local test browser and system libraries
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.local/verification-tools/browsers
@@ -110,7 +136,7 @@ jobs:
       - name: Retrieve exact hash-pinned public Intents fixture
         run: python3 proofs/intents-compatibility/fetch-pinned.py
       - name: Execute the real Sandbox lifecycle without public funds
-        run: node scripts/verify-sandbox.mjs --browser chromium --skip-install --json
+        run: node scripts/verify-sandbox.mjs --hub-artifact deployed --browser chromium --skip-install --json
       - name: Preserve sanitized build and local-chain results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
