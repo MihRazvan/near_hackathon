@@ -5,7 +5,7 @@
       "file": "marketplace.png",
       "kind": "live-public-ui",
       "url": "https://everywhere-near.vercel.app/explore",
-      "observedAt": "2026-11-14T10:28:26.453Z",
+      "observedAt": "2026-11-14T11:32:07.337Z",
       "signedIn": false,
       "mutationsAllowed": false,
       "observedUiState": "settled-interface"
@@ -14,7 +14,7 @@
       "file": "marketplace-mobile.png",
       "kind": "live-public-ui",
       "url": "https://everywhere-near.vercel.app/explore",
-      "observedAt": "2026-11-14T10:28:26.615Z",
+      "observedAt": "2026-11-14T11:32:07.391Z",
       "signedIn": false,
       "mutationsAllowed": false,
       "observedUiState": "settled-interface"
