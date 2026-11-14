@@ -15,6 +15,8 @@ import { siteHeader, accountContext, accountArea } from './shell.mjs';
 import './marketplace-account.css';
 import './marketplace.css';
 import './experience-flow.css';
+import './interface-motion.css';
+import { mountInterfaceMotion, navigateFromVehicle } from './interface-motion.mjs';
 import { closeModal } from './ui.mjs';
 
 const app = document.querySelector('#app');
@@ -59,6 +61,7 @@ function render() {
   if(renderedViewKey!==viewKey&&location.hash){try{const detail=document.getElementById(decodeURIComponent(location.hash.slice(1)));if(detail?.tagName==='DETAILS')detail.open=true;}catch{}}
   renderedViewKey=viewKey;
   mountConnected(currentRoute);
+  mountInterfaceMotion({viewKey});
 }
 document.addEventListener('click',async event=>{
   if(!event.target?.closest)return;
@@ -79,7 +82,8 @@ document.addEventListener('click',async event=>{
     event.preventDefault();const position=window.scrollY;history.pushState(null,'',url.pathname+url.search);render();window.scrollTo(0,position);
     document.querySelector('.placement-choice[aria-current="true"]')?.focus({preventScroll:true});return;
   }
-  event.preventDefault();navigate(url.pathname+url.search+url.hash);
+  event.preventDefault();const destination=url.pathname+url.search+url.hash;
+  if(!navigateFromVehicle(a,destination,navigate))navigate(destination);
 });
 document.addEventListener('submit',async event=>{
   const form=event.target;

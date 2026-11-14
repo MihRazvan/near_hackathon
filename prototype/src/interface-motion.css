@@ -1,0 +1,102 @@
+/* Fly-post motion: directional, tactile and brief. Working canvases stay still. */
+:root { --motion-out: cubic-bezier(.16,1,.3,1); }
+/* Shared vehicle imagery connects a marketplace card to its actual offer. */
+::view-transition-group(market-vehicle) { animation-duration:380ms; animation-timing-function:var(--motion-out); }
+::view-transition-old(root) { animation-duration:100ms; }
+::view-transition-new(root) { animation-duration:180ms; }
+::view-transition-group(root) { animation-duration:180ms; }
+.site-nav a, .mobile-nav-links a { position:relative; }
+.site-nav a::after, .mobile-nav-links a::after {
+  content:''; position:absolute; height:3px; background:var(--pink);
+  inset:auto 0 4px; transform:scaleX(0); transform-origin:left;
+  transition:transform 200ms var(--motion-out);
+}
+.site-nav a:hover::after, .site-nav a:focus-visible::after,
+.mobile-nav-links a:hover::after, .mobile-nav-links a:focus-visible::after { transform:scaleX(1); }
+.site-nav a[aria-current]::after, .mobile-nav-links a[aria-current]::after { display:none; }
+.button > svg, .editorial-link > svg, .market-card-action > svg {
+  flex-shrink:0; transition:translate 220ms var(--motion-out);
+}
+.button:focus-visible > svg, .editorial-link:focus-visible > svg,
+.market-card-link:focus-visible .market-card-action > svg { translate:3px -3px; }
+.market-card-link:focus-visible .market-card-action { color:var(--blue); text-decoration:underline; text-underline-offset:4px; }
+.market-card-info h3 { text-decoration:underline; text-decoration-color:transparent; text-underline-offset:4px; text-decoration-thickness:1px; transition:text-decoration-color 180ms; }
+.market-card-link:focus-visible h3 { text-decoration-color:currentColor; }
+.marketplace-search.search-bar:focus-within { border-color:var(--blue); }
+.surface-type { transition:background-color 180ms, color 180ms; }
+.placement-contour { transition:fill-opacity 180ms, stroke 180ms; }
+.placement-choice, .placement-pin span { transition:background-color 180ms, border-color 180ms, color 180ms; }
+.placement-choice.is-previewed:not(.is-selected) { border-color:var(--blue); background:#eef0ff; }
+.placement-pin.is-previewed span { background:var(--blue); border-color:var(--blue); color:var(--paper); }
+.placement-contour-link.is-previewed .placement-contour { fill:var(--blue); fill-opacity:.16; stroke:var(--blue); stroke-width:2; stroke-dasharray:none; }
+.placement-choice:focus-visible { outline:3px solid var(--ink); outline-offset:3px; }
+.placement-picker, .listing-details > details, .account-disclosure { scroll-margin-top:24px; }
+.placement-choice-description strong, .dashboard-campaign h3, .profile-right h3 { overflow-wrap:anywhere; }
+.dashboard-campaign > *, .profile-account > *, .vehicle-edit-layout > * { min-width:0; }
+.profile-account > div:first-child, .account-context { overflow-wrap:anywhere; }
+.profile-account strong { overflow-wrap:anywhere; }
+.account-context > span { min-width:0; }
+.account-context > a { flex-shrink:0; }
+.account-disclosure > summary:focus-visible, .listing-details summary:focus-visible { outline:2px solid var(--blue); outline-offset:5px; }
+.vehicle-panel-settings input:focus, .vehicle-panel-settings select:focus { border-color:var(--blue); }
+
+/* The scan is confined to its existing chapter and stops with the illustration. */
+.story-scan::after {
+  content:''; position:absolute; left:0; right:0; top:calc(var(--scan-progress,1)*100%); height:1px;
+  background:var(--paper); opacity:var(--scan-opacity,0);
+}
+
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) {
+  .market-card-photo > img { transition:transform 600ms var(--motion-out); }
+  .market-card-link:is(:hover,:focus-visible) .market-card-photo > img { transform:scale(1.04); }
+  .market-card-link:hover h3 { text-decoration-color:currentColor; }
+  .button:not(:disabled):hover > svg, .editorial-link:hover > svg,
+  .market-card-link:hover .market-card-action > svg { translate:3px -3px; }
+  /* No card tilts or moving buttons in the precision editor. */
+  .spot-toolbar .button:hover > svg { translate:none; }
+}
+
+/* Compact screens retain the same actions and their full hit areas. */
+@media (max-width:800px) {
+  .mobile-nav-links { gap:8px 24px; min-height:48px; align-items:center; }
+  .mobile-nav-links a { display:inline-flex; align-items:center; min-height:44px; }
+  .street-hero { padding-bottom:30px; }
+  .market-section { padding-top:30px; }
+  .placement-choices { gap:10px; }
+  .placement-choice { align-content:start; }
+  .placement-choice-description strong { line-height:1.4; }
+  .placement-booking-dates > div { align-items:baseline; }
+  .placement-booking-dates dd { max-width:65%; }
+}
+@media (max-width:560px) {
+  /* The image and its caption determine the row height; a fixed photo ratio
+     previously let the caption overlap the owner heading on phones. */
+  .owner-feature .owner-photo { min-height:0; aspect-ratio:auto; }
+  .owner-feature .street-preview { height:auto; }
+  .owner-feature .street-picture { min-height:0; flex:none; }
+  .site-footer { gap:24px; }
+  .site-footer nav { flex-wrap:wrap; gap:4px 20px; }
+  .site-footer nav a { display:inline-flex; align-items:center; min-height:44px; }
+  .listing-heading { align-items:flex-start; }
+  .listing-save { margin-top:0; }
+  .placement-choice-price { white-space:normal; overflow-wrap:anywhere; }
+  .account-context { gap:10px; font-size:12px; }
+  .profile-account .actions { width:100%; flex-wrap:wrap; }
+  .dashboard-campaign-action .button { min-height:48px; }
+  .offer-fields .offer-price-name { align-items:flex-start; }
+  .vehicle-edit-heading .actions { gap:8px; flex-wrap:wrap; }
+}
+@media (max-width:360px) {
+  .placement-choices { grid-template-columns:minmax(0,1fr); }
+  .placement-choice { display:flex; align-items:center; }
+  .placement-choice-price { margin-left:auto; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .site-nav a::after, .mobile-nav-links a::after,
+  .button > svg, .editorial-link > svg, .market-card-action > svg,
+  .market-card-info h3, .market-card-photo > img, .surface-type,
+  .placement-contour, .placement-choice, .placement-pin span { transition:none; }
+  .button > svg, .editorial-link > svg, .market-card-action > svg { translate:none!important; }
+  .market-card-link:is(:hover,:focus-visible) .market-card-photo > img { transform:none; }
+  .story-scan::after { animation:none; }
+}

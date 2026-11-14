@@ -28,9 +28,10 @@ export function mountSetupPreview(){
   const t=state.elapsed,scene=chapterAt(t);root.dataset.scene=String(scene);root.dataset.takeover=String(t>=7600);root.dataset.complete=String(state.complete);root.dataset.storyTime=String(Math.round(t));
   const fade=start=>{const x=Math.min(1,Math.max(0,(t-start)/650));return x*x*(3-2*x);};
   root.style.setProperty('--coffee-opacity',fade(5400));root.style.setProperty('--takeover-opacity',fade(7600));root.style.setProperty('--nft-progress',fade(10000));
+  root.style.setProperty('--scan-progress',Math.min(1,t/2400));root.style.setProperty('--scan-opacity',t<2400?Math.sin(t/2400*Math.PI)*.8:0);
   root.style.setProperty('--story-trace',Math.min(1,Math.max(0,(t-2400)/850)));
   root.querySelector('[data-story-cargo]').setAttribute('transform',`translate(182 0) scale(${.82+.18*Math.min(1,Math.max(0,(t-3350)/900))} 1) translate(-182 0)`);
-  button.hidden=state.complete;if(button.dataset.paused!==String(state.paused)){button.dataset.paused=String(state.paused);button.setAttribute('aria-label',state.paused?'Resume illustration':'Pause illustration');button.innerHTML=state.paused?play:pause;}
+  root.dataset.paused=String(state.paused);button.hidden=state.complete;if(button.dataset.paused!==String(state.paused)){button.dataset.paused=String(state.paused);button.setAttribute('aria-label',state.paused?'Resume illustration':'Pause illustration');button.innerHTML=state.paused?play:pause;}
  };
  const stop=()=>{cancelAnimationFrame(frame);frame=undefined;last=undefined;};
  const finish=()=>{stop();state.elapsed=total;state.complete=true;paint();};
