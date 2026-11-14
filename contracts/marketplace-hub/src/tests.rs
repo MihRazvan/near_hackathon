@@ -231,6 +231,83 @@ fn evm_owner_is_nft_recipient_artwork_authority_and_claims_remain_with_payer_aft
     );
 }
 #[test]
+#[should_panic(expected = "placement owner only")]
+fn former_payer_cannot_submit_artwork_after_nft_transfer_during_active_window() {
+    let mut h = hub();
+    create(&mut h, 1, "seller.test.near");
+    buy(&mut h, 1, "payer.test.near", 0, 10_000);
+    context("keeper.test.near", 100, 0);
+    h.mint_final_placement(offer(1));
+    auth(
+        &mut h,
+        "payer.test.near",
+        110,
+        json!({"action":"transfer_placement","offer_id":offer(1),"receiver_id":"controller.test.near"}),
+    );
+    let rights = h.get_placement_rights(offer(1));
+    assert!(rights.active && !rights.locked);
+    assert_eq!(rights.current_owner_id, Some(id("controller.test.near")));
+    assert_eq!(rights.original_payer_id, Some(id("payer.test.near")));
+    auth(
+        &mut h,
+        "payer.test.near",
+        120,
+        json!({"action":"submit_artwork","offer_id":offer(1),"token_id":offer(1),"artifact_uri":"ipfs://forbidden","artifact_sha256":Base64VecU8(vec![8;32])}),
+    );
+}
+
+#[test]
+fn transferred_nft_owner_revises_active_artwork_without_receiving_original_creditors_money() {
+    let mut h = hub();
+    create(&mut h, 1, "seller.test.near");
+    buy(&mut h, 1, "displaced.test.near", 0, 10_000);
+    buy(&mut h, 1, "payer.test.near", 1, 20_000);
+    auth(
+        &mut h,
+        "payer.test.near",
+        110,
+        json!({"action":"submit_artwork","offer_id":offer(1),"token_id":offer(1),"artifact_uri":"ipfs://original","artifact_sha256":Base64VecU8(vec![8;32])}),
+    );
+    let creditors = ["displaced.test.near", "payer.test.near", "seller.test.near", "controller.test.near"];
+    let credits_before: Vec<_> = creditors.iter().map(|who| near_sdk::serde_json::to_value(h.get_credit(offer(1), id(who))).unwrap()).collect();
+    let totals_before = near_sdk::serde_json::to_value(h.get_totals()).unwrap();
+    auth(
+        &mut h,
+        "payer.test.near",
+        120,
+        json!({"action":"transfer_placement","offer_id":offer(1),"receiver_id":"controller.test.near"}),
+    );
+    assert!(h.get_placement_rights(offer(1)).active);
+    assert!(!h.get_placement_rights(offer(1)).locked);
+    auth(
+        &mut h,
+        "controller.test.near",
+        130,
+        json!({"action":"submit_artwork","offer_id":offer(1),"token_id":offer(1),"artifact_uri":"ipfs://revision-two","artifact_sha256":Base64VecU8(vec![9;32])}),
+    );
+    let rights = h.get_placement_rights(offer(1));
+    assert_eq!(rights.revision, U64(2));
+    assert_eq!(rights.current_owner_id, Some(id("controller.test.near")));
+    assert_eq!(rights.original_payer_id, Some(id("payer.test.near")));
+    let artwork = rights.proposal.unwrap();
+    assert_eq!(artwork.submitted_by, id("controller.test.near"));
+    assert_eq!(artwork.artifact_uri, "ipfs://revision-two");
+    let metadata = h.nft_token(offer(1)).unwrap().metadata.unwrap();
+    assert_eq!(metadata.reference, Some(artwork.artifact_uri));
+    assert_eq!(metadata.reference_hash, Some(artwork.artifact_sha256));
+    for (who, before) in creditors.iter().zip(credits_before) {
+        assert_eq!(near_sdk::serde_json::to_value(h.get_credit(offer(1), id(who))).unwrap(), before);
+    }
+    assert_eq!(near_sdk::serde_json::to_value(h.get_totals()).unwrap(), totals_before);
+    context("arbiter.test.near", 600, 0);
+    h.finalize_failure(offer(1));
+    assert_eq!(h.get_credit(offer(1), id("displaced.test.near")).available, U128(10_000));
+    assert_eq!(h.get_credit(offer(1), id("payer.test.near")).available, U128(20_000));
+    assert_eq!(h.get_credit(offer(1), id("controller.test.near")).available, U128(0));
+    assert_eq!(h.get_credit(offer(1), id("seller.test.near")).available, U128(0));
+}
+
+#[test]
 fn permissionless_settlement_pays_seller_and_bonus_only_with_evidence_and_resolved_issues() {
     let mut h = hub();
     create(&mut h, 1, "seller.test.near");

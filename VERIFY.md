@@ -65,7 +65,7 @@ A targeted ownership/financial-entitlement assertion is also available:
 cargo test --locked -p marketplace-hub --lib evm_owner_is_nft_recipient_artwork_authority_and_claims_remain_with_payer_after_transfer
 ```
 
-This is a contract unit test, not a substitute for real verifier/signature execution. The full Sandbox route below covers that integration boundary. [`bash scripts/test-contracts.sh`](scripts/test-contracts.sh) includes both current and historical unit suites; its larger count should not be mistaken for current-hub-only coverage.
+The active-window tests `former_payer_cannot_submit_artwork_after_nft_transfer_during_active_window` and `transferred_nft_owner_revises_active_artwork_without_receiving_original_creditors_money` separately assert former-holder rejection, successful new-holder revisions, dynamic metadata and unchanged original-creditor claims. Contract unit tests do not substitute for real verifier/signature execution. The full Sandbox route below covers that integration boundary. [`bash scripts/test-contracts.sh`](scripts/test-contracts.sh) includes both current and historical unit suites; its larger count should not be mistaken for current-hub-only coverage.
 
 ## Source and deployed artifact
 
@@ -88,6 +88,8 @@ node scripts/verify-sandbox.mjs
 The runner prepares pinned dependencies and artifacts, then executes [`backend/bin/product-sandbox.mjs`](backend/bin/product-sandbox.mjs) and the [production browser scenario](prototype/tests/production-browser.mjs). First-run tool/download/build time depends on the host; it is a deeper check than the quick JS verification.
 
 Expected lifecycle: owner creates and publishes a spot; Buyer A purchases; Buyer B takes over; the final NFT is minted; creative control transfers and the former holder loses access; artwork is approved; installation evidence is submitted; a participant issue blocks success until a distinct arbiter resolves it; settlement, original-wallet claims and native USDC withdrawal complete. Rejected signatures, lost submit responses, API restart and wallet changes are also exercised. Terminal accounting assertions require received funds to equal withdrawn funds, zero pending withdrawals and zero remaining offer liabilities.
+
+The former holder also signs an artwork request directly through Intents, bypassing API preflight. The real hub rejects it while editing is still active; the new holder then submits artwork through the UI, the NFT metadata changes, and financial creditors remain unchanged. The failed receipt is retained in the local result. The exact owner-only panic is asserted separately by the unit test; optimized Wasm may expose a trap rather than that panic text.
 
 The chain and cryptographic signatures are real. Test accounts and tokens have no public value. The EIP-1193 provider is injected rather than a real Rabby/Meteor extension. Media-provider transport uses controlled synthetic storage while upload/digest validation runs normally. This scenario does not test an actual Base bridge, public pinning-provider availability, paid AI inference or physical installation. See [backend qualification details](backend/README.md#production-interface-on-near-sandbox).
 
