@@ -16,6 +16,31 @@ function setup(wallet=A){
 function form(values={}){const data=new FormData();for(const [key,value]of Object.entries(values))data.set(key,value);return data;}
 function transport(){const calls=[],uploads=[],notices=[];const forms=createWorkspaceForms({request:async(...args)=>{calls.push(args);return{};},uploadFile:async(...args)=>{uploads.push(args);return{id:'verified'};},refreshWorkspace:async opts=>{calls.push(['refresh',opts]);},showToast:message=>notices.push(message),getLive:()=>live});return {forms,calls,uploads,notices};}
 
+test('saved files open only an authorized reservation and do not submit or approve artwork',async()=>{
+ const {original,snap}=setup(B);original.owner=B;original.status='accepted';live.data.media=[{id:'logo',owner:B,status:'verified',public:true,mime:'image/jpeg',uri:'ipfs://'+CID}];
+ const navigated=[],forms=createWorkspaceForms({getLive:()=>live,go:url=>navigated.push(url),request:()=>{throw Error('Choosing a file must not send a transaction');}});
+ const html=accountView({id:'S05'});assert.match(html,/Saved to your library/);assert.match(html,/Use for a reservation/);assert.match(html,/value="booking-a"/);
+ await forms['choose-artwork-reservation'](form({mediaId:'logo',placementId:'booking-a'}));assert.deepEqual(navigated,['/profile/placements/booking-a?artwork=logo#artwork']);
+ snap.rights.current_owner_id=A;await assert.rejects(forms['choose-artwork-reservation'](form({mediaId:'logo',placementId:'booking-a'})),/current reservation/);
+ live.session.wallet=A;await assert.rejects(forms['choose-artwork-reservation'](form({mediaId:'logo',placementId:'offer'})),/belonging to this wallet/);
+});
+
+test('a saved image is visibly selected and a submitted revision remains visible beside its update form',()=>{
+ const {original,snap}=setup(B);original.owner=B;original.status='accepted';const sha256='ab'.repeat(32),uri='ipfs://'+CID;
+ live.data.media=[{id:'logo',owner:B,status:'verified',public:true,mime:'image/jpeg',uri,sha256}];location.search='?artwork=logo';
+ let html=buyerView({id:'B08',params:{id:'booking-a'}});assert.match(html,/<option value="logo" selected>/);assert.match(html,/Selected file · not submitted yet/);assert.match(html,/<img[^>]*alt="Selected file/);
+ snap.rights.proposal={artifact_uri:uri,artifact_sha256:Buffer.from(sha256,'hex').toString('base64'),revision:'1'};
+ html=buyerView({id:'B08',params:{id:'booking-a'}});assert.match(html,/<img[^>]*alt="Submitted artwork/);assert.match(html,/Send updated artwork/);
+ snap.state.artwork_locked=true;html=buyerView({id:'B08',params:{id:'booking-a'}});assert.match(html,/<img[^>]*alt="Approved artwork"/);assert.doesNotMatch(html,/data-live-form="artwork"/);
+ snap.rights.proposal.artifact_sha256=Buffer.alloc(32,1).toString('base64');location.search='';html=buyerView({id:'B08',params:{id:'booking-a'}});assert.doesNotMatch(html,/<img[^>]*alt="Approved artwork"/);
+});
+
+test('selecting a saved file before bookings close previews it without exposing an artwork submission',()=>{
+ const {original,snap}=setup(B);original.owner=B;original.status='accepted';snap.state.nft_minted=false;snap.rights.bidding_closed=false;snap.rights.active=false;snap.rights.current_owner_id=null;
+ live.data.media=[{id:'logo',owner:B,status:'verified',public:true,mime:'image/jpeg',uri:'ipfs://'+CID}];location.search='?artwork=logo';
+ const html=buyerView({id:'B08',params:{id:'booking-a'}});assert.match(html,/Saved file · submit it after booking closes/);assert.doesNotMatch(html,/data-live-form="artwork"/);
+});
+
 test('brand library shows only this wallet’s public verified assets and keeps upload consent explicit',()=>{
  setup();live.data.media=[{id:'own',owner:A,status:'verified',public:true,mime:'image/png',uri:'ipfs://'+CID,bytes:1234,createdAt:new Date(now).toISOString()},{id:'other',owner:B,status:'verified',public:true,mime:'image/png',uri:'ipfs://baf'+'b'.repeat(45)},{id:'private',owner:A,status:'verified',public:false,mime:'image/png',uri:'ipfs://baf'+'c'.repeat(45)},{id:'pending',owner:A,status:'uploaded',public:true,mime:'image/png',uri:'ipfs://baf'+'d'.repeat(45)}];
  const html=accountView({id:'S05'});assert.match(html,/data-live-form="brand-upload"/);assert.match(html,/name="public"/);assert.match(html,new RegExp(CID));assert.match(html,/<img/);assert.doesNotMatch(html,new RegExp('baf'+'b'.repeat(45)));assert.doesNotMatch(html,new RegExp('baf'+'c'.repeat(45)));assert.doesNotMatch(html,new RegExp('baf'+'d'.repeat(45)));

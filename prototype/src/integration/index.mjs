@@ -14,6 +14,8 @@ import { actions,forms } from './actions.mjs';
 import { esc,link,act,notice,heading,empty } from './ui.mjs';
 import { captureView,mountCapture } from './capture.mjs';
 import { campaignRecordView,mountCampaignRecord } from './record.mjs';
+import {mountArtworkSelection} from './artwork-media.mjs';
+import {verifiedMediaFor} from './workspace-actions.mjs';
 
 export { live,currentPerson };
 export async function initializeConnected(){await initialize();}
@@ -67,7 +69,7 @@ export function legacyAction(target,r){
 }
 export function mountConnected(r){
  unmountSpotWorkspace();mountSetupPreview();
- mountOnboarding(r);mountCapture(r);mountOffer();mountCreationHints();mountCheckout();
+ mountOnboarding(r);mountCapture(r);mountOffer();mountCreationHints();mountCheckout();mountArtworkSelection(verifiedMediaFor(live.data?.media,live.session?.wallet));
  if(r.id==='P10')mountCampaignRecord(r.params.id);
  const providers=document.querySelector('form[data-live-form="connect-evm"] select');
  if(providers){const old=providers.value;providers.innerHTML=live.providers.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')||'<option value="">No injected EVM wallet detected</option>';if(live.providers.some(p=>p.id===old))providers.value=old;}

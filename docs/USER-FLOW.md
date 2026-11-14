@@ -28,6 +28,8 @@ For older listings published without a cover, the owner can add the original veh
 3. Approve the USDC payment and required signatures in your wallet. Funding from Base needs a quote. The application starts top-ups at 0.15 USDC; any amount above the reservation shortfall stays in the wallet’s spending balance. The quote separates the top-up, routing cost and reservation price. Base gas is separate. Sign-in alone never authorizes spending.
 4. Follow the reservation and payment status in Profile. An optional ad group can contain reservations across multiple owners, with independent terms and payments. Its budget is a private spending limit. An ordinary reservation uses an internal group capped at the exact quoted price.
 5. After booking closes, the final payer receives the NFT directly. EVM payers receive it too. Submit artwork or transfer creative control to a studio during the editing window.
+
+Brand files saved in Profile are reusable uploads, not submitted artwork. Choose “Use for a reservation” to open the matching placement with that file selected, then confirm the artwork submission when its window opens. Submitted images appear in the advertiser and owner workspaces. Once the owner approves a revision, the public listing previews that committed image on its specific spot. This preview is separate from installation evidence. PDFs and text remain available as linked files.
 6. Inspect owner-submitted evidence, raise an issue when appropriate, and claim any original-wallet refund/reward. Settlement and withdrawal follow the recorded creditor and original operation.
 
 ![An actual vehicle page with independently selectable placements and reservation/takeover actions](assets/listing.png)

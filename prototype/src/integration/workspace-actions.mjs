@@ -1,12 +1,13 @@
 import { live, api, upload, refresh } from './runtime.mjs';
-import { toast } from '../store.mjs';
+import { toast,navigate } from '../store.mjs';
+import {artworkReservations} from './artwork-media.mjs';
 
 const PAID = new Set(['accepted', 'outbid', 'completed', 'cancelled', 'refunded', 'displaced']);
 export const bookingConversationAllowed = (booking, wallet) => typeof wallet === 'string' && !!wallet && !!booking && (booking.accepted === true || PAID.has(booking.status)) && [booking.owner, booking.sellerId].includes(wallet);
 export const verifiedMediaFor = (media, wallet) => !wallet ? [] : (media ?? []).filter(m => m.owner === wallet && m.status === 'verified' && m.public === true && /^ipfs:\/\/baf[a-z2-7]{30,120}$/.test(m.uri ?? ''));
 export const supportAdministrator = state => !!state.session?.wallet && state.data?.supportAdmin === true && state.session?.wallet === state.config?.defaultArbiter;
 
-export function createWorkspaceForms({ request = api, uploadFile = upload, refreshWorkspace = refresh, showToast = toast, getLive = () => live } = {}) {
+export function createWorkspaceForms({ request = api, uploadFile = upload, refreshWorkspace = refresh, showToast = toast, getLive = () => live,go = navigate } = {}) {
   function account() { const state = getLive(); if (!state.session?.wallet) throw new Error('Connect your wallet to continue.'); return state; }
   async function updated(message) { await refreshWorkspace({ force: true, local: true }); showToast(message); }
   return {
@@ -14,7 +15,13 @@ export function createWorkspaceForms({ request = api, uploadFile = upload, refre
       account(); const file = data.get('file');
       if (!file?.size) throw new Error('Choose a brand image or document to upload.');
       if (!data.has('public')) throw new Error('Confirm that you have permission to publish this content.');
-      await uploadFile(file, { acknowledged: true }); await updated('Your verified upload is ready to use in artwork.');
+      await uploadFile(file, { acknowledged: true }); await updated('File saved. Choose a reservation below to submit it as artwork.');
+    },
+    'choose-artwork-reservation': async data => {
+      const state=account(),mediaId=String(data.get('mediaId')??''),placementId=String(data.get('placementId')??'');
+      if(!verifiedMediaFor(state.data?.media,state.session.wallet).some(m=>m.id===mediaId))throw new Error('Choose a saved file belonging to this wallet.');
+      if(!artworkReservations(state).some(t=>t.id===placementId))throw new Error('Open a current reservation that is still waiting for artwork.');
+      go('/profile/placements/'+encodeURIComponent(placementId)+'?artwork='+encodeURIComponent(mediaId)+'#artwork');
     },
     'notification-preferences': async data => {
       const state = account(), profile = state.data?.profile ?? {};

@@ -9,6 +9,7 @@ import {compactOffer} from './offer-setup.mjs';
 import {isTeamTest,campaignNotice} from './campaign-kind.mjs';
 import { live,rawAsset,sale,snapshot,booking,usdc,byNs,dateTime } from './runtime.mjs';
 import { esc,link,badge,card,empty,heading,act,select,form,input,textArea,check,submit,hidden,scene,scheduleSummary,evidence,bookingTable,unavailable,signedOut,own,notice,table,artifactLink } from './ui.mjs';
+import {submittedArtwork} from './artwork-media.mjs';
 import { defaultOwnerSchedule,ownerCampaignStage,ownerTotals,ownerCanUploadProof } from './owner-state.mjs';
 
 const now=()=>Date.parse(live.catalog?.time??new Date().toISOString());
@@ -99,7 +100,7 @@ function fulfillment(r){
  const artwork=s.rights.proposal,canApprove=artwork&&s.rights.active&&!s.state.artwork_locked&&!settled;
  return heading('CAMPAIGN DELIVERY',offer.title,'Review the final advertisement, arrange installation, and keep the evidence together.',link('/host/sales/'+offer.id,'Campaign overview','button'))+campaignNotice(offer)+
  card(stage.title,`<p>${esc(stage.description)}</p>${stage.action==='fulfillment'?'':stageAction(offer,contract,stage)}`)+
- `<div class="split"><div>${card('Advertiser artwork',artwork?`<p>Artwork version ${esc(s.rights.revision)}</p><p>${artifactLink(artwork.artifact_uri)}</p>${canApprove?`<p>Check the design, dimensions and production requirements. Approval locks this version for printing.</p>${act('lock-artwork','Approve & lock this artwork',`data-contract="${esc(contract)}" data-revision="${esc(s.rights.revision)}"`,'button primary')}`:s.state.artwork_locked?badge('Approved for production'):notice('Artwork review is closed.','Request a review if the campaign needs help.')}`:`<p>The advertiser\'s artwork will appear here after bookings close. Use the conversation to coordinate production.</p>`)}
+ `<div class="split"><div>${card('Advertiser artwork',artwork?`<p>Artwork version ${esc(s.rights.revision)}</p>${submittedArtwork(s,live.data?.media)||artifactLink(artwork.artifact_uri)}${canApprove?`<p>Check the design, dimensions and production requirements. Approval locks this version for printing.</p>${act('lock-artwork','Approve & lock this artwork',`data-contract="${esc(contract)}" data-revision="${esc(s.rights.revision)}"`,'button primary')}`:s.state.artwork_locked?badge('Approved for production'):notice('Artwork review is closed.','Request a review if the campaign needs help.')}`:`<p>The advertiser\'s artwork will appear here after bookings close. Use the conversation to coordinate production.</p>`)}
  ${card('Keep in touch',link('/inbox/'+encodeURIComponent(contract),'Message advertiser','button'))}</div>
  <div>${card('Installation evidence',installationContent(s,media,contract,settled))}
  ${!settled?card('Need help with this campaign?',`<p>${Number(s.campaign.open_issues??0)?'A campaign issue is being reviewed.':'Request a review if delivery, artwork or the campaign period needs attention.'}</p>${link('/support/new?contract='+encodeURIComponent(contract),'Request a review','button')}`):''}</div></div>`+ownerRecord(s);

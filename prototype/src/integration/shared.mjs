@@ -4,6 +4,7 @@ import { esc,link,badge,card,empty,heading,act,select,form,input,textArea,check,
 import { artifactFields } from './owner.mjs';
 import {originalRetryAvailable} from './recovery-state.mjs';
 import { bookingConversationAllowed,verifiedMediaFor,supportAdministrator } from './workspace-actions.mjs';
+import {mediaUrl,artworkReservations,committedMedia} from './artwork-media.mjs';
 
 export function accountView(r){
  if(r.id==='A01'||r.id==='S06')return walletView(r.id==='A01');
@@ -24,12 +25,11 @@ export function profileDetails(){
 }
 export function brandAssets(){return brandLibrary(false);}
 
-function mediaUrl(uri){return /^ipfs:\/\/baf[a-z2-7]{30,120}$/.test(uri??'')?uri.replace('ipfs://','https://gateway.pinata.cloud/ipfs/'):null;}
 function brandLibrary(withHeading=true){
- const media=verifiedMediaFor(live.data?.media,live.session.wallet),max=(live.config?.mediaMaxBytes??1000000)/1000000;
- return (withHeading?heading('YOUR BRAND','Keep your creative ready for the next campaign.','Verified public uploads from this wallet can be reused when submitting artwork.'):'')+
+ const media=verifiedMediaFor(live.data?.media,live.session.wallet),max=(live.config?.mediaMaxBytes??1000000)/1000000,targets=artworkReservations(live);
+ return (withHeading?heading('','Your brand files.','Choose a reservation to submit a saved file as its artwork.'):'')+
   card('Add a brand asset',form('brand-upload',input('file','Image or document','','file','required accept="image/png,image/jpeg,application/pdf"')+`<p class="tiny muted">PNG, JPEG or PDF, up to ${esc(max)} MB. Keep original artwork quality. Uploaded files are public.</p>`+check('public','I have permission to publish this content and understand it will be public.')+submit('Upload brand asset')))+
-  card('Your verified uploads',media.length?`<div class="grid three">${media.map(m=>{const image=['image/png','image/jpeg'].includes(m.mime),url=mediaUrl(m.uri);return `<article class="panel">${image?`<img src="${esc(url)}" alt="Your verified brand image" loading="lazy" style="width:100%;height:160px;object-fit:contain">`:`<p>${m.mime==='application/pdf'?'PDF document':'Public document'}</p>`}<p><strong>${image?'Image':'Document'}</strong> · ${esc(dateTime(m.createdAt))}</p><p class="tiny">${esc(m.mime)} · ${esc(m.bytes)} bytes</p><p><a href="${esc(url)}" class="text-link" target="_blank" rel="noopener noreferrer">Open upload ↗</a></p><details><summary>Public content reference</summary><code>${esc(m.uri)}</code></details></article>`;}).join('')}</div>`:empty('Your brand library starts here.','Upload a logo or creative file to reuse it across your placements.'));
+  card('Your saved files',media.length?`<p class="tiny muted">Saving a file does not submit artwork. Choose the reservation it belongs to, then confirm the submission.</p><div class="brand-files">${media.map(m=>{const image=['image/png','image/jpeg'].includes(m.mime),url=mediaUrl(m.uri),used=(live.catalog?.snapshots??[]).some(s=>committedMedia(s.rights?.proposal,[m]));return `<article class="brand-file">${image?`<img src="${esc(url)}" alt="Your saved brand image" loading="lazy">`:`<p>${m.mime==='application/pdf'?'PDF document':'Public document'}</p>`}<div><p><strong>${image?'Image':'Document'}</strong> · ${esc(dateTime(m.createdAt))}</p><p class="tiny">${used?'Used in submitted artwork':'Saved to your library'}</p>${targets.length?form('choose-artwork-reservation',hidden('mediaId',m.id)+select('placementId','Reservation',targets.map(t=>[t.id,t.title]))+submit('Use for a reservation')):`<p class="tiny muted">No reservations are waiting for artwork.</p>${link('/profile#orders','View your reservations','text-link')}`}<p><a href="${esc(url)}" class="text-link" target="_blank" rel="noopener noreferrer">Open file ↗</a></p><details><summary>Public content reference</summary><code>${esc(m.uri)}</code></details></div></article>`;}).join('')}</div>`:empty('Your brand library starts here.','Upload a logo or creative file to reuse it across your placements.'));
 }
 function notificationSettings(){return heading('ACCOUNT / NOTIFICATIONS','Choose your in-app notifications.','Control whether account activity appears in your notifications feed.')+card('Activity notifications',form('notification-preferences',check('notifications','Show account and booking activity in my notifications',live.data?.profile?.notifications!==false)+submit('Save notification preferences')));}
 const placementAccess=(s,wallet)=>[s.state.seller_id,s.state.holder?.account_id,s.rights.current_owner_id,s.state.nominated_recipient].includes(wallet);

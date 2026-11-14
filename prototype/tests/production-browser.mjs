@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
+import {readFile,mkdir} from 'node:fs/promises';
+import {join} from 'node:path';
 import { intentPlan, signedErc191 } from '../../backend/src/intents.mjs';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export async function productionBrowser({page,wallets,getHarness,restart}){
@@ -12,7 +14,16 @@ export async function productionBrowser({page,wallets,getHarness,restart}){
  checks.push=(...items)=>{for(const item of items)console.log('[production-browser]',item);return Array.prototype.push.apply(checks,items);};
  const addresses=Object.fromEntries(Object.entries(wallets).map(([k,w])=>[k,w.address.toLowerCase()]));
  page.on('pageerror',error=>errors.push(error.message));
- await page.context().route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort('blockedbyclient'));
+ await page.context().route('**/*',async route=>{
+  const url=new URL(route.request().url());if(url.origin===base)return route.continue();
+  // Only this isolated fixture's digest-verified public bytes are served. No
+  // request reaches Pinata, a public chain or any external image service.
+  if(url.origin==='https://gateway.pinata.cloud'&&/^\/ipfs\/baf[a-z2-7]+$/.test(url.pathname)){
+   const m=getHarness().store.list('media').find(m=>m.uri==='ipfs://'+url.pathname.slice(6)&&m.public===true&&m.status==='verified');
+   if(m)return route.fulfill({status:200,contentType:m.mime,body:await readFile(join(getHarness().config.stateDir,'fixture-media',url.pathname.slice(6)))});
+  }
+  return route.abort('blockedbyclient');
+ });
  await page.exposeBinding('__fixtureWalletRequest',async(_,{method,params,active,reject})=>{
   const account=wallets[active];assert(account,'Unknown isolated test wallet');
   if(['eth_accounts','eth_requestAccounts'].includes(method))return [account.address.toLowerCase()];
@@ -102,8 +113,27 @@ export async function productionBrowser({page,wallets,getHarness,restart}){
  const aArtwork=await authorityHarness.chain.snapshot(contract,[addresses.owner,addresses.a,addresses.b]);assert.equal(aArtwork.rights.revision,'2');assert.equal(aArtwork.rights.original_payer_id,addresses.b);assert.deepEqual(aArtwork.credits,beforeUnauthorized.credits);assert.equal(aArtwork.state.total_received,beforeUnauthorized.state.total_received);const aToken=await authorityHarness.reads.view(aArtwork.receiverId,'nft_token',{token_id:contract});assert.equal(aToken.metadata.reference,aArtwork.rights.proposal.artifact_uri);assert.equal(aToken.metadata.reference_hash,aArtwork.rights.proposal.artifact_sha256);checks.push('Transferred NFT holder A submitted verified artwork revision 2 via production UI and real signature; dynamic NFT metadata updated while original financial creditors stayed unchanged');
  await transferTo(addresses.b);
  await connect('b');checks.push('Real EVM creative-control transfer B → A → B through UI after A exercised the transferred artwork right');
- await go('/profile/placements/'+bBooking);await page.locator('form[data-live-form=artwork] [name=notes]').fill('Synthetic ad artwork: ACME browser qualification only.');await page.locator('form[data-live-form=artwork] [name=public]').check();await submit('artwork');await waitFor(async()=>(await snapshot(contract)).rights.revision==='3','third artwork revision');assert.equal((await snapshot(contract)).rights.proposal.submitted_by,addresses.b);checks.push('Buyer B uploaded digest-verified revision 3 through production UI after control returned');
- await connect('owner');await go('/host/sales/'+saleId+'/fulfillment?contract='+contract);await act('lock-artwork');await waitFor(async()=>(await snapshot(contract)).state.artwork_locked,'owner artwork lock');
+ const screenshots=join(getHarness().config.stateDir,'artwork-screenshots');await mkdir(screenshots,{recursive:true});
+ await go('/profile#brand');await page.locator('#brand').evaluate(el=>el.open=true);
+ const brandFile=page.locator('form[data-live-form=brand-upload]');await brandFile.locator('[name=file]').setInputFiles(new URL('../public/images/team-tests/van.jpg',import.meta.url).pathname);await brandFile.locator('[name=public]').check();await submit('brand-upload');
+ await page.locator('#brand').evaluate(el=>el.open=true);await page.locator('.brand-file').first().screenshot({path:join(screenshots,'brand-file.png')});const useArtwork=page.locator('form[data-live-form=choose-artwork-reservation]').first();await useArtwork.locator('[name=placementId]').selectOption(bBooking);await submit('choose-artwork-reservation');
+ await page.waitForURL('**/profile/placements/'+bBooking+'?artwork=*#artwork');await idle();
+ assert.match(await page.locator('[data-artwork-selection]').innerText(),/not submitted yet/);await page.waitForFunction(()=>document.querySelector('[data-artwork-selection] img')?.naturalWidth>0);
+ const artworkForm=page.locator('form[data-live-form=artwork]'),selectedFile=await artworkForm.locator('[name=mediaId]').inputValue();
+ await artworkForm.locator('[name=file]').setInputFiles(new URL('../public/images/team-tests/van.jpg',import.meta.url).pathname);assert.equal(await artworkForm.locator('[name=mediaId]').inputValue(),'');assert.equal(await artworkForm.locator('[name=notes]').isDisabled(),true);
+ await artworkForm.locator('[name=mediaId]').selectOption(selectedFile);assert.equal(await artworkForm.locator('[name=file]').evaluate(el=>el.files.length),0);
+ assert.equal((await snapshot(contract)).rights.revision,'2','choosing a saved file must not submit it');
+ await page.locator('form[data-live-form=artwork] [name=public]').check();await submit('artwork');await waitFor(async()=>(await snapshot(contract)).rights.revision==='3','third artwork revision');assert.equal((await snapshot(contract)).rights.proposal.submitted_by,addresses.b);
+ await page.getByRole('img',{name:'Submitted artwork · awaiting approval',exact:true}).waitFor();assert.equal(await page.locator('form[data-live-form=artwork]').count(),1,'current revision remains visible beside the update form');
+ checks.push('Buyer B saved a digest-verified image in Profile, explicitly selected its reservation, previewed it without a transaction and submitted revision 3 through a real wallet signature');
+ await connect('owner');await go('/host/sales/'+saleId+'/fulfillment?contract='+contract);await page.getByRole('img',{name:'Submitted artwork · awaiting approval',exact:true}).waitFor();await page.locator('.artwork-preview').first().screenshot({path:join(screenshots,'owner-review.png')});
+ await go('/spaces/'+assetId+'?sale='+saleId);await page.locator('.placement-price-pending').filter({hasText:'Booking closed'}).waitFor();assert.equal(await page.locator('.placement-artwork').count(),0,'unapproved artwork must not be shown on the public vehicle');
+ await go('/host/sales/'+saleId+'/fulfillment?contract='+contract);await act('lock-artwork');await waitFor(async()=>(await snapshot(contract)).state.artwork_locked,'owner artwork lock');
+ await page.getByRole('img',{name:'Approved artwork',exact:true}).waitFor();
+ await go('/spaces/'+assetId+'?sale='+saleId);await page.locator('.placement-artwork').waitFor();assert.equal(await page.locator('.placement-artwork').count(),1);assert.match(await page.locator('.placement-photo figcaption').innerText(),/Approved artwork preview/);
+ for(const width of [1440,390]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:join(screenshots,'approved-public-'+width+'.png'),animations:'disabled'});}
+ await page.setViewportSize({width:1280,height:1000});await go('/host/sales/'+saleId+'/fulfillment?contract='+contract);
+ checks.push('Owner saw the committed advertiser image, approved its exact revision, and only then the public listing previewed it on the correct spot at desktop and mobile widths');
  await page.locator('form[data-live-form=delivery-proof] [name=notes]').fill('Synthetic installation evidence. No vehicle, sticker or physical campaign exists.');await page.locator('form[data-live-form=delivery-proof] [name=public]').check();await submit('delivery-proof');await waitFor(async()=>!!(await snapshot(contract)).campaign.delivery_proof,'owner delivery proof');assert.equal((await snapshot(contract)).campaign.delivery_proof.artwork_revision,'3');checks.push('Owner approved exact artwork revision 3 and submitted digest-verified installation evidence through production UI');
  await connect('b');await go('/support/new?booking='+bBooking);await page.locator('[name=reason]').fill('Synthetic issue to prove settlement is blocked until arbiter review.');await page.locator('form[data-live-form=issue] [name=notes]').fill('Synthetic public issue evidence.');await page.locator('form[data-live-form=issue] [name=public]').check();await submit('issue');const caseId=new URL(page.url()).pathname.split('/').at(-1);await waitFor(async()=>(await snapshot(contract)).campaign.open_issues===1,'on-chain participant issue');
  await getHarness().advance(steps.reviewEnd+3000);await getHarness().keeper.tick();assert.equal((await snapshot(contract)).state.outcome,'open');checks.push('Participant-signed on-chain issue blocked automatic success after service and review');

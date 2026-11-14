@@ -1,4 +1,5 @@
 import {privateAssetMetadata} from './asset-photos.mjs';
+import {committedArtifactMedia} from './artifact-presentation.mjs';
 import { walletCsp } from './wallet-csp.mjs';
 import {encodeStaticAsset} from './static-encoding.mjs';
 import { readFile } from 'node:fs/promises';
@@ -63,7 +64,7 @@ export class Product {
     if(this.reads?.view&&s.blockHash)s.credits={[actor]:await this.reads.view(s.receiverId??s.accountId,'get_credit',{...(s.offerId?{offer_id:s.offerId}:{}),account_id:actor},{header:{hash:s.blockHash,height:s.blockHeight},readPriority:'background'})};
     else s.credits=(await this.chain.snapshot(contractId,[actor])).credits;
    }
-   snapshots.push(s);
+   s.artifacts=committedArtifactMedia(this.store,s);snapshots.push(s);
   }catch(error){if(['UNKNOWN_ACCOUNT','PENDING_WITHDRAWAL','RPC_UNAVAILABLE','STALE_BLOCK'].includes(error.code))unavailable.push({contractId,code:error.code});else throw error;}
   }}));
   return {sales,snapshots,owners,unavailable,time:new Date(this.now()).toISOString(),...(contracts?{scopedContracts:ids}:{})};
