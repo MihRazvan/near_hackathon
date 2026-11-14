@@ -1,5 +1,7 @@
 # Actual local-chain integration tests
 
+The current end-to-end application path is the [production-interface shared-hub runner](../../VERIFY.md#full-interface-on-a-local-chain). The suites below include current shared-hub checks and older single-campaign/factory experiments; their semantics differ.
+
 These suites execute compiled Wasm on NEAR Sandbox 2.14.0 with valueless fixture tokens and local accounts. They cover callbacks, stale/concurrent purchases, claims, failure solvency, NFT authority and locking, factory isolation and implicit-account behavior.
 
 Install the pinned signing helpers, fetch the exact verifier and build contracts before running:
@@ -25,6 +27,6 @@ It executes 1/2-cent failure and 10/15-cent success flows with distinct ERC-191 
 
 The low-principal proof also verifies exact transfer balances with a nonzero configured swap fee, a one-cent native-token withdrawal and its return deposit. Current bounded profiles use 60 Tgas for `execute_intents` and claim release, 25 Tgas receiver hooks, 20 Tgas campaign initialization/settlement and 25 Tgas NFT/fulfillment actions. Tested gas allocations are separate from actual gas burned or storage collateral.
 
-`dated_campaign_terms_and_fulfillment_proof` additionally executes the current campaign contract: fixed bookings and refunds, terms-bound Intents checkout, final NFT nomination/transfer, exact artwork revision locking, delivery evidence, review timing, case resolution and final payout. Build the campaign artifact before this test.
+`dated_campaign_terms_and_fulfillment_proof` additionally executes the historical per-campaign contract: fixed bookings and refunds, terms-bound Intents checkout, final NFT nomination/transfer, exact artwork revision locking, delivery evidence, review timing, case resolution and final payout. Build the campaign artifact before this test.
 
 Generated artifacts and result records remain ignored. No personal key, funded account or API key is required. `maintenance.rs` qualifies a development-only empty-state helper; it does not authorize changing a funded campaign.

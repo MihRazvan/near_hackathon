@@ -57,7 +57,9 @@ Prepared plans bind their actor, receiver, amount or action, terms and relevant 
 
 Manual onboarding works without AI credentials. Owners can describe a vehicle, upload a photo and edit approximate 2D surfaces. AI suggestions still require owner review; the system does not infer verified physical measurements.
 
-A server API provider can be configured for public AI drafting with `OPENAI_API_KEY` and optional `OPENAI_MODEL`. A separate personal companion supports an owner's own locally authenticated ChatGPT connection, restricted to explicitly configured owner wallets. Public visitors cannot consume that personal subscription. OAuth credentials stay local; pairing secrets belong only in protected server/local configuration.
+Public photo analysis and description-based references use NEAR AI when `NEAR_AI_API_KEY` is configured. `NEAR_AI_MODEL` defaults to `z-ai/glm-5.3-flash`; `NEAR_AI_IMAGE_MODEL` defaults to `black-forest-labs/FLUX.2-klein-4B`. `sharp` prepares reference images before panel detection. Jobs retain stable request IDs/results and enforce per-wallet/global limits; interrupted paid inference is not automatically retried. Manual editing remains available when a provider is unavailable.
+
+The optional fallback text provider uses `OPENAI_API_KEY` and `OPENAI_MODEL`. A separate personal companion supports only an owner's explicitly allowlisted wallets through that owner's local ChatGPT connection. Public visitors cannot consume that subscription. OAuth credentials stay on the owner's computer; they are not public server credentials. Production uses explicit process secrets. Development may read the owner-only files documented by `config.mjs`; verification tools isolate their configuration from those files.
 
 Local personal sign-in is available through `npm run connect:chatgpt --prefix backend`. The companion runs with `node backend/bin/personal-ai-agent.mjs`; its explicit configuration is defined in [the agent](bin/personal-ai-agent.mjs). It must remain online for its owner to use that connection. The ordinary manual editor remains available when AI is offline.
 
@@ -72,7 +74,7 @@ Unit tests use isolated stores and controlled provider responses. See [Sandbox p
 
 ### Production interface on NEAR Sandbox
 
-Requires the pinned Rust toolchain/Wasm target, Python 3, Playwright from the backend development dependencies, and Google Chrome (`PLAYWRIGHT_CHANNEL=chrome`, the runner's default). Build the fixture inputs from the repository root:
+Use the [verification guide](../VERIFY.md#full-interface-on-a-local-chain) for the one-command runner and its prerequisite checks. The underlying runner requires the pinned Rust toolchain/Wasm target, Python 3, Playwright from the backend development dependencies, and a supported browser. The original direct runner defaults to Google Chrome (`PLAYWRIGHT_CHANNEL=chrome`). Build the fixture inputs manually from the repository root if needed:
 
 ```sh
 python3 proofs/intents-compatibility/fetch-pinned.py

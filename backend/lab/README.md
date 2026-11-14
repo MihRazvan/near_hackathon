@@ -1,6 +1,8 @@
-# Wallet integration lab
+# Historical wallet integration lab
 
-This interface is separate from `prototype/` and is not deployed to Vercel. It exercises the actual backend, current campaign Wasm, immutable campaign factory, NFT, fulfillment decisions and escrow transfers on NEAR Sandbox 2.14.0. The verifier is the same hash-pinned Intents binary used for the mainnet qualification.
+This older interface preserves the per-campaign/factory experiment, including native NFT-recipient nomination. It is separate from the connected application in `prototype/`. For the current shared hub, direct final-payer NFT issuance and full production interface, use [the current Sandbox verification](../../VERIFY.md#full-interface-on-a-local-chain).
+
+The historical lab exercises compiled campaign Wasm, a keyless campaign factory, NFT, fulfillment decisions and escrow transfers on NEAR Sandbox 2.14.0. Its verifier is the hash-pinned Intents binary used in the recorded qualification.
 
 ## Run locally
 
@@ -11,17 +13,17 @@ npm run build:lab --prefix backend
 npm run lab --prefix backend
 ```
 
-Open **http://127.0.0.1:4320/lab**. Node 24.12+ and the repository's pinned Rust toolchain are required. The first build downloads the reviewed verifier with read-only RPC and verifies its hash. Each launch starts a fresh local chain, private SQLite journal and fresh EVM test identities under the ignored `.local/lab/` directory. Stopping the lab stops its chain. The Recovery page can restart the API while preserving the running chain, identity keys, sessions and request journal.
+Open **http://127.0.0.1:4320/lab**. Node 24.12 and the repository's pinned Rust toolchain were used for the recorded lab qualification. The first build downloads the reviewed verifier with read-only RPC and verifies its hash. Each launch starts a fresh local chain, private SQLite journal and fresh EVM test identities under the ignored `.local/lab/` directory. Stopping the lab stops its chain. The Recovery page can restart the API while preserving the running chain, identity keys, sessions and request journal.
 
 The explicit **Sandbox** banner and wallet approval dialog identify the local test wallet harness. Its accounts hold valueless tokens; approvals produce real cryptographic signatures and real NEAR transactions. The harness signs only reviewed, stored plans on its own loopback `test-chain-*` network. It never exports signing keys to the browser. The faucet deposits 0.25 test USDC once per test buyer, using the actual token and Intents receiver contracts. It does not simulate a Base bridge.
 
 Public IPFS uploads use the optional Pinata token already configured in the private local integration environment. AI drafting uses the separately consented ChatGPT connection. Neither is replaced with a successful stub. These optional provider credentials are necessary for their respective controls. Only publish synthetic artifacts intended to be public when running the supplied tests.
 
-The [latest sanitized qualification](qualification.json) records 26 passing browser checks across successful, cancelled and fixed-price campaigns, plus a live AI draft through the interface. All three test escrows ended at zero. The backend suite has 53 passing tests; the contract suite has 84. Real extension approvals and a browser-based Base bridge are explicitly outside this recorded local run.
+The [historical sanitized qualification](qualification.json) records 26 passing browser checks across successful, cancelled and fixed-price campaigns, plus a live AI draft through the interface. All three test escrows ended at zero. At that recorded run, the backend suite had 53 passing tests and the contract suite had 84. These are historical counts, not current suite totals. Real extension approvals and a browser-based Base bridge are explicitly outside this recorded local run.
 
 ## Exercise the process
 
-1. Owner: describe the asset, edit spots, set cents, takeover overrides, fixed dates and rules; save and publish. Each spot gets a distinct keyless campaign account. Native collateral retained by the factory/child is separate from advertising earnings.
+1. Owner: describe the asset, edit spots, set cents, takeover overrides, fixed dates and rules; save and publish. In this historical model, each spot gets a distinct keyless campaign account. Native collateral retained by the factory/child is separate from advertising earnings.
 2. Buyer A: connect, fund the test Intents balance, prepare, review and sign. Buyer B: switch wallets and take over at the newly verified price.
 3. Owner: advance the local chain past bidding. Final buyer: nominate a NEAR recipient. Recipient: accept, mint and optionally transfer the placement NFT.
 4. Current NFT owner: upload verified public artwork and submit it. Seller: lock the exact revision and submit installation proof. Buyer/seller can request an issue review; a separate arbiter signs its on-chain disposition.

@@ -27,7 +27,7 @@ Open **http://127.0.0.1:4318**. The backend serves `prototype/dist`, `/wallets.j
 
 Wallets sign actual authentication and transaction requests. EVM wallets use Intents for hub actions; native NEAR wallets use the NEAR connector. Production hides development identities and local test controls. The final NEP-171 placement right belongs directly to the final payer after booking closes, including an EVM payer; the normal flow needs no separate NFT-recipient nomination.
 
-Manual description/photo onboarding is available without AI. An optional configured provider can suggest editable 2D surfaces. The private personal AI companion serves only its owner's allowlisted wallets through that owner's local connection. Owners must confirm surfaces and real printing measurements.
+Manual photo and surface editing is available without AI. A configured NEAR AI provider can analyze a photo or generate a labelled reference from a description, then suggest editable 2D surfaces. The private personal AI companion is a separate optional owner-only path. Owners confirm panel fit and physical printing measurements.
 
 Campaign status, balances and earnings come from recorded state. Installation evidence is owner-supplied, disputes involve an arbiter, and placement NFTs do not prove physical installation. Reports do not fabricate audience impressions or GPS measurements.
 
@@ -59,7 +59,7 @@ The [Docker deployment](../Dockerfile) serves the compiled frontend with the per
 
 ## Visual identity
 
-The interface takes its cues from street advertising and transport signage: Barlow Condensed display type, Manrope interface text, petrol blue, signal yellow and warm white. The outward-arrow mark represents a physical surface reaching a wider audience. Marketplace and onboarding pages use street photography; working screens prioritize readable forms, financial states and clear tables.
+The production identity uses folded street-poster shapes, pink/cobalt accents, Bricolage Grotesque display type and Hanken Grotesk interface text. Marketplace and onboarding pages use photographs and labelled generated references; working screens prioritize readable forms, financial states and stable editing geometry. Brief motion respects reduced-motion preferences.
 
 - `src/brand.mjs` contains the shared wordmark and mark.
 - `src/identity.css` defines fonts, tokens, public pages and shared controls.
@@ -67,4 +67,4 @@ The interface takes its cues from street advertising and transport signage: Barl
 - `src/integration/marketing.mjs` contains the homepage composition and illustrative ad preview. It does not create bookable inventory.
 - [Asset credits](public/ASSETS.md) record the image sources and included open font licenses. Fonts and photographs are served locally.
 
-Design research included [Barlow's transit-inspired origins](https://github.com/jpt/barlow), [Anthropic's frontend design guidance](https://github.com/anthropics/skills/tree/main/skills/frontend-design), [Impeccable](https://github.com/pbakaus/impeccable) and [Vercel's interface guidelines](https://github.com/vercel-labs/web-interface-guidelines). The application keeps its existing vanilla ES modules and uses native CSS transitions, respecting reduced-motion preferences.
+Design research included [Anthropic's frontend design guidance](https://github.com/anthropics/skills/tree/main/skills/frontend-design), [Impeccable](https://github.com/pbakaus/impeccable) and [Vercel's interface guidelines](https://github.com/vercel-labs/web-interface-guidelines). The application keeps its existing vanilla ES modules and uses native CSS transitions, respecting reduced-motion preferences.

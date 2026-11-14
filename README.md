@@ -1,36 +1,38 @@
 # Everywhere: advertise on everything
 
-Everywhere connects people who have physical advertising space with people who want to advertise. The MVP starts with vehicles: owners describe or photograph a vehicle, edit its advertising surfaces, and publish a campaign with dates, prices and content rules. Advertisers discover spaces, book immediately and manage artwork and delivery from their workspace.
+Everywhere turns physical advertising placements into transferable NEAR NFT rights. Vehicle owners create listings from photos or descriptions; advertisers reserve placements or take them over before production. The shared NEAR contract enforces booking rules and USDC claims. NFT ownership controls the creative without transferring the original parties' financial entitlements.
 
-Each final placement becomes a NEAR NFT whose owner controls artwork during the permitted window. A studio can receive that NFT and take over the creative without changing the original financial claims.
+The MVP starts with vehicles. Owners review AI-proposed panels, set campaign dates and all-in prices, then publish. After booking closes, the final payer receives a NEP-171 placement NFT directly, including an EVM payer. Its holder can delegate creative control to a studio before approval or the artwork deadline.
 
-The application uses persisted inventory, wallet authentication and real NEAR contract integrations. The frontend lives in `prototype/` for historical reasons; it contains the connected application.
+Open the [live marketplace](https://everywhere-near.vercel.app/explore) or the [completed mainnet record](https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168) without connecting a wallet. The recorded qualification used real payments and synthetic artwork/delivery evidence; no physical advertisement was installed.
 
-Open the [live application](https://everywhere-near.vercel.app). The [public deployment manifest](deployments/mainnet.json) identifies the mainnet contract, pinned code and completed synthetic qualification campaign. That campaign exercised real payments and on-chain fulfillment records; no physical advertisement was installed.
+Start with the [verification guide](VERIFY.md) for claims, code, tests and proof boundaries. Current application paths are [the shared hub](contracts/marketplace-hub/), [persistent API](backend/src/) and [connected frontend](prototype/). The `prototype` directory name is historical; it contains the working application.
 
 ## Verify in 5 minutes
 
-Use **Node.js 22.23+** and npm. Node 22.23 and 24.12 pass the tests and application builds; the production Docker image stays pinned to 24.12. These checks need no wallet keys or funds. Run from the repository root:
+Use **Node.js 22.23+** and npm. Production is pinned to Node 24.12. Run from the repository root; no wallet, API key or funds are needed:
 
 ```sh
-# Works without npm installation or network access.
-node backend/bin/verify-evidence.mjs --offline
-# Expected: "status": "offline-verified", three files, "chainVerification": "not-performed".
+node scripts/verify.mjs
+```
 
-npm ci --prefix backend --ignore-scripts
-npm ci --prefix prototype --ignore-scripts
-npm test --prefix backend
-# Expected: 248 tests pass, 0 fail.
-npm test --prefix prototype
-# Expected: 97 tests pass, 0 fail.
+The verifier installs locked JavaScript dependencies with lifecycle scripts disabled, runs the backend/frontend tests, builds the wallet adapter and frontend, then starts and stops a temporary local API for health and public-page checks. It isolates state and configuration from personal environment files. Dependency installation requires network access. Actual results and stage logs are written under ignored `.local/verification/`; use `--json` for the final machine-readable summary. Exit `0` means checks passed, `1` means a check failed, and `2` identifies an unavailable prerequisite or environment dependency. See [verification modes](VERIFY.md#verification-modes).
 
-npm run build:lab --prefix backend
-npm run build --prefix prototype
+For a dependency-free check of committed artifacts, including without network access:
+
+```sh
+node scripts/verify.mjs --offline
+# Expected: artifact integrity passes; chain verification is not performed.
+```
+
+To open the application after the quick build:
+
+```sh
 npm start --prefix backend
 # Expected: Everywhere API listening on port 4318.
 ```
 
-Open **http://127.0.0.1:4318**. A fresh checkout serves the application with execution disabled and an empty local workspace. Live inventory is on the [hosted marketplace](https://everywhere-near.vercel.app/explore); publication, payments and AI need configured services. Dependency installation and public-provider checks depend on your connection.
+Open **http://127.0.0.1:4318**. A fresh checkout has an empty local workspace with execution disabled. Live inventory is on the [hosted marketplace](https://everywhere-near.vercel.app/explore); publication, payments and AI need configured services. The [full production-interface Sandbox runner](VERIFY.md#full-interface-on-a-local-chain) exercises publication through payout with valueless local tokens.
 
 For a short product review on the live site:
 
@@ -38,21 +40,18 @@ For a short product review on the live site:
 2. Connect a wallet, open **Dashboard**, and add a vehicle photo or description. Review proposed spots, drag or resize them, select an outline, and try Delete and Undo. Saving a vehicle draft allocates no NEAR; AI suggestions require an available provider.
 3. Open the [completed mainnet record](https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168) to inspect the NFT, artwork, fulfillment commitments and original-wallet payouts. Its payments are real; its artwork and installation evidence are synthetic.
 
-The simulated takeover demo has been removed. An actual takeover uses the live listing's **Take over this spot** action, a distinct buyer wallet and a real USDC payment before booking closes. To exercise the entire lifecycle without public funds, use the [production-interface Sandbox qualification](backend/README.md#production-interface-on-near-sandbox).
+An actual takeover uses the live listing's **Take over this spot** action, a distinct buyer wallet and a real USDC payment before booking closes. Public records and local Sandbox tests provide inspection paths without making a payment.
 
-For independent blockchain verification, run in a second terminal:
+Independent mainnet verification is read-only:
 
 ```sh
 node backend/bin/verify-evidence.mjs
-# Expected when RPCs are available: "status": "verified", mainnet, 11 verified steps.
-
-# Optional: use one specific HTTPS NEAR mainnet RPC, exclusively.
+# With available providers: verified historical receipts and current qualified state.
 node backend/bin/verify-evidence.mjs https://archival-rpc.mainnet.near.org
+# Optional custom HTTPS RPC; used exclusively.
 ```
 
-The verifier automatically falls back across `https://near.drpc.org`, `https://free.rpc.fastnear.com` and `https://archival-rpc.mainnet.near.org`, with bounded timeouts and read-only requests. Historical transaction availability varies; an archival endpoint may be needed. If all endpoints fail, it exits unsuccessfully with: `Network access to a NEAR mainnet RPC is required. Retry with: node backend/bin/verify-evidence.mjs <rpc-url>`. A custom URL disables public fallback and its secret path/query is omitted from diagnostics. Verification never loads local credentials or signs transactions.
-
-Offline verification checks the committed deployed WASM, artwork and delivery bytes against SHA-256 hashes, the NEAR code hash, raw IPFS CIDs and matching deployment-manifest fields. It fails on missing or changed files. It does **not** fetch transaction receipts, establish current chain state, prove a physical installation or attest that the current source reproduces the deployed binary. See [evidence provenance](deployments/evidence/README.md).
+Historical receipt availability and archival rate limits can prevent an online check. An unavailable provider is not a successful verification or an evidence mismatch. Offline success checks committed bytes and manifest consistency only; it does not establish live ownership, transaction finality, physical installation or a source rebuild. Use the [separate build check](VERIFY.md#source-and-deployed-artifact) to reproduce the committed WASM. [Evidence provenance](deployments/evidence/README.md) documents these boundaries.
 
 ## The NFT thesis
 
@@ -141,6 +140,12 @@ The private personal AI companion connects only its owner's allowlisted wallets 
 Production uses the [Docker image](Dockerfile) and [Railway configuration](.railway/railway.ts), one application instance and a persistent SQLite volume. Configure HTTPS origins and server secrets explicitly. A static frontend deployment also needs the API and wallet-adapter routes; the frontend build alone does not provide the application backend. Deployment configuration is described in the [backend README](backend/README.md#production-hosting).
 
 Personal wallet keys, local credentials, state databases and private test-run reports are excluded from the repository. The public qualification manifest and its three hash-bound evidence files are committed for independent checks.
+
+## Software and asset credits
+
+Original repository code is licensed under [MIT](LICENSE). Third-party dependencies and assets retain their own licenses. Dependency versions are recorded in [backend/package-lock.json](backend/package-lock.json), [prototype/package-lock.json](prototype/package-lock.json) and [Cargo.lock](Cargo.lock). Core libraries include `near-sdk`, `near-contract-standards`, `near-api-js`, `viem`, `jose`, `sharp`, `qrcode`, Vite and Playwright. The local Intents qualification uses a [hash-pinned deployed verifier](proofs/intents-compatibility/README.md).
+
+Development used Codex for AI-assisted implementation and review under team direction. Runtime AI providers are documented separately above. Generated and edited images, photographs, vector artwork and self-hosted fonts are credited in [ASSETS.md](prototype/public/ASSETS.md), including the required font licenses. Asset credits do not establish vehicle ownership or physical advertising delivery. The Pitboard baseline and implementation history are disclosed above.
 
 ## Physical motorcycle pilot
 

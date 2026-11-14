@@ -1,4 +1,6 @@
-# Dated placement campaigns
+# Historical dated placement campaigns
+
+This is the older one-contract-per-placement implementation. The current application uses the [shared marketplace hub](../marketplace-hub/README.md), whose final payer receives its NFT directly. Keep this crate for historical test/deployment reproducibility; do not use its nomination flow to describe the current product.
 
 This contract version adds committed inventory/terms, fixed or takeover booking, artwork and installation deadlines, service dates, delivery evidence and issue-gated post-review settlement. It is separate from the frozen `marketplace` proof and is initialized only through `new_campaign` on a new account. It is not a migration to run over an already-funded legacy state.
 
