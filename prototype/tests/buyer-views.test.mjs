@@ -151,3 +151,9 @@ test('a takeover-filtered vehicle quotes and opens its takeover spot rather than
  location.search='?booking=open';const open=publicView({id:'P02'});
  assert.match(open,/0\.01 USDC/);assert.match(open,/spot=door/);
 });
+
+ test('automatic funding separates the reservation shortfall, minimum top-up and spendable surplus',()=>{
+ const {sale}=setup();live.fundQuote={planId:'quote',expiresAt:'2026-11-20T10:00:00Z',response:{quote:{amountIn:'151549',amountOut:'150000'}}};live.fundQuoteReservation={wallet,price:'100000',shortfall:'100000',saleId:sale.id,spotId:'door'};
+ const html=buyerView({id:'B11',params:{}});assert.match(html,/Reservation price/);assert.match(html,/Still needed/);assert.match(html,/minimum top-up is 0.15 USDC/);assert.match(html,/extra 0.05 USDC stays in your balance/);assert.match(html,/0.001549 USDC/);
+ live.fundQuoteReservation.wallet='another.near';assert.doesNotMatch(buyerView({id:'B11',params:{}}),/Reservation price|Still needed|extra 0.05/);live.fundQuote=null;live.fundQuoteReservation=null;
+ });

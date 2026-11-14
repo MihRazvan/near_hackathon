@@ -1,4 +1,5 @@
 import {referenceImage} from './reference-images.mjs';
+import {signatureMarkup} from './signature-summary.mjs';
 import {mergeScopedWorkspace} from './workspace-refresh.mjs';
 import { state, navigate, toast } from '../store.mjs';
 import { esc, short } from '../ui.mjs';
@@ -8,7 +9,7 @@ export const live={enabled:true,config:null,data:null,session:null,sessionReady:
  balances:null,busy:false,error:null,draft:null,selectedSpot:null,providers:[],review:null,refreshing:null};
 const changed=()=>window.dispatchEvent(new Event('app:changed'));
 export function setProgress(message){live.progress=message;const notice=document.querySelector('#connected-notice');if(notice){notice.hidden=false;notice.textContent=message;notice.classList.remove('orange');}}
-function clearWorkspace(){live.data=null;live.balances=null;live.balanceError=null;live.chainError=null;live.fundingRecords=[];live.assetEdit=null;live.aiPending=null;live.aiReferencePreview=null;live.capturePhoto=null;live.captureSaved=null;live.fundQuote=null;live.exitQuote=null;live.routeResult=null;live.selectedSpot=null;}
+function clearWorkspace(){live.data=null;live.balances=null;live.balanceError=null;live.chainError=null;live.fundingRecords=[];live.assetEdit=null;live.aiPending=null;live.aiReferencePreview=null;live.capturePhoto=null;live.captureSaved=null;live.fundQuote=null;live.fundQuoteReservation=null;live.exitQuote=null;live.routeResult=null;live.selectedSpot=null;}
 export const amount=value=>{const s=String(value);if(!/^(0|[1-9][0-9]*)(\.\d{1,6})?$/.test(s))throw new Error('Enter a USDC amount with up to six decimal places.');const [whole,fraction='']=s.split('.');return (BigInt(whole)*1000000n+BigInt(fraction.padEnd(6,'0'))).toString();};
 export const nativeUnits=(value,decimals=24)=>{const n=BigInt(value??0),scale=10n**BigInt(decimals),fraction=(n%scale).toString().padStart(decimals,'0').slice(0,6).replace(/0+$/,'');return (n/scale).toString()+(fraction?'.'+fraction:'');};
 export const dollars=value=>Number(value??0)/1e6;
@@ -217,7 +218,9 @@ export async function nativePlan(plan,title){
  });
 }
 export async function intentPlan(plan,title){
+ const readable=signatureMarkup(plan,{usdcToken:live.config.intentsUsdcToken});
  return walletRequest('intent',plan,title,async(r,session)=>{
+  const notice=document.querySelector('#connected-notice');if(notice){notice.innerHTML=readable;notice.hidden=false;}
   const signature=['test','funded'].includes(session.kind)?(await api(session.kind==='test'?'lab-wallet/intent-sign':'funded-wallet/sign-intent',{requestId:r.id,planId:plan.planId},{session})).signature:
    await live.wallets.signEvm(plan.message,session.wallet);
   if(live.session?.wallet!==session.wallet)throw new Error('Wallet changed during signing. The signature was not submitted.');

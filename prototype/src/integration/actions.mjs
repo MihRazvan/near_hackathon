@@ -101,7 +101,7 @@ export const actions={
   if(available<BigInt(price)){
    if(wallet.startsWith('0x')){
     await ensureSigningWallet();const q=await api('routes',{direction:'fund',amount:fundingAmount(price,available),dry:false});
-    live.fundQuote=q;rerender();
+    if(live.session?.wallet!==wallet)throw new Error('Your wallet changed. Reopen this reservation before adding funds.');live.fundQuote=q;live.fundQuoteReservation={wallet,saleId:offer.id,spotId:spot.id,price:String(price),shortfall:(BigInt(price)-available).toString()};rerender();
     // Review the exact route cost before the Base wallet opens. Continue from the balance page.
     const next='/checkout/'+offer.id+'?spot='+spot.id+(data.get('campaignId')?'&campaign='+encodeURIComponent(data.get('campaignId')):'');
     sessionStorage.setItem('everywhere-checkout-draft',JSON.stringify({wallet,saleId:offer.id,spotId:spot.id,name:data.get('name'),budget:data.get('budget'),campaignId:data.get('campaignId')}));
@@ -240,7 +240,7 @@ export const forms={
   else {await ensureUsdcStorage();await nativePlan(await api('token-actions',{kind:'withdraw-native',amount:amount(data.get('amount'))}),'Withdraw your USDC into your NEAR wallet');}await refreshBalances();await refresh({local:true});
  },
  'deposit-intents':async data=>{await nativePlan(await api('token-actions',{kind:'deposit-intents',amount:amount(data.get('amount'))}),'Deposit native USDC into your own Intents balance');await refreshBalances();await refresh({local:true});},
- 'fund-quote':async data=>{live.fundQuote=await api('routes',{direction:'fund',amount:amount(data.get('amount')),dry:false});rerender();},
+ 'fund-quote':async data=>{live.fundQuoteReservation=null;live.fundQuote=await api('routes',{direction:'fund',amount:amount(data.get('amount')),dry:false});rerender();},
  'exit-quote':async data=>{live.exitQuote=await api('routes',{direction:'exit',amount:amount(data.get('amount')),dry:false});rerender();},
  'recover-request':async data=>{const request=await api('wallet-requests/'+data.get('id')+'/reconcile',data.get('hash')?{transactionHash:String(data.get('hash')).trim()}:{});await refreshRecovered([request]);toast('The original request was checked against its signed plan.');},
  'recover-funding':async data=>{await api('wallet-funding/'+data.get('id')+'/reconcile',data.get('hash')?{transactionHash:String(data.get('hash')).trim()}:{});await refreshBalances();await refresh({local:true});toast('Original Base funding receipt checked.');},

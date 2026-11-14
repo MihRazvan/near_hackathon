@@ -17,7 +17,8 @@ export function intentPlan({signerId,verifier,intents,now=Date.now(),expiresMs=n
   assert(Number.isSafeInteger(expiresMs)&&expiresMs>now&&expiresMs<=now+300000,'INVALID_DEADLINE','Intent must expire within five minutes',400);
   assert(Array.isArray(intents)&&intents.length===1,'INVALID_INTENT','One scoped intent required',400);
   const payload={signer_id:signer,verifying_contract:verifier,deadline:new Date(expiresMs).toISOString(),nonce,intents};
-  const message=JSON.stringify(payload);
+  // Sign these exact readable bytes; never reserialize an already committed plan.
+  const message=JSON.stringify(payload,null,2);
   const plan={schema:'everywhere-intent/v1',signerId:signer,verifier,createdAt:new Date(now).toISOString(),expiresAt:payload.deadline,
     payload,message,context};
   return {...plan,planId:hashObject(plan)};

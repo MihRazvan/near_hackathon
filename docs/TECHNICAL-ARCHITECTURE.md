@@ -37,7 +37,7 @@ RPC requests are spaced 100 ms apart by default, configurable with `APP_NEAR_RPC
 
 ### EVM wallet
 
-The application prepares an intent for the user to review and sign with ERC-191. The relayer sends it to the configured NEAR Intents verifier. The verifier and hub check the signer, offer, amount, expected state and committed terms; the server can relay that signed action without receiving the user's spending key.
+The application prepares an intent for the user to review and sign with ERC-191. The wallet signs the exact, indented JSON stored in the plan; existing compact messages remain valid for recovery. A readable summary is decoded from those same bytes while the wallet is open. This does not change the ERC-191 format or make the wallet display an EIP-712 confirmation. The relayer sends it to the configured NEAR Intents verifier. The verifier and hub check the signer, offer, amount, expected state and committed terms; the server can relay that signed action without receiving the user's spending key.
 
 USDC already in the supported Intents balance can fund an action. Base funding uses a separate 1Click quote and wallet-approved transfer. The provider's quote sets routing costs and minimums. The app follows delivery and refund status. Live Base routing needs its own test outside the local-chain run.
 

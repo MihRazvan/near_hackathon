@@ -28,6 +28,10 @@
 .connected-topbar .button { padding: 5px 10px; }
 #connected-notice { margin-bottom: 22px; overflow-wrap: anywhere; background: var(--warning-paper); color: var(--warning-ink); border: 1px solid #cfb16e; }
 #connected-notice.orange { background: var(--error-paper); color: var(--error-ink); border-color: #d7a0a0; }
+.signature-summary { width: 100%; }
+.signature-summary h2 { font: 750 24px/1.2 var(--font-display); letter-spacing: -.025em; margin: 0; }
+.signature-summary p { margin: 10px 0; }
+.signature-summary dd { overflow-wrap: anywhere; }
 .connected-spots .grid.four { grid-template-columns: repeat(4,minmax(0,1fr)); }
 .spot-option { gap: 14px; justify-content: space-between; }
 .spot-option small { flex: 1; }
