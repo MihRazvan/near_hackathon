@@ -1,0 +1,55 @@
+{
+  "schema": "everywhere-doc-screenshots/v1",
+  "captured": [
+    {
+      "file": "marketplace.png",
+      "kind": "live-public-ui",
+      "url": "https://everywhere-near.vercel.app/explore",
+      "observedAt": "2026-11-14T10:28:26.453Z",
+      "signedIn": false,
+      "mutationsAllowed": false,
+      "observedUiState": "settled-interface"
+    },
+    {
+      "file": "marketplace-mobile.png",
+      "kind": "live-public-ui",
+      "url": "https://everywhere-near.vercel.app/explore",
+      "observedAt": "2026-11-14T10:28:26.615Z",
+      "signedIn": false,
+      "mutationsAllowed": false,
+      "observedUiState": "settled-interface"
+    },
+    {
+      "file": "listing.png",
+      "kind": "live-public-ui",
+      "url": "https://everywhere-near.vercel.app/spaces/0627cf2a-28ad-4952-a16f-6b9fdfdbbe87?sale=2c541941-6d2f-4cf2-8cad-375cf4ad43ff",
+      "observedAt": "2026-11-14T10:28:34.636Z",
+      "signedIn": false,
+      "mutationsAllowed": false,
+      "observedUiState": "settled-interface"
+    },
+    {
+      "file": "nft-record.png",
+      "kind": "live-public-ui",
+      "url": "https://everywhere-near.vercel.app/records/aa80efd3-472d-4e64-b8f8-fec738d2d3e2",
+      "observedAt": "2026-11-14T10:16:14.272Z",
+      "signedIn": false,
+      "mutationsAllowed": false
+    },
+    {
+      "file": "editor.png",
+      "kind": "actual-built-ui-isolated-api-fixture",
+      "route": "/host/assets/:id/review",
+      "observedAt": "2026-11-14T10:24:58.031Z",
+      "sourceCommit": "f2a0688d0da33279fb1be92c117bbda3fe081495",
+      "fundedWallets": false,
+      "aiInference": false,
+      "transactions": false
+    }
+  ],
+  "notes": [
+    "Screenshots establish interface appearance at capture time; they are not transaction or installation evidence.",
+    "Public campaigns shown use real token transactions with generated vehicle references and synthetic delivery.",
+    "Editor uses the actual built frontend with an isolated API fixture; no wallet, paid AI or transaction is invoked."
+  ]
+}
