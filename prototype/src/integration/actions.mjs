@@ -4,6 +4,7 @@ export {assetFields} from './asset-fields.mjs';
 import {isTeamTest} from './campaign-kind.mjs';
 import { navigate,toast } from '../store.mjs';
 import { live,api,refresh,refreshBalances,connect,disconnect,review,nativePlan,intentPlan,nativeAction,poll,sale,snapshot,allSales,booking,rawAsset,amount,fileData,upload,rerender,nativeUnits,ensureSigningWallet } from './runtime.mjs';
+import {privateListingPhotos,publishVehiclePhotos} from './view-publication.mjs';
 import { fundingAmount,campaignSchedule,reservationGroup } from './checkout-state.mjs';
 import { photoData } from './photos.mjs';
 import {verifyOriginalIntent} from './recovery-state.mjs';
@@ -121,6 +122,8 @@ export const actions={
   const old=live.data.saved.find(s=>s.saleId===el.dataset.id);await api('saved',{saleId:el.dataset.id,saved:!old?.saved});await refresh({local:true});toast(old?.saved?'Space removed from shortlist.':'Space saved.');},
  'mainnet-test-dates':()=>setDates([10,20,25,25,30,35]),'quick-dates':()=>setDates([3,8,12,12,14,16]),'relaxed-dates':()=>setDates([30,60,90,90,110,120]),
  publish:async el=>{
+  const offer=sale(el.dataset.id),asset=offer&&rawAsset(offer.assetId);
+  if(asset?.photoViews?.length&&privateListingPhotos(asset).length)await publishVehiclePhotos(asset,{acknowledged:document.querySelector('[name=publishPhotos]')?.checked===true});
   const result=await api('sales/'+el.dataset.id+'/publication-options',{});
   if(result.mode==='recoverable'){
    await review('Publish with recoverable NEAR collateral',{spots:result.plan.spots.map(p=>({spotId:p.spotId,contractId:p.contractId})),collateralNEAR:nativeUnits(result.plan.collateralPerSpot),...result.assessment});

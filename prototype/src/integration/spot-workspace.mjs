@@ -1,24 +1,25 @@
 import {esc,icon} from '../ui.mjs';
 import {live,rawAsset} from './runtime.mjs';
-import {vehicleEditor,panelMarkup} from './vehicle-editor.mjs';
+import {panelMarkup} from './vehicle-editor.mjs';
 import {PANEL_LIMIT,newPanel,movePanel,resizePanel,editPanelVertex,shapePanel,panelShape,polygonPath} from './panel-geometry.mjs';
 import {assetFields} from './asset-fields.mjs';
 import {rememberUndo} from './onboarding.mjs';
 import {editorHistoryState,restoreEditorHistory} from './editor-history.mjs';
+import {activePhotoView,vehicleViews,viewSpots,viewId,viewPhoto,viewLabel,editorViews} from './vehicle-views.mjs';
 import {input,select,hidden} from './ui.mjs';
 const tools={add:['plus','Add spot'],draw:['surface','Draw spot'],undo:['undo','Undo'],redo:['redo','Redo'],duplicate:['copy','Duplicate'],delete:['trash','Delete']};
 const command=(key,title=tools[key][1])=>`<button type="button" class="button small editor-command" data-editor-command="${key}" title="${title}" aria-label="${title}">${icon(tools[key][0])}<span>${title}</span></button>`;
 export function editorToolbar(){return `<div class="spot-toolbar" role="toolbar" aria-label="Spot tools"><div>${command('add')}${command('draw')}</div><div>${command('undo')}${command('redo')}</div><div class="spot-selection-tools">${command('duplicate')}${command('delete')}</div></div>`;}
 const rows=(a,selected)=>a.spots.map((p,i)=>`<div class="spot-list-row ${p.id===selected?'is-selected':''}" data-spot-row="${esc(p.id)}"><button type="button" data-editor-select="${esc(p.id)}" aria-pressed="${p.id===selected}"><span class="spot-list-number">${i+1}</span><span data-spot-name="${esc(p.id)}">${esc(p.name)}</span></button><button type="button" class="spot-row-delete" data-editor-delete="${esc(p.id)}" aria-label="Delete ${esc(p.name)}">${icon('trash')}</button></div>`).join('');
-function fields(p,selected){return `<fieldset data-spot-fields="${esc(p.id)}" ${p.id===selected?'':'hidden'}>${input('name:'+p.id,'Spot name',p.name,'text','required maxlength="80" autocomplete="off"')}${hidden('price:'+p.id,(Number(p.suggestedPriceCents)/100).toFixed(2))}<label class="field"><span>Shape</span><select data-editor-shape><option value="rectangle" ${panelShape(p)==='rectangle'?'selected':''}>Rectangle</option><option value="angled" ${panelShape(p)==='angled'?'selected':''}>Angled panel</option><option value="oval" ${panelShape(p)==='oval'?'selected':''}>Oval</option><option value="custom" ${panelShape(p)==='custom'?'selected':''} disabled>Custom outline</option></select></label><button type="button" class="button small" data-editor-command="outline" aria-pressed="false">Edit outline</button><p class="tiny muted">Use the handles to resize. Edit outline to fit individual corners.</p><details class="spot-precision"><summary>Position &amp; vehicle side</summary>${select('side:'+p.id,'Visible side',[['left','Left'],['right','Right'],['rear','Rear'],['front','Front'],['top','Top']],p.side)}<div class="grid two">${['x','y','width','height'].map(k=>input(k+':'+p.id,{x:'Left · %',y:'Top · %',width:'Width · %',height:'Height · %'}[k],(p.box[k]*100).toFixed(6),'number','min="0" max="100" step="0.000001" required')).join('')}</div></details></fieldset>`;}
-export function spotInspector(a,selected){return `<div class="spot-inspector-heading"><h2>Spots <span data-spot-count>${a.spots.length}</span></h2><span class="tiny muted">Up to ${PANEL_LIMIT}</span></div><div class="spot-list" data-spot-list>${rows(a,selected)}</div><p class="spot-no-selection" data-no-selection ${selected?'hidden':''}>Click a spot to edit it, or add a new one.</p><div data-spot-properties>${a.spots.map(p=>fields(p,selected)).join('')}</div>`;}
+function fields(p,selected,asset){return `<fieldset data-spot-fields="${esc(p.id)}" ${p.id===selected?'':'hidden'}>${input('name:'+p.id,'Spot name',p.name,'text','required maxlength="80" autocomplete="off"')}${hidden('price:'+p.id,(Number(p.suggestedPriceCents)/100).toFixed(2))}<label class="field"><span>Shape</span><select data-editor-shape><option value="rectangle" ${panelShape(p)==='rectangle'?'selected':''}>Rectangle</option><option value="angled" ${panelShape(p)==='angled'?'selected':''}>Angled panel</option><option value="oval" ${panelShape(p)==='oval'?'selected':''}>Oval</option><option value="custom" ${panelShape(p)==='custom'?'selected':''} disabled>Custom outline</option></select></label><button type="button" class="button small" data-editor-command="outline" aria-pressed="false">Edit outline</button><p class="tiny muted">Use the handles to resize. Edit outline to fit individual corners.</p><details class="spot-precision"><summary>Position &amp; photo view</summary>${select('view:'+p.id,'Photo view',vehicleViews(asset).map(v=>[v.id,viewLabel(v)]),viewId(p))}<div class="grid two">${['x','y','width','height'].map(k=>input(k+':'+p.id,{x:'Left · %',y:'Top · %',width:'Width · %',height:'Height · %'}[k],(p.box[k]*100).toFixed(6),'number','min="0" max="100" step="0.000001" required')).join('')}</div></details></fieldset>`;}
+export function spotInspector(a,selected){return `<div class="spot-inspector-heading"><h2>Spots <span data-spot-count>${a.spots.length}</span></h2><span class="tiny muted">Up to ${PANEL_LIMIT}</span></div><div class="spot-list" data-spot-list>${rows(a,selected)}</div><p class="spot-no-selection" data-no-selection ${selected?'hidden':''}>Click a spot to edit it, or add a new one.</p><div data-spot-properties>${a.spots.map(p=>fields(p,selected,a)).join('')}</div>`;}
 let mounted;
 export function unmountSpotWorkspace(){mounted?.abort();mounted=null;}
 export function mountSpotWorkspace(form){
  unmountSpotWorkspace();const svg=form?.querySelector('[data-photo-editor]');if(!svg)return;
  const abort=new AbortController();mounted=abort;const {signal}=abort;
  const get=()=>live.assetEdit?.id===form.elements.namedItem('id').value?live.assetEdit:rawAsset(form.elements.namedItem('id').value);
- const query=new URLSearchParams(location.search);let selected=query.get('spot');if(!get().spots.some(p=>p.id===selected))selected=get().spots[0]?.id??null;
+ const query=new URLSearchParams(location.search);let selected=query.get('spot'),currentView=activePhotoView(get(),selected,query.get('view')).id;if(!get().spots.some(p=>p.id===selected))selected=viewSpots(get(),currentView)[0]?.p.id??null;
  let mode='select',outline=false,drag=null,suppressClick=false;
  const image=svg.closest('.vehicle-editor-image'),list=form.querySelector('[data-spot-list]'),properties=form.querySelector('[data-spot-properties]');
  const sync=()=>{const a=get();live.assetEdit={...a,...assetFields(new FormData(form),a)};return get();};
@@ -34,10 +35,10 @@ export function mountSpotWorkspace(form){
   const helper=form.querySelector('[data-editor-help]');helper.textContent=mode==='draw'?'Drag on the photo to draw a new spot. Escape cancels.':outline?'Drag a corner to fit the vehicle panel. Escape returns to resizing.':'Drag to move · Handles to resize · Delete to remove';
   image.dataset.editorMode=mode;
  }
- function paint(){const selectedSpot=get().spots.find(p=>p.id===selected);const shape=properties.querySelector('[data-spot-fields]:not([hidden]) [data-editor-shape]');if(shape&&selectedSpot)shape.value=panelShape(selectedSpot);const d=dimensions();svg.setAttribute('viewBox',`0 0 ${d.width} ${d.height}`);svg.innerHTML=get().spots.map((p,i)=>({p,i})).sort((a,b)=>Number(a.p.id===selected)-Number(b.p.id===selected)).map(({p,i})=>panelMarkup(p,i,selected,{...d,outline})).join('');updateTools();}
+ function paint(){const selectedSpot=get().spots.find(p=>p.id===selected);const shape=properties.querySelector('[data-spot-fields]:not([hidden]) [data-editor-shape]');if(shape&&selectedSpot)shape.value=panelShape(selectedSpot);const photo=vehicleViews(get()).find(v=>v.id===currentView)??vehicleViews(get())[0];currentView=photo.id;image.dataset.currentView=currentView;const src=viewPhoto(photo),img=image.querySelector('img');if(img&&src){if(img.getAttribute('src')!==src)img.src=src;img.alt='Your vehicle: '+get().title+' · '+viewLabel(photo);}for(const button of form.querySelectorAll('[data-editor-view]')){const active=button.dataset.editorView===currentView;button.classList.toggle('primary',active);button.setAttribute('aria-pressed',String(active));}const caption=image.closest('figure').querySelector('figcaption');caption.innerHTML=photo.imageProvenance==='ai-generated'?'<span class="demo-tag" title="AI-generated vehicle reference">Demo</span>':'Outlines are editable. Confirm physical measurements before printing.';const d=dimensions();svg.setAttribute('viewBox',`0 0 ${d.width} ${d.height}`);svg.innerHTML=viewSpots(get(),currentView).sort((a,b)=>Number(a.p.id===selected)-Number(b.p.id===selected)).map(({p,i})=>panelMarkup(p,i,selected,{...d,outline})).join('');updateTools();}
  function selectSpot(id,{focus=false}={}){
-  selected=get().spots.some(p=>p.id===id)?id:null;outline=false;
-  const q=new URLSearchParams(location.search);selected?q.set('spot',selected):q.delete('spot');history.replaceState(history.state,'',location.pathname+(q.size?'?'+q:'')+location.hash);
+  selected=get().spots.some(p=>p.id===id)?id:null;if(selected)currentView=viewId(get().spots.find(p=>p.id===selected));outline=false;
+  const q=new URLSearchParams(location.search);selected?q.set('spot',selected):q.delete('spot');currentView==='main'?q.delete('view'):q.set('view',currentView);history.replaceState(history.state,'',location.pathname+(q.size?'?'+q:'')+location.hash);
   for(const el of list.querySelectorAll('[data-spot-row]')){const active=el.dataset.spotRow===selected;el.classList.toggle('is-selected',active);el.querySelector('[data-editor-select]').setAttribute('aria-pressed',String(active));}
   for(const el of properties.querySelectorAll('[data-spot-fields]'))el.hidden=el.dataset.spotFields!==selected;
   form.querySelector('[data-no-selection]').hidden=!!selected;paint();
@@ -45,9 +46,9 @@ export function mountSpotWorkspace(form){
  }
  function focusCanvas(){(selected?svg.querySelector(`[data-panel="${CSS.escape(selected)}"]`):svg)?.focus({preventScroll:true});}
  function rebuild({focus=true}={}){
-  const a=get();list.innerHTML=rows(a,selected);properties.innerHTML=a.spots.map(p=>fields(p,selected)).join('');
+  const a=get();list.innerHTML=rows(a,selected);properties.innerHTML=a.spots.map(p=>fields(p,selected,a)).join('');
   for(const key of ['title','city','description','assetType']){const field=form.elements.namedItem(key);if(field)field.value=a[key]??'';}
-  const photo=image.querySelector('img'),src=a.photoDataUrl??a.photoUrl;if(photo&&src&&photo.getAttribute('src')!==src)photo.src=src;
+  const bar=form.querySelector('[data-photo-views]');if(bar)bar.outerHTML=editorViews(a,currentView);
   selectSpot(selected,{focus});
  }
  function apply(p){const a=get();a.spots=a.spots.map(old=>old.id===p.id?p:old);live.assetEdit=a;for(const k of ['x','y','width','height'])form.elements.namedItem(k+':'+p.id).value=(p.box[k]*100).toFixed(6);paint();}
@@ -58,24 +59,25 @@ export function mountSpotWorkspace(form){
   if(live.busy||form.querySelector('fieldset.vehicle-edit-fields:disabled'))return;
   if(['delete','duplicate','outline'].includes(key)&&!selected)return;
   if(key==='delete')return remove();
-  if(key==='add'||key==='duplicate'){if(get().spots.length>=PANEL_LIMIT){announce('This vehicle already has eight spots.');return;}const a=sync(),spot=newPanel(a.spots,key==='duplicate'?{copy:a.spots.find(p=>p.id===selected)}:{});return mutate(next=>next.spots.push(spot),{select:spot.id,description:spot.name+' added. Drag it into place.'});}
+  if(key==='add'||key==='duplicate'){if(get().spots.length>=PANEL_LIMIT){announce('This vehicle already has eight spots.');return;}const a=sync(),spot={...newPanel(a.spots,key==='duplicate'?{copy:a.spots.find(p=>p.id===selected)}:{}),photoViewId:currentView,side:vehicleViews(a).find(v=>v.id===currentView).side};return mutate(next=>next.spots.push(spot),{select:spot.id,description:spot.name+' added. Drag it into place.'});}
   if(key==='draw'){mode=mode==='draw'?'select':'draw';outline=false;paint();focusCanvas();return;}
   if(key==='outline'){outline=!outline;mode='select';paint();focusCanvas();return;}
   if(key==='undo'||key==='redo'){const current=sync(),next=restoreEditorHistory(live.session.wallet,current,key);if(!next)return;live.assetEdit=next;if(!next.spots.some(p=>p.id===selected))selected=next.spots[0]?.id??null;mode='select';rebuild();store();announce(key==='undo'?'Change undone.':'Change redone.');}
  }
  form.addEventListener('click',e=>{
-  const control=e.target.closest('[data-editor-command],[data-editor-select],[data-editor-delete],[data-editor-photo]');if(!control)return;e.preventDefault();
+  const control=e.target.closest('[data-editor-command],[data-editor-select],[data-editor-delete],[data-editor-photo],[data-editor-view]');if(!control)return;e.preventDefault();
   if(control.disabled)return;
+  if(control.hasAttribute('data-editor-view')){if(drag||live.busy)return;sync();currentView=control.dataset.editorView;selectSpot(viewSpots(get(),currentView)[0]?.p.id??null);announce(viewLabel(vehicleViews(get()).find(v=>v.id===currentView))+' photo selected.');return;}
   if(control.hasAttribute('data-editor-photo')){form.elements.namedItem('replacementPhoto').click();return;}
   if(control.hasAttribute('data-editor-select')){sync();selectSpot(control.dataset.editorSelect,{focus:true});}
   else if(control.hasAttribute('data-editor-delete'))remove(control.dataset.editorDelete);
   else command(control.dataset.editorCommand);
  },{signal});
- form.addEventListener('change',e=>{if(!e.target.matches('[data-editor-shape]')||!selected)return;const shape=e.target.value;mutate(a=>{a.spots=a.spots.map(p=>p.id===selected?shapePanel(p,shape):p);},{select:selected,description:'Spot shape updated.'});},{signal});
+ form.addEventListener('change',e=>{if(e.target.name?.startsWith('view:')){const id=e.target.name.slice(5),view=e.target.value;currentView=view;sync();selectSpot(id);store();return;}if(!e.target.matches('[data-editor-shape]')||!selected)return;const shape=e.target.value;mutate(a=>{a.spots=a.spots.map(p=>p.id===selected?shapePanel(p,shape):p);},{select:selected,description:'Spot shape updated.'});},{signal});
  form.addEventListener('input',e=>{
   if(e.target===form)return;const name=e.target.name??'';
   if(name.startsWith('name:')){const id=name.slice(5),label=list.querySelector(`[data-spot-name="${CSS.escape(id)}"]`);if(label)label.textContent=e.target.value;}
-  if(/^(name|side|x|y|width|height):/.test(name)){try{sync();paint();}catch{}}
+  if(/^(name|view|x|y|width|height):/.test(name)){try{sync();paint();}catch{}}
  },{signal});
  form.addEventListener('invalid',e=>{const field=e.target.closest('[data-spot-fields]');if(field){selectSpot(field.dataset.spotFields);e.target.focus();}else{const details=e.target.closest('details');if(details)details.open=true;}},{signal,capture:true});
  svg.addEventListener('pointerdown',e=>{
@@ -98,7 +100,7 @@ export function mountSpotWorkspace(form){
   if(!drag||e.pointerId!==drag.pointerId)return;const gesture=drag;drag=null;delete form.dataset.editingGeometry;
   if(gesture.kind==='draw'){
    mode='select';const b=gesture.box;
-   if(b&&b.width>=.025&&b.height>=.025){const spot=newPanel(get().spots,{box:b});rememberUndo(gesture.before);get().spots.push(spot);selected=spot.id;rebuild();store();announce(spot.name+' drawn.');}else{paint();announce('Drag a larger area to draw a spot.');}
+   if(b&&b.width>=.025&&b.height>=.025){const spot={...newPanel(get().spots,{box:b}),photoViewId:currentView,side:vehicleViews(get()).find(v=>v.id===currentView).side};rememberUndo(gesture.before);get().spots.push(spot);selected=spot.id;rebuild();store();announce(spot.name+' drawn.');}else{paint();announce('Drag a larger area to draw a spot.');}
   }else if(gesture.moved){rememberUndo(gesture.before);store();focusCanvas();}else if(form.dataset.dirty==='true')store();
   suppressClick=true;setTimeout(()=>suppressClick=false,0);
  };

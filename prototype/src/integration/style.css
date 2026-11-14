@@ -32,6 +32,13 @@
 .signature-summary h2 { font: 750 24px/1.2 var(--font-display); letter-spacing: -.025em; margin: 0; }
 .signature-summary p { margin: 10px 0; }
 .signature-summary dd { overflow-wrap: anywhere; }
+.vehicle-photo-views { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.vehicle-photo-views nav, .listing-photo-views { display: flex; flex-wrap: wrap; gap: 8px; }
+.listing-photo-views { padding: 12px; }
+.vehicle-add-view { flex: 0 1 320px; max-width: 100%; }
+.vehicle-add-view summary { padding: 10px 0; }
+.vehicle-add-view .field { margin: 10px 0; }
+.vehicle-add-view input[type="file"] { width: 100%; min-width: 0; }
 .connected-spots .grid.four { grid-template-columns: repeat(4,minmax(0,1fr)); }
 .spot-option { gap: 14px; justify-content: space-between; }
 .spot-option small { flex: 1; }

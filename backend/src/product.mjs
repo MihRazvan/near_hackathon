@@ -1,3 +1,4 @@
+import {privateAssetMetadata} from './asset-photos.mjs';
 import { walletCsp } from './wallet-csp.mjs';
 import {encodeStaticAsset} from './static-encoding.mjs';
 import { readFile } from 'node:fs/promises';
@@ -71,7 +72,7 @@ export class Product {
   const actor=walletId(wallet),catalog=local?this.catalogMetadata():await this.catalog(actor,{contracts});
   // Listing snapshots are public; private messages, drafts and financial plans remain wallet-scoped.
   const dashboard=this.marketplace.dashboard(actor),arbiterSales=catalog.sales.filter(s=>s.arbiterId===actor);
-  if(this.config.production)dashboard.assets=dashboard.assets.map(({photoDataUrl,...asset})=>({...asset,...(photoDataUrl?{photoUrl:'/api/assets/'+encodeURIComponent(asset.id)+'/photo?version='+asset.version}:{})}));
+  if(this.config.production)dashboard.assets=dashboard.assets.map(privateAssetMetadata);
   const bookings=[...dashboard.bookings,...dashboard.incomingBookings];
   const relatedBookings=new Set(bookings.map(b=>b.id));
   return {...catalog,chainPending:local,wallet:actor,profile:this.store.get('profile',actor),dashboard,arbiterSales,ai:{available:this.personalAI?.availability(actor)??false},

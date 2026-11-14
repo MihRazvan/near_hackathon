@@ -28,7 +28,8 @@ export function validateDraft(value,{preserveIds=false,allowEmpty=false}={}){
    const area=Math.abs(polygon.reduce((sum,p,i)=>{const n=polygon[(i+1)%polygon.length];return sum+p[0]*n[1]-n[0]*p[1];},0))/2;
    assert(area>.00001,'INVALID_AI_DRAFT','Panel outline must enclose a surface',502);
   }
-  return {id,...(polygon?{polygon}:{}),name:text(spot.name,'spot name',80),side:spot.side,box:{x:box.x,y:box.y,width:box.width,height:box.height},
+  if(spot.photoViewId!==undefined)assert(['main','left','right','front','rear','top'].includes(spot.photoViewId),'INVALID_PHOTO_VIEW','Choose an existing photo view',400);
+  return {id,...(spot.photoViewId?{photoViewId:spot.photoViewId}:{}),...(polygon?{polygon}:{}),name:text(spot.name,'spot name',80),side:spot.side,box:{x:box.x,y:box.y,width:box.width,height:box.height},
    suggestedPriceCents:spot.suggestedPriceCents,confidence:spot.confidence,requiresMeasurement:true,dimensionsCm:null};
  });
  assert(Array.isArray(value.assumptions)&&value.assumptions.length<=8,'INVALID_AI_DRAFT','Draft assumptions required',502);

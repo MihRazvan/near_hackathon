@@ -76,8 +76,8 @@ test('profiles and saved records persist per wallet and public catalog has no pr
 });
 test('production workspace returns private photo references without retransmitting photos on every poll',async()=>{
  const store=new Store(),marketplace=new Marketplace({store,chain:{}}),product=new Product({store,marketplace,chain:{},config:{production:true},walletRequests:{list:()=>[]}});
- try{const photo='data:image/png;base64,'+Buffer.from([137,80,78,71,13,10,26,10]).toString('base64');const asset=marketplace.createAsset(owner,{...input,photoDataUrl:photo});
-  const workspace=await product.workspace(owner);assert.equal(workspace.dashboard.assets[0].photoDataUrl,undefined);assert.match(workspace.dashboard.assets[0].photoUrl,/^\/api\/assets\//);assert.equal(store.get('asset',asset.id).photoDataUrl,photo);assert.equal(JSON.stringify(workspace).includes(photo),false);
+ try{const photo='data:image/png;base64,'+Buffer.from([137,80,78,71,13,10,26,10]).toString('base64');const asset=marketplace.createAsset(owner,{...input,photoDataUrl:photo,primaryPhotoSide:'rear',photoViews:[{id:'left',side:'left',photoDataUrl:photo}]});
+  const workspace=await product.workspace(owner);assert.equal(workspace.dashboard.assets[0].photoDataUrl,undefined);assert.match(workspace.dashboard.assets[0].photoUrl,/^\/api\/assets\//);assert.equal(store.get('asset',asset.id).photoDataUrl,photo);assert.equal(JSON.stringify(workspace).includes(photo),false);assert.equal(workspace.dashboard.assets[0].photoViews[0].photoDataUrl,undefined);assert.match(workspace.dashboard.assets[0].photoViews[0].photoUrl,/view=left/);
  }finally{store.close();}
 });
 test('placement messages and issue requests follow current NFT control rather than a former controller',async()=>{

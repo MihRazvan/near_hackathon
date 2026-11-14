@@ -5,6 +5,7 @@ import { assert, AppError, walletId } from './core.mjs';
 import { sessionToken,sessionCookie } from './session-http.mjs';
 import { serveWalletAssets } from './wallet-assets.mjs';
 import { serveReferencePhoto } from './reference-photo.mjs';
+import {privateAssetMetadata} from './asset-photos.mjs';
 import { USDC_ABI } from './base-executor.mjs';
 
 async function jsonBody(request,maxBytes=3000000){
@@ -77,7 +78,7 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    const largeUpload=method==='POST'&&path[1]==='media'&&path.length===2;
    if(largeUpload){assert(activeUploads<2,'UPLOAD_BUSY','Uploads are busy. Please try again shortly.',429);activeUploads++;uploadSlot=true;}
    const maxMediaBase64=Math.ceil((config.mediaMaxBytes??1000000)/3)*4;
-   const body=['POST','PATCH'].includes(method)?await jsonBody(request,largeUpload?maxMediaBase64+10000:3000000):{};
+   const body=['POST','PATCH'].includes(method)?await jsonBody(request,largeUpload?maxMediaBase64+10000:path[1]==='assets'?7000000:3000000):{};
    let result,status=200;
    if(method==='GET'&&path[1]==='me')result={wallet,dashboard:marketplace.dashboard(wallet)};
    else if(method==='POST'&&path[1]==='funded-wallet'&&fundedWallets?.enabled){
@@ -189,7 +190,7 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    }
    else assert(false,'NOT_FOUND','API route not found',404);
    if(['POST','PATCH'].includes(method)&&['wallet-requests','claims','native-actions','publication-actions','provision-plans','sales','bookings'].includes(path[1]))product?.invalidate?.();
-   send(status,result);
+   send(status,production&&path[1]==='assets'&&['POST','PATCH'].includes(method)?privateAssetMetadata(result):result);
   }catch(error){const known=error instanceof AppError;if(!known)console.error('API_INTERNAL_ERROR',error?.name??'Error',String(error?.stack??'').split('\n').slice(1,4).join('\n'));send(known?error.status:500,{error:{code:known?error.code:'INTERNAL_ERROR',message:known?error.message:'The request could not be completed. Your saved progress is retained.'}});}
   finally{if(uploadSlot)activeUploads--;}
  });
