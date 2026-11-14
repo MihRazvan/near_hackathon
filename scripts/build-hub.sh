@@ -4,8 +4,10 @@ TASK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$TASK_ROOT"
 export PATH="$HOME/.cargo/bin:$PATH"
 cargo build --locked --release --target wasm32-unknown-unknown -p marketplace-hub
+TASK_TARGET_DIR="${CARGO_TARGET_DIR:-target}"
+if [[ "$TASK_TARGET_DIR" != /* ]]; then TASK_TARGET_DIR="$TASK_ROOT/$TASK_TARGET_DIR"; fi
 mkdir -p target/proof-artifacts
-cp target/wasm32-unknown-unknown/release/marketplace_hub.wasm target/proof-artifacts/marketplace-hub.unoptimized.wasm
+cp "$TASK_TARGET_DIR/wasm32-unknown-unknown/release/marketplace_hub.wasm" target/proof-artifacts/marketplace-hub.unoptimized.wasm
 cp target/proof-artifacts/marketplace-hub.unoptimized.wasm target/proof-artifacts/marketplace-hub.wasm
 # Optional official Binaryen optimizer. Require the exact local binary digest so
 # an optimizer update cannot silently produce a different deployment artifact.

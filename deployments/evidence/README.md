@@ -8,7 +8,9 @@ These files support `node backend/bin/verify-evidence.mjs --offline`. They are p
 | `artwork.txt` | Raw IPFS artwork bytes identified in `qualification.json` | `c475c89deb17a68ace4f521ddfbf14d4b119d7b3c862ba4b11fe2e870c1e8341` |
 | `delivery.txt` | Raw IPFS delivery bytes identified in `qualification.json` | `401e7c2256849e3f4ee87ca193f3ab42ddc4cfa07559bd4a0d6f02c91470aef2` |
 
-The WASM was retrieved from account `8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20` and matched the pre-existing deployment digest before being committed. Its SHA-256 encoded in base58 is the pinned NEAR code hash `5i3hw9oXjH6Ri3fGGZ177U7ckk87oeqtUUVxtYMgPsiS`. This is a copy of the deployed binary, not a claim of reproducible compilation from the current source tree.
+The WASM was retrieved from account `8a97f02b08b964bb618031529dfacf8cb4f922ddc646ef525c4d68355f81be20` and matched the pre-existing deployment digest before being committed. Its SHA-256 encoded in base58 is the pinned NEAR code hash `5i3hw9oXjH6Ri3fGGZ177U7ckk87oeqtUUVxtYMgPsiS`.
+
+On 14 November 2026, a fresh source checkout rebuilt with Rust 1.95.0 and Binaryen 133 on macOS arm64 produced exactly these bytes. Run `node scripts/verify-build.mjs --json` to perform the comparison yourself; the [build recipe](../../BUILD.md) and [pinned tool archives](../build.json) document the inputs. A successful source rebuild compares bytes; it does not independently establish current mainnet state or historical transaction finality. Platform qualification is limited to observed runs, and the runner refuses a mismatching result.
 
 The text files were retrieved from their manifest IPFS CIDs and matched their recorded SHA-256 digests before being committed. Both explicitly describe synthetic qualification material. They do not document an installed advertisement.
 
