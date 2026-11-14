@@ -1,0 +1,124 @@
+name: Verify submitted source
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quick:
+    name: Clean application / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.23.0', '24.12.0']
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            prototype/package-lock.json
+      - name: Verify without credentials, wallets or public RPCs
+        run: node scripts/verify.mjs --json
+      - name: Preserve actual check results and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: quick-node-${{ matrix.node }}
+          path: |
+            .local/verification/quick-*/report.json
+            .local/verification/quick-*/*.log
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: warn
+
+  browser:
+    name: Interface, keyboard, recovery and accessibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.12.0'
+      - run: node scripts/verify.mjs
+      - name: Install browser for isolated UI tests
+        run: npm exec --prefix backend -- playwright install --with-deps chrome
+      - name: Run isolated presentation suites
+        env:
+          AXE_SOURCE_PATH: backend/node_modules/axe-core/axe.min.js
+        run: |
+          node prototype/tests/startup-browser.mjs
+          node prototype/tests/judge-browser.mjs
+          node prototype/tests/spot-editor-browser.mjs
+          node prototype/tests/interface-motion-browser.mjs
+      - name: Preserve browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: interface-evidence
+          path: |
+            .local/startup-browser/
+            .local/judge-ui/
+            .local/vehicle-onboarding/spot-editor/
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: warn
+
+  protocol:
+    name: Reproducible contract and real local-chain lifecycle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.12.0'
+      - name: Install locked application dependencies and verify baseline
+        run: node scripts/verify.mjs
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - name: Run current and historical contract unit suites
+        run: bash scripts/test-contracts.sh
+      - name: Rebuild and compare deployed contract bytes
+        run: node scripts/verify-build.mjs --json
+      - name: Install local test browser and system libraries
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.local/verification-tools/browsers
+        run: npm exec --prefix backend -- playwright install --with-deps chromium
+      - name: Retrieve exact hash-pinned public Intents fixture
+        run: python3 proofs/intents-compatibility/fetch-pinned.py
+      - name: Execute the real Sandbox lifecycle without public funds
+        run: node scripts/verify-sandbox.mjs --browser chromium --skip-install --json
+      - name: Preserve sanitized build and local-chain results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: protocol-evidence
+          path: |
+            .local/verification/build-*/report.json
+            .local/verification/sandbox-*/report.json
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: warn
