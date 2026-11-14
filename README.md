@@ -1,109 +1,172 @@
-# Everywhere: advertise on everything
+<p align="center"><img src="docs/readme/banner.png" alt="Everywhere: advertise on everything. A white van with a blue Everywhere panel drives along a night street; its wheels are lowercase e letters." width="100%"></p>
 
-Everywhere connects people who have physical advertising space with people who want to advertise. The MVP starts with vehicles: owners describe or photograph a vehicle, edit its advertising surfaces, and publish a campaign with dates, prices and content rules. Advertisers discover spaces, book immediately and manage artwork and delivery from their workspace.
+<p align="center">
+<a href="https://everywhere-near.vercel.app">Live app</a> ·
+<a href="https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168">Mainnet campaign record</a> ·
+<a href="#verify-in-5-minutes">Verify in 5 minutes</a> ·
+<a href="#hackathon-tracks">Hackathon tracks</a> ·
+<a href="deployments/mainnet.json">Deployment manifest</a>
+</p>
 
-Each final placement becomes a NEAR NFT whose owner controls artwork during the permitted window. A studio can receive that NFT and take over the creative without changing the original financial claims.
+Everywhere is a marketplace for advertising on things that already move through a city. The first surfaces are vehicles. An owner photographs or describes a van, bike or motorbike; NEAR AI proposes the advertising panels; the owner sets campaign dates, all-in prices (printing and installation included) and whether a panel can be taken over. Advertisers book in USDC from an EVM or NEAR wallet.
 
-The application uses persisted inventory, wallet authentication and real NEAR contract integrations. The frontend lives in `prototype/` for historical reasons; it contains the connected application.
+When booking closes, the final advertiser receives the placement as a NEP-171 NFT. Whoever holds that NFT controls the artwork until the owner approves a revision, so an advertiser can send it to a design studio and the studio takes over the creative. The money stays put: refunds, takeover rewards and the owner's earnings are owed to the wallets that paid or earned them.
 
-Open the [live application](https://everywhere-near.vercel.app). The [public deployment manifest](deployments/mainnet.json) identifies the mainnet contract, pinned code and completed synthetic qualification campaign. That campaign exercised real payments and on-chain fulfillment records; no physical advertisement was installed.
+All of this runs on NEAR mainnet today, on one shared marketplace contract. A completed qualification campaign moved real USDC through every step (its artwork and installation evidence were synthetic), and four team-run vehicle listings are live on the same contract, three of them still taking bookings.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/readme/story-street.webp" alt="Homepage scroll story: the van drives through the city with an advertiser's panel while bystanders photograph and post it; a caption explains the review window."></td>
+<td width="50%"><img src="docs/readme/record.webp" alt="Public campaign record page: 'A real-world right. Recorded as an NFT.' with the placement, its controller and recorded mainnet evidence."></td>
+</tr>
+<tr>
+<td>The homepage tells the whole lifecycle as one scrolling street scene.</td>
+<td>Every campaign has a public record that anyone can check against the chain.</td>
+</tr>
+</table>
+
+## Hackathon tracks
+
+| Track | What Everywhere implements |
+| --- | --- |
+| NFTs That Do Something (`nfts`) | A NEP-171 placement NFT carries creative access rights. Its metadata follows each artwork revision (a dynamic NFT). Transferring it moves creative authority and leaves every financial claim where it was; owner approval locks the artwork before printing. |
+| Real-World Money (`realworld`) | USDC payments for a physical service, EVM signing through NEAR Intents, recoverable claims, native withdrawals and quoted Base funding routes. |
+| Open Innovation (`open`) | Booking rights on physical surfaces, takeovers before production with refunds to the original payer, completion rewards, and settlement anyone can inspect. |
+
+The [NFT track brief](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/10-nfts.md) asks for dynamic NFTs, NEP-171, sub-accounts and assets that carry access rights. Everywhere implements the first two and the access rights. Offers live in one shared hub contract, without a sub-account per NFT, which keeps deployment and storage costs down. An NFT is not a NEAR account and holds no funds.
+
+## How a placement works
+
+<p align="center"><img src="docs/readme/lifecycle.png" alt="Six steps on one line: list, book, take over, mint, deliver, settle." width="100%"></p>
+
+1. The owner creates a listing from a photo or a description, adjusts the suggested panels and publishes an offer per panel with dates, an all-in price and a takeover setting.
+2. Advertisers book under those rules and pay in USDC. A buyer campaign can hold placements from several owners, each booked on its own.
+3. On panels that allow it, a new advertiser can take over before booking closes. The displaced advertiser can claim their refund, plus a reward if the campaign completes.
+4. When booking closes, the hub mints the placement NFT directly to the final payer, including EVM wallets.
+5. The NFT holder submits artwork. The owner approves one exact revision, which locks editing, then prints, installs and uploads evidence. Anyone in the campaign can open an issue before review ends, and a separate arbiter decides disputed cases.
+6. After service and review, a background keeper finalizes success if the artwork is locked, evidence exists and no issue is open. The owner and any displaced advertiser each withdraw their own USDC.
+
+The NFT is the right to manage one placement's artwork for one campaign. It is separate from owning the vehicle, and it does not prove an installation: that evidence comes from the owner, and disputes need human judgement. The app shows no impressions, GPS routes or exposure figures, because it measures none.
+
+## The NFT idea
+
+<p align="center"><img src="docs/readme/nft-rights.png" alt="Diagram: artwork submission and revision updates move with the NFT to a studio and close after approval; the takeover refund, completion reward and campaign earnings stay with the first payer and the space owner." width="100%"></p>
+
+A placement NFT is a transferable, time-limited right to manage the creative for one physical surface in one campaign. Its holder can submit or replace artwork until the owner approves a revision or the artwork deadline passes. Each new revision updates the NFT's IPFS reference and content hash.
+
+Send the NFT to an agency and the agency can submit artwork; the previous holder is rejected. Once the artwork is approved, editing is closed for good, and transferring the NFT later cannot reopen it. The NFT stays as the campaign's record.
+
+Money was kept off the NFT on purpose. If transferring the creative right also moved the advertiser's refund or the owner's earnings, every handoff to a studio would be a payment. The hub tracks those credits by original wallet.
+
+This is live on mainnet. The Berlin van's cargo-panel NFT was [transferred to a studio](https://nearblocks.io/txns/DbHN9bSg6J2Q72ocWBUjMnEsk7VSTy5btqm7W63crMdB): the former holder's artwork submission was rejected, the studio's was accepted, and the financial credits were the same before and after. The Sandbox qualification checks the same boundary.
 
 ## Verify in 5 minutes
 
-Use **Node.js 22.23+** and npm. Node 22.23 and 24.12 pass the tests and application builds; the production Docker image stays pinned to 24.12. These checks need no wallet keys or funds. Run from the repository root:
+You need Node.js 22.23 or newer and npm; Node 22.23 and 24.12 both pass (the production image is pinned to 24.12). No wallet keys or funds are needed. From the repository root:
 
 ```sh
-# Works without npm installation or network access.
+# Offline: no npm install, no network.
 node backend/bin/verify-evidence.mjs --offline
 # Expected: "status": "offline-verified", three files, "chainVerification": "not-performed".
 
 npm ci --prefix backend --ignore-scripts
 npm ci --prefix prototype --ignore-scripts
-npm test --prefix backend
-# Expected: 248 tests pass, 0 fail.
-npm test --prefix prototype
-# Expected: 97 tests pass, 0 fail.
+npm test --prefix backend      # Expected: 248 pass, 0 fail.
+npm test --prefix prototype    # Expected: 97 pass, 0 fail.
 
 npm run build:lab --prefix backend
 npm run build --prefix prototype
-npm start --prefix backend
-# Expected: Everywhere API listening on port 4318.
+npm start --prefix backend     # Expected: Everywhere API listening on port 4318.
 ```
 
-Open **http://127.0.0.1:4318**. A fresh checkout serves the application with execution disabled and an empty local workspace. Live inventory is on the [hosted marketplace](https://everywhere-near.vercel.app/explore); publication, payments and AI need configured services. Dependency installation and public-provider checks depend on your connection.
+Open http://127.0.0.1:4318. A fresh checkout serves the app with execution switched off and an empty local workspace. Live inventory is on the [hosted marketplace](https://everywhere-near.vercel.app/explore); publishing, payments and AI need configured services.
 
-For a short product review on the live site:
-
-1. Open a vehicle in **Marketplace**, select its placements, and inspect dates, prices and booking/takeover status without paying.
-2. Connect a wallet, open **Dashboard**, and add a vehicle photo or description. Review proposed spots, drag or resize them, select an outline, and try Delete and Undo. Saving a vehicle draft allocates no NEAR; AI suggestions require an available provider.
-3. Open the [completed mainnet record](https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168) to inspect the NFT, artwork, fulfillment commitments and original-wallet payouts. Its payments are real; its artwork and installation evidence are synthetic.
-
-The simulated takeover demo has been removed. An actual takeover uses the live listing's **Take over this spot** action, a distinct buyer wallet and a real USDC payment before booking closes. To exercise the entire lifecycle without public funds, use the [production-interface Sandbox qualification](backend/README.md#production-interface-on-near-sandbox).
-
-For independent blockchain verification, run in a second terminal:
+Then check the chain itself, in a second terminal:
 
 ```sh
 node backend/bin/verify-evidence.mjs
-# Expected when RPCs are available: "status": "verified", mainnet, 11 verified steps.
+# Expected when an RPC is reachable: "status": "verified", mainnet, 11 verified steps.
 
-# Optional: use one specific HTTPS NEAR mainnet RPC, exclusively.
-node backend/bin/verify-evidence.mjs https://archival-rpc.mainnet.near.org
+node backend/bin/verify-evidence.mjs https://archival-rpc.mainnet.near.org   # one specific RPC
+node backend/bin/verify-team-campaigns.mjs                                   # the four team vehicles
 ```
 
-The verifier automatically falls back across `https://near.drpc.org`, `https://free.rpc.fastnear.com` and `https://archival-rpc.mainnet.near.org`, with bounded timeouts and read-only requests. Historical transaction availability varies; an archival endpoint may be needed. If all endpoints fail, it exits unsuccessfully with: `Network access to a NEAR mainnet RPC is required. Retry with: node backend/bin/verify-evidence.mjs <rpc-url>`. A custom URL disables public fallback and its secret path/query is omitted from diagnostics. Verification never loads local credentials or signs transactions.
+The verifier tries `near.drpc.org`, `free.rpc.fastnear.com` and `archival-rpc.mainnet.near.org` in turn, read-only and with timeouts. Old transactions sometimes need an archival endpoint. If every endpoint fails it exits with `Network access to a NEAR mainnet RPC is required. Retry with: node backend/bin/verify-evidence.mjs <rpc-url>`. A custom URL turns off the fallbacks, and its path and query are kept out of the logs. It never loads credentials or signs anything.
 
-Offline verification checks the committed deployed WASM, artwork and delivery bytes against SHA-256 hashes, the NEAR code hash, raw IPFS CIDs and matching deployment-manifest fields. It fails on missing or changed files. It does **not** fetch transaction receipts, establish current chain state, prove a physical installation or attest that the current source reproduces the deployed binary. See [evidence provenance](deployments/evidence/README.md).
+Offline mode hashes the committed WASM, artwork and delivery files and compares them with the NEAR code hash, the raw IPFS CIDs and the manifest. It fails if a file is missing or changed. It does not fetch receipts, read current chain state, prove a physical installation or show that today's source rebuilds the deployed binary. See [evidence provenance](deployments/evidence/README.md).
 
-## The NFT thesis
+### A short tour of the live app
 
-A placement NFT is a transferable, time-bounded right to manage the creative for a specific physical advertising surface and campaign. The owner can submit or replace artwork before approval and the artwork deadline. Transfer the NFT to a creative agency and that agency gains the authority; the former owner loses it. Original-payer refunds, takeover rewards and owner earnings retain their original creditors.
+1. In Marketplace, open a vehicle, pick its placements and look at the dates, prices and booking or takeover state. You don't have to pay.
+2. Connect a wallet, open Dashboard and add a vehicle photo or description. Drag, resize and delete the proposed panels, then undo. A draft allocates no NEAR; AI suggestions need the provider to be up.
+3. Open the [completed mainnet record](https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168) for the NFT, artwork, fulfilment commitments and payouts to the original wallets. The payments are real; the artwork and installation evidence are synthetic.
 
-**Dynamic NFTs:** submitting a new artwork revision updates the NFT metadata's IPFS reference and content hash. The space owner approves that exact revision before printing. Approval or the artwork deadline closes editing, and the NFT remains a campaign record afterward. A later archival transfer cannot reopen the creative window. Artwork submission and transfers use the existing marketplace contract.
+A real takeover uses a live listing's "Take over this spot" action, a second wallet and a real USDC payment before booking closes. To run the full lifecycle without public funds, use the [production-interface Sandbox qualification](backend/README.md#production-interface-on-near-sandbox).
 
-The [NFT track brief](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/10-nfts.md) names **dynamic NFTs**, **NEP-171** and **sub-accounts**, and describes assets carrying **access rights**. Everywhere implements NEP-171 ownership and transfers, dynamic metadata, and creative access rights enforced against the current holder. Each offer lives in a shared NEAR hub rather than a separate NFT sub-account, keeping deployment and storage costs lower. Money deliberately stays owed to the original wallets: sending the creative right to an agency must not also give that agency the advertiser's refund or the space owner's earnings. We do not claim that each NFT is a NEAR account or owns those funds.
+## Live on mainnet
 
-The public mainnet records show minted NFTs and artwork commitments. The Berlin van also records a real mainnet NFT handoff to a studio; the setup verified former-controller rejection, new-controller artwork submission and unchanged financial credits. The real Sandbox qualification covers the same authority boundary. The physical motorcycle pilot remains pending real installation and evidence.
+The [qualification record](https://everywhere-near.vercel.app/records/e22dd301-786f-476c-af74-0df7cd2e6168) has 11 receipts: 3¢ received, 3¢ withdrawn to the original creditors, nothing pending. The [deployment manifest](deployments/mainnet.json) pins the hub account and its code hash.
 
-## Hackathon tracks
+Four team-run listings sit on the same hub. Their photos are AI-generated references, payments are nominal amounts of real USDC, and checkout asks the buyer to confirm that nothing physical will be delivered. Cards, checkout and records all carry that label, and the images and prompts are credited in [ASSETS.md](prototype/public/ASSETS.md).
 
-| Track | What the implementation demonstrates |
-| --- | --- |
-| **NFTs That Do Something** (`nfts`) | A NEP-171 NFT carries creative access rights. Dynamic NFT metadata tracks artwork revisions. Transfer changes creative authority while financial creditors stay fixed; approval locks the creative before printing. |
-| **Open Innovation** (`open`) | Physical advertising rights with pre-production takeovers, original-payer refunds, completion rewards and independently inspectable settlement. |
-| **Real-World Money** (`realworld`) | USDC payments and recoverable claims for advertising services, EVM signing through NEAR Intents, native withdrawals and quoted Base funding routes. |
+| Vehicle | Setup | Open |
+| --- | --- | --- |
+| Bucharest sport motorcycle | Side fairing and tail panel from 1¢ each; the tail panel is fixed booking | [Listing](https://everywhere-near.vercel.app/spaces/0627cf2a-28ad-4952-a16f-6b9fdfdbbe87?sale=2c541941-6d2f-4cf2-8cad-375cf4ad43ff) |
+| Lisbon blue hatchback | Door-panel takeover from 2¢; rear door from 1¢ | [Listing](https://everywhere-near.vercel.app/spaces/7aec3544-317c-494c-adc2-cab5d510aa17?sale=59fca18a-6594-4591-a241-593c2604d76e) |
+| Berlin workshop van | Cargo-panel NFT sent to a studio, which submitted artwork; cab door from 1¢ | [NFT record](https://everywhere-near.vercel.app/records/aa80efd3-472d-4e64-b8f8-fec738d2d3e2), [cab door](https://everywhere-near.vercel.app/spaces/3918c8f2-3263-4dfa-971e-02d6d13a6af3?sale=dc7a970a-a0b9-4664-8f7b-e4845a71c007&spot=spot-2) |
+| Amsterdam cargo bicycle | Completed with synthetic delivery: 3¢ in, 3¢ paid out | [Record](https://everywhere-near.vercel.app/records/fbc318d7-414a-4a2f-ab26-5270c4d7f905) |
 
-Everywhere develops the pre-existing **Pitboard** vehicle-sponsorship concept and takeover idea. This repository contains the Everywhere application, wallet integration, NEAR contracts, shared marketplace hub and verification suites. The earlier static marketplace prototype begins at [46483c9](https://github.com/MihRazvan/near_hackathon/commit/46483c9); NEAR contract implementation begins at [ae3efa1](https://github.com/MihRazvan/near_hackathon/commit/ae3efa1). The commit history shows the progression from prototype to connected platform; we do not present the earlier concept as newly invented.
+Booking stays open for the motorcycle, the hatchback and the van's cab door until 19 November 2026, 12:00 UTC, subject to live chain state. Each listing shows its service and review dates. Several placements on one vehicle are grouped on its page, and choosing one keeps that offer's own sale, terms, price, contract and checkout.
 
-## The campaign lifecycle
+The [team campaign manifest](deployments/team-campaigns.json) records the seven published offers, image digests, setup transactions, the van's NFT transfer and the cargo bike's payouts. It leaves out keeper mint, finalization and reserve-reclaim transactions that the setup journal did not capture. `verify-team-campaigns.mjs` checks the offers, the extra placement receipts, current NFT ownership and artwork reference, the van handoff, the cargo bike's accounting and both payout transactions. Ownership and availability can change as people use the platform.
 
-1. **List space.** Create a vehicle listing, review its surfaces, and set campaign dates and all-in prices including printing and installation. Takeovers can be enabled per surface.
-2. **Book advertising.** Pay in USDC under the published rules. One buyer campaign can contain placements from multiple owners; each placement is booked independently.
-3. **Take over before production.** An enabled takeover replaces the current advertiser before booking closes. Refunds and any conditional reward remain attached to the original payer.
-4. **Receive the final placement right.** After booking closes, a NEP-171 NFT records the final placement right directly for the final payer, including an EVM wallet. Artwork authority can follow the NFT; financial claims remain with their original wallets.
-5. **Deliver the campaign.** The advertiser submits artwork. The owner approves its exact revision, arranges printing and installation, and uploads evidence. Participants can open an on-chain issue before review ends; a separate arbiter resolves disputed cases.
-6. **Settle and withdraw.** The background keeper can finalize success after service and review end when artwork is locked, installation evidence exists and no issue remains open. Owners and displaced advertisers claim their respective USDC credits and can withdraw through the supported wallet flows.
-
-The NFT records the right to manage a placement's artwork. Vehicle ownership and installation evidence are separate. Installation evidence is supplied by the owner and disputes require human judgment. The application does not invent impressions, GPS routes or measured exposure statistics.
+A real pilot is planned on the team's own motorcycle. Its [setup page](https://everywhere-near.vercel.app/host/assets/new?pilot=motorcycle) has editable Honda CBR600F2 details and downloadable vector artwork, and saves, publishes and pays nothing on its own. The owner still has to confirm the actual bike, panel, dimensions, city and schedule, upload a current photo and, later, real installation evidence. Until then the public qualification stays labelled synthetic.
 
 ## Why NEAR
 
-| Component | Role |
+| Part | What it does here |
 | --- | --- |
-| Shared NEAR marketplace hub | Separate offer accounting, takeover rules, escrow credits, final placement NFTs, artwork commitments and fulfillment/issue gates in one contract. |
-| NEAR Intents | EVM-signed purchases and authorized owner/advertiser actions, plus USDC balances and original-wallet payouts. |
-| Base USDC and 1Click | Quoted funding and return routes for Base wallets, with transaction and delivery reconciliation. |
-| Native NEAR wallets | NEP-413 sign-in and wallet-signed contract/token actions through the NEAR wallet connector. |
-| Persistent API and SQLite | Inventory, buyer campaigns, wallet sessions, media records, conversations, operation journals and recovery. |
+| Shared marketplace hub | Offer accounting, takeover rules, escrow credits, placement NFTs, artwork commitments and the fulfilment and issue gates, in one contract |
+| NEAR Intents | EVM-signed purchases and owner or advertiser actions, USDC balances and payouts to the original wallets |
+| Base USDC and 1Click | Quoted funding and return routes for Base wallets, with reconciliation of transactions and delivery |
+| Native NEAR wallets | NEP-413 sign-in and wallet-signed contract and token actions |
+| API and SQLite | Inventory, buyer campaigns, sessions, media, conversations, operation journals and recovery |
 
-Customers approve signatures and transfers in their own wallets. Wallet sign-in alone does not authorize spending. The app reconciles an interrupted transaction against its original recorded operation before offering another transfer.
+People approve every signature and transfer in their own wallet, and signing in alone authorizes no spending. If a transaction is interrupted, the app checks the original recorded operation before it offers another transfer.
 
-The hub currently retains an upgrade key. Keep hub administration and that key local, separate from the hosted relayer account. Backend code-hash pinning detects a changed deployment; it does not make the contract immutable.
+The hub still has an upgrade key. Hub administration and that key stay on a local machine, apart from the hosted relayer account. Code-hash pinning in the backend notices a changed deployment; it does not make the contract immutable.
 
-## Local development
+## AI listing setup
 
-The commands in [Verify in 5 minutes](#verify-in-5-minutes) build and serve the frontend, wallet adapter and `/api` together on port 4318. See [backend setup](backend/README.md), [frontend development](prototype/README.md), [hub contract](contracts/marketplace-hub/README.md) and [local-chain proofs](proofs/sandbox/README.md).
+After signing in, an owner can upload a vehicle photo, send one from a phone through a private QR link, describe the vehicle, or start from the labelled example van. NEAR AI proposes editable panel outlines; a description first generates a labelled reference image. Drafts are private and allocate no NEAR.
 
-## Verify
+Try `/host/assets/new`, move a panel or type `Rename the first panel to Studio panel`, then continue to the offer screen to set the area, dates, prices and per-panel takeover rules. Publishing needs wallet approval and uses the existing hub; NFTs are minted at booking close. Free publication depends on the live sponsor pool and its limits.
+
+The server reads `NEAR_AI_API_KEY` (development also accepts the owner-only `.env.local`). `NEAR_AI_MODEL` defaults to `z-ai/glm-5.3-flash` with minimal reasoning and `NEAR_AI_IMAGE_MODEL` to `black-forest-labs/FLUX.2-klein-4B`. Jobs have per-wallet and global limits, stable request IDs and stored results. A reload checks the original job, and paid inference is never retried automatically. Instructions change only what they name. Manual editing keeps working when the provider is down.
+
+An opt-in benchmark runs up to 20 photos through the provider and writes a private latency and usage report:
+
+```sh
+node backend/bin/benchmark-vehicle-ai.mjs --run /path/to/manifest.json .local/vehicle-ai-report.json
+```
+
+Each manifest entry looks like `{"file":"/path/to/vehicle.jpg","prompt":"Suggest visible body panels"}`. It spends AI credits, touches no chain and makes no claim about measured dimensions or panel accuracy. The private AI companion connects only its owner's allowlisted wallets to that owner's local ChatGPT connection; those credentials never leave the owner's computer.
+
+## Visual identity
+
+The Kinetic identity grows from one mark: the crossbar of the e keeps going as a trail, the line a vehicle draws through the city. That line is the logo, the mark in front of page titles, the link underline and the progress bar, and in the homepage story every wheel is an e that leaves it behind. Roboto Flex (self-hosted, SIL OFL) sets all type, wide and slanted for display. The palette is night ink `#0D1030`, motion blue `#1E4DFF`, sodium yellow `#FFB21A` and paper `#F4F4EF`. Tokens are in [`identity.css`](prototype/src/identity.css), brand details in [`kinetic.css`](prototype/src/kinetic.css) and [`brand.mjs`](prototype/src/brand.mjs), and the story in [`story.mjs`](prototype/src/story.mjs). Credits are in [ASSETS.md](prototype/public/ASSETS.md).
+
+## Repository map
+
+| Path | Contents |
+| --- | --- |
+| [`prototype/`](prototype/README.md) | The connected web app (the folder name is historical) |
+| [`backend/`](backend/README.md) | API, wallet adapter, keeper, verifiers and the Sandbox qualification |
+| [`contracts/marketplace-hub/`](contracts/marketplace-hub/README.md) | The shared mainnet hub: offers, escrow, takeovers, placement NFTs, fulfilment |
+| [`deployments/`](deployments/mainnet.json) | Mainnet manifests and hash-bound evidence |
+| [`proofs/sandbox/`](proofs/sandbox/README.md) | Local-chain proofs |
+
+## Tests
 
 ```sh
 npm test --prefix backend
@@ -114,60 +177,14 @@ node prototype/tests/judge-browser.mjs
 node prototype/tests/spot-editor-browser.mjs
 ```
 
-The presentation suites use isolated API fixtures for desktop/mobile layouts, placement NFTs, evidence outages and retries. The spot editor suite exercises mouse and touch gestures, keyboard shortcuts, undo/redo, empty drafts and delayed-save recovery, with actual draft validation. These suites do not claim wallet or mainnet execution.
+The browser suites run against isolated API fixtures. They cover desktop and mobile layouts, placement NFTs, evidence outages and retries, and the spot editor's mouse, touch and keyboard gestures, undo and redo, empty drafts and delayed-save recovery. They make no wallet or mainnet calls.
 
-The [production browser qualification](backend/README.md#production-interface-on-near-sandbox) runs the actual interface against a real isolated NEAR Sandbox, the compiled shared hub and the pinned Intents verifier. It covers an unfunded EVM owner, publication, distinct buyers, takeovers, rejected signatures, restart recovery, automatic NFT minting, EVM creative-control transfer and former-controller rejection, fulfillment, disputes, settlement, exact payouts and native USDC withdrawal.
+The [production browser qualification](backend/README.md#production-interface-on-near-sandbox) runs the real interface against an isolated NEAR Sandbox, the compiled hub and the pinned Intents verifier. It goes from an unfunded EVM owner through publication, several buyers, takeovers, rejected signatures, restart recovery, automatic minting, an EVM creative-control transfer with the former holder rejected, fulfilment, disputes, settlement, exact payouts and native USDC withdrawal. Its injected EIP-1193 wallet produces real signatures but does not drive a real extension's approval screen. Media-provider HTTP is isolated while the upload and digest checks run for real. Base routing and pinning-provider availability need their own qualification.
 
-Its injected EIP-1193 wallet shell produces real signatures; it does not automate a real extension's approval UI. Media-provider HTTP is isolated while the actual upload/digest verification runs. Native arbiter actions use the authenticated API and real signatures. Base routing and real pinning-provider availability require separate provider qualification.
+## Hosting
 
-## AI and hosting
+Production runs the [Docker image](Dockerfile) with the [Railway configuration](.railway/railway.ts): one instance and a persistent SQLite volume, with HTTPS origins and server secrets set explicitly. A static frontend deployment also needs the API and wallet-adapter routes. Setup is in the [backend README](backend/README.md#production-hosting). Wallet keys, local credentials, state databases and private test reports are kept out of the repository; the public qualification manifest and its three evidence files are committed.
 
-The homepage opens photo or description creation. After wallet sign-in, upload a vehicle photo, send one through a private phone QR link, describe a vehicle, or choose the labelled example van. NEAR AI proposes editable panel outlines. A description can generate a labelled reference image before panel detection. Drafts are private and do not allocate NEAR.
+## Where it came from
 
-Try `/host/assets/new`, move a panel or type `Rename the first panel to Studio panel`, then continue to the offer screen. Set the operating area, campaign dates, all-in prices and per-panel takeover rules. Save a campaign draft or publish with wallet approval. Each published spot uses the existing hub; NFT issuance follows booking close. Complimentary publication depends on the live sponsor pool and limits.
-
-Configure `NEAR_AI_API_KEY` on the server. Development also reads this credential from the owner-only `.env.local`; production uses explicit process secrets. `NEAR_AI_MODEL` defaults to `z-ai/glm-5.3-flash` with minimal reasoning. `NEAR_AI_IMAGE_MODEL` defaults to `black-forest-labs/FLUX.2-klein-4B`. `sharp` prepares generated images and `qrcode` renders the phone link locally. AI jobs have per-wallet/global limits, stable request IDs and retained results. A page reload checks its original job; interrupted paid inference is never retried automatically. Panel instructions apply explicit changes and keep unrelated geometry and prices. Manual editing remains available during provider outages.
-
-The opt-in provider benchmark accepts up to 20 selected photos and writes a private latency/usage report for visual review:
-
-```sh
-node backend/bin/benchmark-vehicle-ai.mjs --run /path/to/manifest.json .local/vehicle-ai-report.json
-```
-
-The manifest contains entries such as `{"file":"/path/to/vehicle.jpg","prompt":"Suggest visible body panels"}`. This command consumes configured AI credits, performs no chain actions and does not claim measured physical dimensions or automatic panel accuracy.
-
-The private personal AI companion connects only its owner's allowlisted wallets to that owner's locally authenticated ChatGPT connection; subscription credentials stay on the owner's computer and are not shared with public visitors.
-
-Production uses the [Docker image](Dockerfile) and [Railway configuration](.railway/railway.ts), one application instance and a persistent SQLite volume. Configure HTTPS origins and server secrets explicitly. A static frontend deployment also needs the API and wallet-adapter routes; the frontend build alone does not provide the application backend. Deployment configuration is described in the [backend README](backend/README.md#production-hosting).
-
-Personal wallet keys, local credentials, state databases and private test-run reports are excluded from the repository. The public qualification manifest and its three hash-bound evidence files are committed for independent checks.
-
-## Physical motorcycle pilot
-
-The team has selected its Pitboard motorcycle and Everywhere branding for a genuine pilot. The [motorcycle setup](https://everywhere-near.vercel.app/host/assets/new?pilot=motorcycle) includes editable Honda CBR600F2 details and downloadable outlined vector artwork. Nothing is automatically saved, published, paid or installed. The owner must confirm the actual motorcycle details, permitted panel, dimensions, city, schedule and printing requirements, upload a current photo, and later supply real installation evidence. The draft artwork has no promised physical print size. Until those steps happen, the public qualification remains explicitly synthetic.
-
-## Team-run vehicle campaigns
-
-Team-test listings use AI-generated vehicle references and nominal real USDC payments on the shared mainnet hub. The listing purpose and image provenance are committed in the published terms. Cards, checkout and public records label these campaigns; checkout requires acknowledgement that no physical advertising will be delivered. Synthetic delivery evidence stays separate from a genuine installation. The four generated reference covers and their prompts are credited in [ASSETS.md](prototype/public/ASSETS.md).
-
-
-| Vehicle | Current setup | Open |
-| --- | --- | --- |
-| Bucharest sport motorcycle | Side fairing and tail panel, each starting at 1¢ USDC; tail panel uses fixed booking | [Listing](https://everywhere-near.vercel.app/spaces/0627cf2a-28ad-4952-a16f-6b9fdfdbbe87?sale=2c541941-6d2f-4cf2-8cad-375cf4ad43ff) |
-| Lisbon blue hatchback | Door-panel takeover starts at 2¢; independent rear door starts at 1¢ | [Listing](https://everywhere-near.vercel.app/spaces/7aec3544-317c-494c-adc2-cab5d510aa17?sale=59fca18a-6594-4591-a241-593c2604d76e) |
-| Berlin workshop van | Cargo-panel NFT transferred to studio, studio artwork submitted; independent cab door starts at 1¢ | [NFT record](https://everywhere-near.vercel.app/records/aa80efd3-472d-4e64-b8f8-fec738d2d3e2), [cab-door listing](https://everywhere-near.vercel.app/spaces/3918c8f2-3263-4dfa-971e-02d6d13a6af3?sale=dc7a970a-a0b9-4664-8f7b-e4845a71c007&spot=spot-2) |
-| Amsterdam cargo bicycle | Successful synthetic delivery: 3¢ received, 3¢ paid out, zero pending | [Public record](https://everywhere-near.vercel.app/records/fbc318d7-414a-4a2f-ab26-5270c4d7f905) |
-
-Booking remains open for the motorcycle, hatchback and van cab door until **November 19, 2026, 12:00 UTC**, subject to their live on-chain state. Their service and review dates are published on each listing. The van's artwork window remains open until approval or its published deadline. The cargo bicycle's short campaign has completed. All four listings belong to dedicated team test wallets; the physical motorcycle pilot above is separate.
-
-The motorcycle, hatchback and van each have two published placements. The cargo bicycle has one completed placement. Compatible offers are grouped on the vehicle page; selecting a placement keeps its original sale, terms, price, contract and checkout. Each additional surface is published as its own offer.
-
-The [team campaign manifest](deployments/team-campaigns.json) records seven published offers across the four vehicles, generated-image digests, setup transaction hashes, van NFT transfer and cargo-bike payouts. It excludes automatic keeper mint, finalization and reserve-reclaim transaction hashes that were not captured in that setup journal. The [NFT handoff transaction](https://nearblocks.io/txns/DbHN9bSg6J2Q72ocWBUjMnEsk7VSTy5btqm7W63crMdB) is separately verifiable from its signed action and NEP-171 transfer event. Historical before/after financial-credit samples are recorded observations.
-
-Run the read-only verifier without keys or funds:
-
-```sh
-node backend/bin/verify-team-campaigns.mjs
-```
-
-It checks the pinned mainnet hub, all seven published offer bindings, the three additional placement creation receipts, current NFT ownership and artwork reference, the historical van handoff, the completed cargo-bike accounting, and both original-creditor payout transactions. Listing availability and NFT ownership can change after this setup as participants use the platform. These campaigns used existing Intents USDC balances; they did not require a new Base bridge or deploy another contract.
+Everywhere grew out of the team's earlier Pitboard idea for vehicle sponsorship with takeovers. This repository holds the Everywhere application, its wallet integration, the NEAR contracts, the shared hub and the verification suites; we don't present the earlier concept as new. The static marketplace prototype starts at [46483c9](https://github.com/MihRazvan/near_hackathon/commit/46483c9) and the NEAR contract work at [ae3efa1](https://github.com/MihRazvan/near_hackathon/commit/ae3efa1), so the history shows the path from prototype to connected platform.
