@@ -527,7 +527,7 @@ strong {
   bottom: 22px;
   background: white;
   border: 1px solid var(--paper);
-  box-shadow: 0 8px 25px #1a1a1a0d;
+  box-shadow: 0 8px 25px #0d10300d;
   padding: 12px 18px;
   border-radius: 7px;
   font-size: 11px;
@@ -569,7 +569,7 @@ strong {
   align-items: center;
   padding: 12px;
   gap: 12px;
-  box-shadow: 0 4px 12px #1a1a1a03;
+  box-shadow: 0 4px 12px #0d103003;
 }
 .search-bar .field {
   margin: 0;
@@ -625,7 +625,7 @@ strong {
 }
 .asset-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 25px #1a1a1a0a;
+  box-shadow: 0 10px 25px #0d10300a;
 }
 .card-visual {
   display: block;
@@ -683,8 +683,8 @@ strong {
   display: flex;
   gap: 5px;
   align-items: center;
-  background: #f7f6f2c9;
-  border: 1px solid #f7f6f2ba;
+  background: #f4f4efc9;
+  border: 1px solid #f4f4efba;
   border-radius: 4px;
   padding: 4px 7px;
   font-size: 9px;
@@ -701,9 +701,9 @@ strong {
   height: 29px;
   display: grid;
   place-items: center;
-  border: 1px solid #f7f6f2a0;
+  border: 1px solid #f4f4efa0;
   border-radius: 50%;
-  background: #f7f6f2ca;
+  background: #f4f4efca;
   color: var(--muted);
 }
 .save-button .icon {
@@ -900,7 +900,7 @@ strong {
   pointer-events: none;
 }
 .spot-shape.selected {
-  filter: drop-shadow(0 3px 3px #1a1a1a22);
+  filter: drop-shadow(0 3px 3px #0d103022);
 }
 .detail-content {
   padding-top: 20px;
@@ -1107,11 +1107,11 @@ dialog {
   border-radius: 12px;
   padding: 0;
   background: white;
-  box-shadow: 0 25px 100px #1a1a1a33;
+  box-shadow: 0 25px 100px #0d103033;
   color: var(--ink);
 }
 dialog::backdrop {
-  background: #1a1a1a5f;
+  background: #0d10305f;
   backdrop-filter: blur(3px);
 }
 dialog > header {
@@ -1143,7 +1143,7 @@ dialog h2 {
   padding: 14px 22px;
   border-radius: 8px;
   font-size: 12px;
-  box-shadow: 0 7px 25px #1a1a1a22;
+  box-shadow: 0 7px 25px #0d103022;
   z-index: 100;
   opacity: 0;
   pointer-events: none;
@@ -1493,10 +1493,10 @@ dialog h2 {
     justify-content: space-between;
     gap: 12px;
     padding: 13px 18px max(13px, env(safe-area-inset-bottom));
-    background: #f7f6f2f5;
+    background: #f4f4eff5;
     border-top: 1px solid var(--wall);
     backdrop-filter: blur(10px);
-    box-shadow: 0 -5px 25px #1a1a1a0a;
+    box-shadow: 0 -5px 25px #0d10300a;
   }
   .mobile-spot-cta strong {
     display: block;

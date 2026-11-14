@@ -1,20 +1,20 @@
-/* Fly-post: printed campaign posters around a reliable marketplace.
+/* Kinetic: the moving e. Motion blue, night ink and sodium yellow around a reliable marketplace.
    Geometry and responsive behavior are shared with the connected product. */
-@font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 200 800; font-stretch: 75% 100%; font-display: swap; src: url('/fonts/bricolage-grotesque-latin-variable.woff2') format('woff2'); }
-@font-face { font-family: 'Hanken Grotesk'; font-style: normal; font-weight: 400 800; font-display: swap; src: url('/fonts/hanken-grotesk-latin-variable.woff2') format('woff2'); }
+@font-face { font-family: 'Everywhere Text'; font-style: oblique 0deg 10deg; font-weight: 300 1000; font-stretch: 100% 151%; font-display: swap; src: url('/fonts/roboto-flex-latin-variable.woff2') format('woff2'); }
+@font-face { font-family: 'Everywhere Display'; font-style: oblique 6deg; font-weight: 300 1000; font-stretch: 140%; font-display: swap; src: url('/fonts/roboto-flex-latin-variable.woff2') format('woff2'); }
 :root {
-  --font-body: 'Hanken Grotesk', sans-serif;
-  --font-display: 'Bricolage Grotesque', sans-serif;
-  --ink: #1a1a1a;
-  --wall: #dedcd6;
+  --font-body: 'Everywhere Text', system-ui, sans-serif;
+  --font-display: 'Everywhere Display', system-ui, sans-serif;
+  --ink: #0d1030;
+  --wall: #f4f4ef;
   --ground: var(--wall);
-  --paper: #f7f6f2;
-  --pink: #ff3d9a;
-  --blue: #2340ff;
-  --muted: #4a4945;
-  --line: #aaa69f;
+  --paper: #ffffff;
+  --pink: #ffb21a;
+  --blue: #1e4dff;
+  --muted: #4a4e70;
+  --line: #c8cadb;
   --rule: var(--line);
-  --soft-rule: #c3bfb8;
+  --soft-rule: #dedfe8;
   --success-ink: #1d623d;
   --success-paper: #e7f1e8;
   --warning-ink: #784c10;
@@ -25,8 +25,8 @@
   --signal: var(--pink);
   --lime: var(--pink);
   --orange: var(--warning-ink);
-  --radius: 3px;
-  --poster-shadow: 0 2px 3px #1a1a1a14, 0 14px 30px -10px #1a1a1a38;
+  --radius: 12px;
+  --poster-shadow: 0 1px 2px #0d10300f, 0 24px 48px -28px #0d103066;
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.6;
@@ -533,7 +533,7 @@ input[type="radio"] {
   align-items: center;
   color: var(--paper);
   font-size: 10px;
-  background: #1a1a1adc;
+  background: #0d1030dc;
   padding: 6px 9px;
 }
 .photo-location .icon {
@@ -1138,7 +1138,7 @@ input[type="radio"] {
   font-size: 9px;
   letter-spacing: 0;
   color: var(--muted);
-  background: #f7f6f2e8;
+  background: #f4f4efe8;
   bottom: 0;
   left: 0;
   right: 0;
@@ -1169,11 +1169,11 @@ dialog,
   border-radius: 8px;
   background: var(--paper);
   border-color: var(--wall);
-  box-shadow: 0 20px 70px #1a1a1a3b;
+  box-shadow: 0 20px 70px #0d10303b;
 }
 dialog::backdrop,
 .connected-review::backdrop {
-  background: #1a1a1a80;
+  background: #0d103080;
   backdrop-filter: none;
 }
 dialog h2 {
@@ -1199,7 +1199,7 @@ dialog > .modal-body,
   background: var(--petrol);
   border-radius: 5px;
   font-size: 13px;
-  box-shadow: 0 8px 30px #1a1a1a24;
+  box-shadow: 0 8px 30px #0d103024;
   bottom: 25px;
   z-index: 1000;
 }
@@ -2000,7 +2000,7 @@ body[data-route="P09"] .panel p {
 .button.primary { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .button.primary:hover { background: #353432; border-color: #353432; }
 .button.signal, .button.lime { background: var(--pink); border-color: var(--ink); color: var(--ink); }
-.button.signal:hover, .button.lime:hover { background: #f775b4; border-color: var(--ink); }
+.button.signal:hover, .button.lime:hover { background: #ffc44d; border-color: var(--ink); }
 .button.quiet { border-color: transparent; background: transparent; }
 .button.quiet:hover { border-color: var(--ink); background: var(--paper); }
 .button.danger { color: var(--error-ink); background: var(--error-paper); border-color: #b56d68; }

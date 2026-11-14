@@ -19,7 +19,7 @@
 .placement-contour { fill:var(--paper); fill-opacity:.04; stroke:var(--paper); stroke-width:1.5; stroke-dasharray:5 5; vector-effect:non-scaling-stroke; pointer-events:all; cursor:pointer; }
 .placement-contour.is-selected, .placement-contour-link:hover .placement-contour { fill:var(--blue); fill-opacity:.08; stroke:var(--blue); stroke-width:2; stroke-dasharray:none; }
 .placement-pin { position:absolute; display:grid; place-items:center; width:44px; height:44px; transform:translate(-50%,-50%); text-decoration:none; color:var(--ink); }
-.placement-pin span { display:grid; place-items:center; width:30px; height:30px; border:1px solid var(--ink); border-radius:50%; background:var(--paper); font-size:13px; font-weight:750; box-shadow:0 3px 10px #1a1a1a26; }
+.placement-pin span { display:grid; place-items:center; width:30px; height:30px; border:1px solid var(--ink); border-radius:50%; background:var(--paper); font-size:13px; font-weight:750; box-shadow:0 3px 10px #0d103026; }
 .placement-pin.is-selected span,.placement-pin:hover span { color:var(--paper); background:var(--blue); border-color:var(--blue); }
 .placement-pin:focus-visible { outline:3px solid var(--ink); outline-offset:2px; border-radius:50%; }
 .placement-booking { position:sticky; top:24px; min-width:0; padding:24px; background:var(--paper); border:0; border-radius:3px; }

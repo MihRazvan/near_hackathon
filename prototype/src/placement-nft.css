@@ -5,27 +5,27 @@
   isolation: isolate;
   min-width: 0;
   padding: 24px;
-  color: var(--paper, #f7f6f2);
-  background: var(--blue, #2340ff);
+  color: var(--paper, #f4f4ef);
+  background: var(--blue, #1e4dff);
   border-radius: 2px;
   overflow: hidden;
-  font-family: var(--font-body, 'Hanken Grotesk', sans-serif);
+  font-family: var(--font-body, 'Everywhere Text', sans-serif);
 }
-.placement-nft::after { content: ''; position: absolute; top: 0; right: 0; width: 22px; height: 22px; background: var(--pink, #ff3d9a); clip-path: polygon(0 0, 100% 100%, 0 100%); pointer-events: none; }
-.placement-nft ::selection { color: var(--ink, #1a1a1a); background: var(--pink, #ff3d9a); }
-.placement-nft :focus-visible { outline: 3px solid var(--paper, #f7f6f2); outline-offset: 4px; }
-.nft-pass-top { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 7px 16px; padding-right: 12px; font-size: 11px; line-height: 1.6; color: var(--paper, #f7f6f2); }
+.placement-nft::after { content: ''; position: absolute; top: 0; right: 0; width: 22px; height: 22px; background: var(--pink, #ffb21a); clip-path: polygon(0 0, 100% 100%, 0 100%); pointer-events: none; }
+.placement-nft ::selection { color: var(--ink, #0d1030); background: var(--pink, #ffb21a); }
+.placement-nft :focus-visible { outline: 3px solid var(--paper, #f4f4ef); outline-offset: 4px; }
+.nft-pass-top { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 7px 16px; padding-right: 12px; font-size: 11px; line-height: 1.6; color: var(--paper, #f4f4ef); }
 .nft-pass-top > span:first-child { font-weight: 800; }
-.placement-nft > h3 { margin: 25px 0 12px; font-family: var(--font-display, 'Bricolage Grotesque', sans-serif); font-size: clamp(32px, 3.5vw, 45px); font-weight: 800; line-height: 1.02; letter-spacing: -.04em; color: var(--paper, #f7f6f2); text-wrap: balance; }
-.placement-nft .nft-pass-surface { color: var(--paper, #f7f6f2); margin: 0 0 23px; font-size: 13px; font-weight: 700; line-height: 1.6; overflow-wrap: anywhere; }
+.placement-nft > h3 { margin: 25px 0 12px; font-family: var(--font-display, 'Everywhere Display', sans-serif); font-size: clamp(32px, 3.5vw, 45px); font-weight: 800; line-height: 1.02; letter-spacing: -.04em; color: var(--paper, #f4f4ef); text-wrap: balance; }
+.placement-nft .nft-pass-surface { color: var(--paper, #f4f4ef); margin: 0 0 23px; font-size: 13px; font-weight: 700; line-height: 1.6; overflow-wrap: anywhere; }
 .nft-pass-facts { margin: 0; padding: 8px 0; border-top: 1px solid #8d9bff; border-bottom: 1px solid #8d9bff; }
 .nft-pass-facts > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; gap: 12px; padding: 9px 0; }
-.nft-pass-facts dt { color: var(--paper, #f7f6f2); font-size: 11px; line-height: 1.6; }
+.nft-pass-facts dt { color: var(--paper, #f4f4ef); font-size: 11px; line-height: 1.6; }
 .nft-pass-facts dd { margin: 0; font-size: 12px; line-height: 1.6; text-align: right; font-weight: 750; overflow-wrap: anywhere; }
-.placement-nft .nft-pass-authority { margin: 17px 0 12px; font-size: 12px; line-height: 1.75; color: var(--paper, #f7f6f2); }
-.placement-nft .nft-pass-money { margin: 0; font-size: 11px; line-height: 1.75; color: var(--paper, #f7f6f2); }
+.placement-nft .nft-pass-authority { margin: 17px 0 12px; font-size: 12px; line-height: 1.75; color: var(--paper, #f4f4ef); }
+.placement-nft .nft-pass-money { margin: 0; font-size: 11px; line-height: 1.75; color: var(--paper, #f4f4ef); }
 .nft-pass-id { margin-top: 16px; font-size: 11px; }
-.placement-nft .nft-pass-id > summary, .workspace .placement-nft .nft-pass-id > summary { color: var(--paper, #f7f6f2); min-height: 44px; padding: 12px 0; cursor: pointer; }
+.placement-nft .nft-pass-id > summary, .workspace .placement-nft .nft-pass-id > summary { color: var(--paper, #f4f4ef); min-height: 44px; padding: 12px 0; cursor: pointer; }
 .nft-pass-id code { display: block; padding: 8px 0; font-size: 11px; overflow-wrap: anywhere; }
 .exp-receipt-wrap { margin-top: 22px; }
 .exp-nft-handoff { padding: 16px 0 0; }
@@ -35,7 +35,7 @@
 .exp-keep-control { margin: 10px 0 0; }
 .exp-keep-control .exp-button { width: 100%; min-height: 44px; font-size: 12px; }
 .nft-feature { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); align-items: center; gap: clamp(32px, 7vw, 100px); padding: 70px 0; border-top: 1px solid var(--line, #aaa69f); }
-.nft-feature-copy h2 { font-family: var(--font-display, 'Bricolage Grotesque', sans-serif); font-size: clamp(39px, 5vw, 64px); font-weight: 800; line-height: 1.03; letter-spacing: -.04em; margin: 0 0 25px; text-wrap: balance; }
+.nft-feature-copy h2 { font-family: var(--font-display, 'Everywhere Display', sans-serif); font-size: clamp(39px, 5vw, 64px); font-weight: 800; line-height: 1.03; letter-spacing: -.04em; margin: 0 0 25px; text-wrap: balance; }
 .nft-feature-copy p { font-size: 15px; line-height: 1.8; color: var(--muted, #4a4945); max-width: 48ch; margin: 0 0 24px; }
 .nft-feature-copy .actions { gap: 12px 24px; }
 .nft-feature-artifact { min-width: 0; max-width: 440px; width: 100%; justify-self: end; }

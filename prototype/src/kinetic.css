@@ -1,0 +1,138 @@
+/* Kinetic brand layer: logo sizing, display type and the few component details the
+   shared tokens in identity.css cannot express. Loaded last. */
+.st-story { --b: #1e4dff; --n: #0d1030; --p: #f4f4ef; --r: #ff3b1f; --s: #ffb21a; --m: #c9d3ff; --mute: #4a4e70; --sky: #c9d3ff; }
+
+.brand { gap: 0; color: var(--ink); }
+.brand .brand-wordmark { display: block; width: auto; height: 32px; overflow: visible; }
+.workspace .sidebar .brand .brand-wordmark { height: 26px; }
+.site-footer .brand .brand-wordmark { height: 44px; }
+.brand-period { display: none; }
+
+h1, h2 { font-weight: 840; letter-spacing: -0.01em; }
+h3 { font-variation-settings: 'wdth' 118; }
+.button, button { font-variation-settings: 'wdth' 112; }
+:focus-visible { outline-color: var(--signal); }
+
+@media (max-width: 760px) {
+  .brand .brand-wordmark { height: 26px; }
+  .site-footer .brand .brand-wordmark { height: 36px; max-width: 100%; }
+}
+@media (max-width: 360px) { .brand .brand-wordmark { height: 22px; } }
+
+/* Story: full-bleed inside the public layout; headings follow the card they sit on. */
+.public-main > .st-story { width: 100vw; margin-left: calc(50% - 50vw); }
+.st-story h2, .st-story h3 { color: inherit; }
+
+/* Controls: rounded, flat, ink and motion blue. */
+.button { border-radius: 12px; font-weight: 700; }
+.button:hover { background: #ecedf4; }
+.button.primary:hover { background: #1b2160; border-color: #1b2160; }
+.button.signal, .button.lime { border-color: transparent; }
+.button.signal:hover, .button.lime:hover { border-color: transparent; }
+input, select, textarea { border-radius: 12px; }
+.badge { border-radius: 999px; }
+.notice { border-radius: 14px; }
+.asset-card { border-radius: 20px; overflow: hidden; }
+.asset-card:hover { border-color: var(--blue); }
+
+/* Marketing surfaces: the paper-poster tilt and torn edges give way to flat cards. */
+.hero-copy { transform: none; background: var(--paper); border-radius: 24px; box-shadow: var(--poster-shadow); }
+.hero-copy::before, .hero-copy::after { content: none; }
+.hero-copy > * { transform: none; }
+.hero-copy .button.signal { background: var(--signal); }
+.street-hero .street-preview { transform: none; border-radius: 24px; overflow: hidden; }
+.street-hero .street-picture { border-radius: 16px; overflow: hidden; }
+.owner-photo { border-radius: 24px; overflow: hidden; }
+.owner-photo > span { border-radius: 999px; }
+.takeover-symbol, .takeover-note { transform: none; border-radius: 20px; }
+.footer-bottom { border-top-color: #2a3070; }
+@media (max-width: 560px) { .hero-copy, .hero-copy > * { transform: none; } }
+.preview-toggle, .photo-location, .surface-pointer { border-radius: 10px; }
+html.st-anim body[data-route="P01"] .mobile-nav-links { display: none; }
+.site-header .button { white-space: nowrap; }
+@media (max-width: 420px) { .site-header .header-end .button { padding-inline: 10px; } }
+@media (max-width: 420px) {
+  .site-header { gap: 10px; padding-inline: 16px; }
+  .site-header .brand .brand-wordmark { height: 21px; }
+  .site-header .header-end { gap: 10px; }
+}
+@media (max-width: 360px) { .site-header .header-end .button { display: none; } .site-header .brand .brand-wordmark { height: 20px; } }
+
+/* Touch: comfortable targets on phones. */
+@media (max-width: 760px) {
+  .site-header .brand, .site-header .header-end .text-link, .site-header .public-account-link { display: inline-flex; align-items: center; min-height: 44px; }
+  .explore-controls .text-link, .filter-row .text-link { display: inline-flex; align-items: center; min-height: 44px; }
+  input[type=file] { min-height: 44px; }
+  .vehicle-start button, .button.small { min-height: 44px; }
+  .mobile-workspace-nav { scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .mobile-workspace-nav a { scroll-snap-align: start; min-height: 44px; }
+  .owner-photo { max-width: 100%; }
+  .owner-feature { overflow: hidden; }
+}
+
+/* ---------- Brand, turned up ---------- */
+/* The trail: every page title starts with the sodium line from the logo. */
+h1 { font-variation-settings: 'wdth' 145; font-style: oblique 8deg; font-weight: 880; letter-spacing: -0.012em; }
+h2 { font-variation-settings: 'wdth' 140; font-style: oblique 6deg; font-weight: 860; }
+.page-heading h1::before, .section-top h2::before, .record-heading h1::before {
+  content: ""; display: inline-block; width: .95em; height: .13em; margin-right: .2em; vertical-align: .26em;
+  border-radius: .065em; background: var(--signal);
+  box-shadow: -.28em -.24em 0 -.035em var(--signal), -.12em .24em 0 -.035em var(--signal);
+}
+.page-heading h1 { font-size: clamp(36px, 4.4vw, 64px); }
+.lede { font-size: clamp(16px, 1.25vw, 19px); }
+
+/* Buttons: motion blue, and the trail grows in on hover. */
+.button { position: relative; overflow: hidden; transition: transform .18s cubic-bezier(.2,.8,.2,1), background-color .18s, box-shadow .18s; }
+.button:hover { transform: translateY(-2px); }
+.button:active { transform: none; }
+.button.primary { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 10px 24px -14px #1e4dffcc; }
+.button.primary:hover { background: #1238d6; border-color: #1238d6; }
+.button.primary::before, .button.signal::before {
+  content: ""; position: absolute; left: 0; top: 50%; height: 3px; width: 0; margin-top: -1.5px; border-radius: 0 2px 2px 0;
+  background: var(--signal); transition: width .3s cubic-bezier(.2,.8,.2,1);
+}
+.button.signal::before { background: var(--ink); }
+.button.primary:hover::before, .button.signal:hover::before { width: 14px; }
+
+/* Links underline with the trail colour. */
+.text-link, .editorial-link { text-decoration-color: var(--signal); text-decoration-thickness: 3px; text-underline-offset: 6px; }
+
+/* Stats read as instrument panels. */
+.stat { position: relative; border-radius: 18px; overflow: hidden; }
+.stat::before { content: ""; position: absolute; left: 0; top: 0; height: 4px; width: 42px; background: var(--signal); border-radius: 0 0 3px 0; }
+.stat strong { color: var(--blue); font-variation-settings: 'wdth' 145; font-style: oblique 6deg; font-weight: 880; }
+
+/* Cards: the trail slides under the title on hover. */
+.asset-card { position: relative; transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s, border-color .25s; }
+.asset-card:hover { transform: translateY(-4px); box-shadow: 0 26px 46px -28px #0d103080; }
+.asset-card::after { content: ""; position: absolute; left: 0; bottom: 0; height: 5px; width: 0; background: var(--signal); transition: width .35s cubic-bezier(.2,.8,.2,1); }
+.asset-card:hover::after { width: 100%; }
+
+/* Homepage: a moving band, a drenched owner section and a giant footer mark. */
+.kinetic-band { margin: 8px calc(50% - 50vw) 0; width: 100vw; overflow: hidden; background: var(--blue); color: #fff; padding: 18px 0; transform: rotate(-1.2deg); }
+.kinetic-band-track { display: flex; align-items: center; gap: 34px; width: max-content; animation: kinetic-slide 32s linear infinite; }
+.kinetic-band span { font-family: var(--font-display); font-size: clamp(30px, 4vw, 58px); line-height: 1; white-space: nowrap; }
+.kinetic-band i { display: block; width: 64px; height: 7px; border-radius: 4px; background: var(--signal); box-shadow: 14px -15px 0 -2px var(--signal), 6px 15px 0 -2px var(--signal); }
+@keyframes kinetic-slide { to { transform: translateX(-50%); } }
+.street-assurances { margin-top: 34px; }
+.owner-feature { background: var(--blue); }
+.owner-feature .owner-copy h2 { color: #fff; }
+.owner-feature .owner-copy p, .owner-feature .owner-copy li { color: #e3e8ff; }
+.owner-photo > span { background: var(--signal); color: var(--ink); }
+.takeover-note { background: var(--signal); }
+.footer-giant { margin: 0 0 40px; color: var(--paper); }
+.footer-giant .brand-wordmark { display: block; width: 100%; height: auto; }
+.site-footer .brand { display: none; }
+
+/* Workspace: the active item carries the trail. */
+.workspace .sidebar nav a.active, .workspace .sidebar nav a[aria-current="page"] { position: relative; }
+.workspace .sidebar nav a.active::after, .workspace .sidebar nav a[aria-current="page"]::after { content: ""; position: absolute; right: 10px; top: 50%; width: 18px; height: 3px; margin-top: -1.5px; border-radius: 2px; background: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) { .kinetic-band-track { animation: none; } .button:hover, .asset-card:hover { transform: none; } }
+@media (max-width: 760px) { .kinetic-band { padding: 12px 0; } .kinetic-band i { width: 40px; height: 5px; } .footer-giant { margin-bottom: 26px; } }
+.kinetic-band span { font-weight: 880; font-variation-settings: 'wdth' 140; }
+.footer-giant { grid-column: 1 / -1; width: 100%; }
+@media (max-width: 760px) {
+  .site-header a, .text-link, .editorial-link { display: inline-flex; align-items: center; min-height: 44px; }
+}

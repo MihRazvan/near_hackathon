@@ -15,12 +15,15 @@ import { siteHeader, accountContext, accountArea } from './shell.mjs';
 import './marketplace-account.css';
 import './marketplace.css';
 import './experience-flow.css';
+import './story.css';
+import './kinetic.css';
+import { mountStory } from './story.mjs';
 import { closeModal } from './ui.mjs';
 
 const app = document.querySelector('#app');
 let currentRoute, toastTimer, startupFailed=false,renderedViewKey=null;
 function publicShell(body) {
-  return `${topbar()}${siteHeader({session:live.session,area:accountArea(currentRoute??{scope:'public'}),publicPage:location.pathname==='/'})}<main class="public-main" id="main">${body}</main><footer class="site-footer"><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Book space on a vehicle.</span><span>Built on NEAR</span></div></footer>`;
+  return `${topbar()}${siteHeader({session:live.session,area:accountArea(currentRoute??{scope:'public'}),publicPage:location.pathname==='/'})}<main class="public-main" id="main">${body}</main><footer class="site-footer"><div class="footer-giant" aria-hidden="true">${wordmark}</div><a href="/" class="brand">${wordmark}</a><div class="footer-mission">Advertise on everything.<br>Starting with vehicles. Going everywhere.</div><nav aria-label="Footer"><a href="/help">Help</a><a href="/policies/terms">Terms</a><a href="/policies/privacy">Privacy</a><a href="/ASSETS.md" target="_blank" rel="noopener">Credits</a></nav><div class="footer-bottom"><span>Book space on a vehicle.</span><span>Built on NEAR</span></div></footer>`;
 }
 function workspaceShell(body) {
   return `${topbar()}${siteHeader({session:live.session,area:accountArea(currentRoute)})}<div class="workspace marketplace-workspace"><div class="workspace-main">${accountContext(currentRoute)}<main class="workspace-content" id="main">${body}</main></div></div>`;
@@ -59,6 +62,7 @@ function render() {
   if(renderedViewKey!==viewKey&&location.hash){try{const detail=document.getElementById(decodeURIComponent(location.hash.slice(1)));if(detail?.tagName==='DETAILS')detail.open=true;}catch{}}
   renderedViewKey=viewKey;
   mountConnected(currentRoute);
+  mountStory(currentRoute);
 }
 document.addEventListener('click',async event=>{
   if(!event.target?.closest)return;

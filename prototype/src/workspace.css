@@ -1,4 +1,4 @@
-/* Workspace component structure; visual values share the Fly-post tokens. */
+/* Workspace component structure; visual values share the Kinetic tokens. */
 .workspace {
   display: grid;
   grid-template-columns: 215px minmax(0, 1fr);

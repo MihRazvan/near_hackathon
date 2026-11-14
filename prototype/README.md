@@ -59,12 +59,4 @@ The [Docker deployment](../Dockerfile) serves the compiled frontend with the per
 
 ## Visual identity
 
-The interface takes its cues from street advertising and transport signage: Barlow Condensed display type, Manrope interface text, petrol blue, signal yellow and warm white. The outward-arrow mark represents a physical surface reaching a wider audience. Marketplace and onboarding pages use street photography; working screens prioritize readable forms, financial states and clear tables.
-
-- `src/brand.mjs` contains the shared wordmark and mark.
-- `src/identity.css` defines fonts, tokens, public pages and shared controls.
-- `src/workspace-identity.css` carries those tokens into advertiser, owner and operations screens.
-- `src/integration/marketing.mjs` contains the homepage composition and illustrative ad preview. It does not create bookable inventory.
-- [Asset credits](public/ASSETS.md) record the image sources and included open font licenses. Fonts and photographs are served locally.
-
-Design research included [Barlow's transit-inspired origins](https://github.com/jpt/barlow), [Anthropic's frontend design guidance](https://github.com/anthropics/skills/tree/main/skills/frontend-design), [Impeccable](https://github.com/pbakaus/impeccable) and [Vercel's interface guidelines](https://github.com/vercel-labs/web-interface-guidelines). The application keeps its existing vanilla ES modules and uses native CSS transitions, respecting reduced-motion preferences.
+The Kinetic identity is built on one idea: the crossbar of the e keeps going as a trail, the line a vehicle draws through the city. That line becomes the logo, page-title marks, link underlines, progress bars and the route on the homepage story, where every wheel is an e. Roboto Flex carries all type: wide and slanted for display, regular width for interface text. The palette is night ink, motion blue, paper and sodium yellow. Brand tokens live in `src/identity.css`; logo and type details in `src/kinetic.css` and `src/brand.mjs`; the scroll story in `src/story.mjs`.

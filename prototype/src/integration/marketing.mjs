@@ -4,6 +4,7 @@ import { outwardArrow } from "../brand.mjs";
 import {entryHref} from './entry-context.mjs';
 import {recordedProof} from './recorded-proof.mjs';
 import {setupPreview} from "./setup-preview.mjs";
+import { storyMarkup } from "../story.mjs";
 
 // Both images are illustrative. Blank mode displays the untouched source photo.
 export function streetPreview() {
@@ -50,7 +51,7 @@ export function homeView({
   publishedCount,
   teamTests = false,
 }) {
-  return `<section class="street-hero" aria-labelledby="home-title">
+  return `${storyMarkup()}<section class="street-hero" aria-labelledby="home-title">
     <div class="hero-copy">
       <h1 id="home-title" tabindex="-1">advertise on<br>everything.</h1>
       <p class="hero-description">Find ad space on vehicles. List your own with a photo or a prompt.</p>
@@ -61,6 +62,7 @@ export function homeView({
     ${inventory || `<div class="market-invitation"><div><h3>List the first space.</h3><p>Add your vehicle and choose which panels advertisers can book.</p></div>${link("/host/assets/new", "List your space " + outwardArrow, "button primary")}</div>`}
     ${!availableCount && publishedCount ? `<p class="inventory-note">Looking for a previous campaign? ${link("/explore?availability=all", "Browse past campaign records", "text-link")}</p>` : ""}
   </section>
+  <div class="kinetic-band" aria-hidden="true"><div class="kinetic-band-track">${Array(2).fill(["Vans","Cargo bikes","Motorbikes","Cars","Your ad, on the move"].map(w=>`<span>${w}</span><i></i>`).join("")).join("")}</div></div>
   <div class="street-assurances"><span>${icon("check")} Printing & installation included</span><span>${icon("calendar")} Clear dates. One campaign price.</span><span>${icon("shield")} Your placement NFT controls the artwork</span></div>
   <section class="owner-feature" aria-labelledby="owner-title"><div class="owner-photo">${streetPreview()}</div><div class="owner-copy"><h2 id="owner-title">your vehicle.<br>your next listing.</h2><p>AI suggests editable spots from a photo or description. You choose the outline, campaign dates, prices and takeover rules.</p><div class="actions">${link(entryHref('/host/assets/new?mode=photo',session),'Scan a vehicle '+outwardArrow,'button signal')}${link(entryHref('/host/assets/new?mode=describe',session),'Describe a vehicle','editorial-link')}</div><p class="owner-draft-note">Start with a private draft. Publish when you are ready.</p></div></section>
   ${recordedProof()}`;

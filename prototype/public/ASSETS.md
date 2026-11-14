@@ -18,18 +18,18 @@ Edit prompt: Preserve the original van, street, camera angle, building, lighting
 
 ## Motorcycle pilot artwork
 
-The downloadable Everywhere motorcycle design is original vector artwork using the project’s colors and wordmark. Lettering is outlined from Bricolage Grotesque, credited below. The pink/cobalt folded-poster identity matches the production website. It is a draft composition with no physical print size; the permitted panel must be measured and the printer must approve its fit before production.
+The downloadable Everywhere motorcycle design is original vector artwork using the project’s colors and wordmark. Lettering is outlined from Bricolage Grotesque (Bricolage Grotesque Project Authors, SIL Open Font License 1.1). It still uses the earlier pink/cobalt folded-poster identity and has not been redrawn in the Kinetic identity yet. It is a draft composition with no physical print size; the permitted panel must be measured and the printer must approve its fit before production.
 
 ## Fonts
 
-The production identity uses self-hosted **Bricolage Grotesque** for display typography and **Hanken Grotesk** for interface text. The browser makes no Google Fonts request.
+The production identity uses self-hosted **Roboto Flex** for display and interface text. The browser makes no Google Fonts request.
 
-- `fonts/bricolage-grotesque-latin-variable.woff2` — Bricolage Grotesque Project Authors, copyright 2022. Variable weight, width and optical size; Latin subset. [Original project](https://github.com/ateliertriay/bricolage), [Google Fonts source](https://github.com/google/fonts/tree/main/ofl/bricolagegrotesque), [included SIL Open Font License 1.1](fonts/bricolage-OFL.txt).
-- `fonts/hanken-grotesk-latin-variable.woff2` — Hanken Grotesk Project Authors, copyright 2021. Variable weights 400–800; Latin subset. [Original project](https://github.com/marcologous/hanken-grotesk), [Google Fonts source](https://github.com/google/fonts/tree/main/ofl/hankengrotesk), [included SIL Open Font License 1.1](fonts/hanken-OFL.txt).
+- `fonts/roboto-flex-latin-variable.woff2` — The Roboto Flex Project Authors, copyright 2017. Latin subset with weight (300–1000), width (100–151) and slant (−10–0) axes; the parametric axes are fixed at their defaults and optical size at 32. [Original project](https://github.com/TypeNetwork/Roboto-Flex), [Google Fonts source](https://github.com/google/fonts/tree/main/ofl/robotoflex), [included SIL Open Font License 1.1](fonts/roboto-flex-OFL.txt).
 
-These WOFF2 subsets were obtained from the official Google Fonts CSS service on 12 November 2026. Both fonts remain under their included licenses.
+## Brand mark
 
-Earlier prototype font assets, Barlow Condensed (Jeremy Tribby and contributors) and Manrope (Mikhail Sharanda and contributors), retain their included [Barlow license](fonts/barlow-OFL.txt) and [Manrope license](fonts/manrope-OFL.txt). They are not used by the current interface.
+The Kinetic wordmark and app mark are original vector artwork. Their letterforms are outlined from Roboto Flex (width 151, weight 900, slant −8) under the same licence; the trail and speed lines are drawn shapes. The homepage scroll story is authored SVG; Juniper Coffee and Northside Bikes in it are fictional advertisers and its offer-card prices are example values.
+
 
 ## Generated team-test vehicles
 
