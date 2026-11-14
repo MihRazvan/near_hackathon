@@ -88,7 +88,7 @@ Use **Node.js 22.23+** and npm. No wallet, API key or funds are needed:
 node scripts/verify.mjs
 ```
 
-The command installs locked dependencies, runs **267 backend, 112 frontend and 17 verification tests**, then builds the wallet adapter and frontend. It starts an isolated API, checks its endpoints and stops it. Dependency downloads need network access; the report lists the checks and their results.
+The command installs locked dependencies, runs **269 backend, 117 frontend and 17 verification tests**, then builds the wallet adapter and frontend. It starts an isolated API, checks its endpoints and stops it. Dependency downloads need network access; the report lists the checks and their results.
 
 ```sh
 node scripts/verify.mjs --offline  # Checks committed hashes without dependencies or network.
