@@ -102,20 +102,30 @@ test('listing preserves the exact selected spot through sign-in and directs its 
  snapshot.state.holder={account_id:wallet};live.session={wallet};
  live.data.dashboard.bookings=[{id:'old',contractId:'offer',accepted:true,status:'outbid'},{id:'current',contractId:'offer',accepted:true,status:'accepted'}];
  html=publicView({id:'P03',params:{slug:'asset'}});
- assert.match(html,/href="\/profile\/placements\/current"/);assert.match(html,/Manage your placement/);
+ assert.match(html,/href="\/profile\/placements\/current"/);assert.match(html,/Manage reservation/);
  assert.doesNotMatch(html,/Take over for|href="\/checkout\//);
 });
 
-test('compact checkout retains the quote, campaign choice and required financial acknowledgements',()=>{
+test('checkout separates the optional private ad group from the fixed reservation terms and exact quote',()=>{
  const {sale,snapshot}=setup();sale.campaignType='team-test';location.search='?spot=door&campaign=brand';
  live.balances.intentsUsdc='1000000';live.data.dashboard.campaigns=[{id:'brand',name:'Studio campaign',status:'active'}];
  const html=buyerView({id:'B06',params:{intentId:'sale'}});
  assert.match(html,/name="expectedAmount" value="10000"/);assert.match(html,/name="spotId" value="door"/);
- assert.match(html,/<option value="brand" selected>/);assert.match(html,/<details class="checkout-campaign"><summary>Campaign: Studio campaign/);
+ assert.match(html,/<option value="brand" selected>/);assert.match(html,/<details class="checkout-campaign"><summary>Ad group: Studio campaign/);
  assert.match(html,/name="rules"/);assert.match(html,/name="testCampaignAcknowledged"/);assert.doesNotMatch(html,/name="(?:rules|testCampaignAcknowledged)"[^>]*checked/);
  assert.match(html,/Full schedule &amp; advertising rules|Full schedule & advertising rules/);
  assert.match(html,/data-live-form="prepare-booking"/);
- snapshot.state.next_price='75000000';live.balances.intentsUsdc='100000000';live.data.dashboard.campaigns=[];const highPrice=buyerView({id:'B06',params:{intentId:'sale'}});assert.match(highPrice,/name="budget" type="number" value="75.000000"/);
+ location.search='?spot=door';snapshot.state.next_price='75000000';live.balances.intentsUsdc='100000000';const highPrice=buyerView({id:'B06',params:{intentId:'sale'}});
+ assert.match(highPrice,/<option value="" selected>Just this reservation/);assert.match(highPrice,/data-new-ad-group hidden/);assert.match(highPrice,/name="budget" type="number" value="" required disabled/);
+ assert.doesNotMatch(highPrice,/Campaign details|New campaign|name="(?:serviceStart|serviceEnd|biddingClose|price)"/);
+});
+
+test('returning from funding restores only the current wallet and placement’s explicit ad group draft',()=>{
+ setup();location.search='?spot=door&campaign=new';const saved={wallet,saleId:'sale',spotId:'door',campaignId:'new',name:'Summer launch',budget:'25'};
+ globalThis.sessionStorage={getItem:()=>JSON.stringify(saved)};
+ let html=buyerView({id:'B06',params:{intentId:'sale'}});assert.match(html,/<option value="new" selected>/);assert.match(html,/name="name" type="text" value="Summer launch"/);assert.match(html,/name="budget" type="number" value="25"/);
+ saved.wallet='another.near';html=buyerView({id:'B06',params:{intentId:'sale'}});assert.match(html,/<option value="" selected>Just this reservation/);assert.doesNotMatch(html,/value="Summer launch"/);
+ delete globalThis.sessionStorage;
 });
 
 test('unsettled takeover rewards remain separate from claimable credit in placement and balance views',()=>{

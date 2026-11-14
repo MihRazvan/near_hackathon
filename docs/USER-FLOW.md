@@ -2,7 +2,7 @@
 
 [Overview](../README.md) | [Project brief](PROJECT-BRIEF.md) | [Architecture](TECHNICAL-ARCHITECTURE.md) | [Contracts](CONTRACTS.md) | [Verify](../VERIFY.md) | [Docs](README.md)
 
-Marketplace is for finding and booking space. Owners manage listings in Dashboard; a new owner starts with a first-campaign prompt. Profile holds the connected wallet's bookings, NFTs, saved spaces and money.
+Marketplace is for finding and booking space. Owners manage listings in Dashboard; a new owner starts with a first-campaign prompt. Profile holds the connected wallet's reservations, NFTs, saved spaces and money.
 
 ![Owner and advertiser campaign lifecycle](assets/lifecycle.png)
 
@@ -22,9 +22,9 @@ Marketplace is for finding and booking space. Owners manage listings in Dashboar
 ## Advertiser
 
 1. Browse [Marketplace](https://everywhere-near.vercel.app/explore), choose a vehicle and select a placement directly on its photo or in its placement list. Dates, the all-in price and booking/takeover availability belong to that specific offer.
-2. Connect a wallet, choose an existing buyer campaign or create one, acknowledge the rules, and review the payment. Immediate booking does not require prior owner approval; artwork is reviewed later.
+2. Connect a wallet, review the fixed dates and price, acknowledge the rules, and reserve the spot. No campaign name or budget is required for a single reservation. The optional ad group control organizes the buyer's own reservations; it cannot edit the owner's offer. Artwork is reviewed later.
 3. Approve the USDC payment and required signatures in your wallet. Funding from Base needs a quote; routing costs are separate from the placement price. Sign-in alone never authorizes spending.
-4. Follow the booking and payment status in Profile. One campaign can contain placements across multiple owners, with independent terms and payments.
+4. Follow the reservation and payment status in Profile. An optional ad group can contain reservations across multiple owners, with independent terms and payments. Its budget is a private spending limit. An ordinary reservation uses an internal group capped at the exact quoted price.
 5. After booking closes, the final payer receives the NFT directly. EVM payers receive it too. Submit artwork or transfer creative control to a studio during the editing window.
 6. Inspect owner-submitted evidence, raise an issue when appropriate, and claim any original-wallet refund/reward. Settlement and withdrawal follow the recorded creditor and original operation.
 

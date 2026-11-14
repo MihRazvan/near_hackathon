@@ -52,7 +52,7 @@ Offers share one hub; individual NFTs have no sub-accounts or money of their own
 4. The owner approves the exact revision, arranges installation and submits evidence. Participants can raise an issue; a separate arbiter resolves disputes.
 5. After service and review end, the contract checks the delivery requirements before settling the campaign. Each wallet owed USDC can claim and withdraw its funds.
 
-One buyer campaign can contain placements from multiple owners; each placement remains independently booked and accounted for. [Follow both sides of the platform](docs/USER-FLOW.md).
+An optional ad group can contain reservations from multiple owners; each placement remains independently reserved and accounted for. [Follow both sides of the platform](docs/USER-FLOW.md).
 
 ## Tech stack
 
@@ -88,7 +88,7 @@ Use **Node.js 22.23+** and npm. No wallet, API key or funds are needed:
 node scripts/verify.mjs
 ```
 
-The command installs locked dependencies, runs **260 backend, 97 frontend and 17 verification tests**, then builds the wallet adapter and frontend. It starts an isolated API, checks its endpoints and stops it. Dependency downloads need network access; the report lists the checks and their results.
+The command installs locked dependencies, runs **260 backend, 103 frontend and 17 verification tests**, then builds the wallet adapter and frontend. It starts an isolated API, checks its endpoints and stops it. Dependency downloads need network access; the report lists the checks and their results.
 
 ```sh
 node scripts/verify.mjs --offline  # Checks committed hashes without dependencies or network.

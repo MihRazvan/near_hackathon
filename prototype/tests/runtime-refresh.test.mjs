@@ -120,3 +120,50 @@ test('a price-change retry refreshes the quoted placement before returning to ch
  const {forms}=await import('../src/integration/actions.mjs');const data=new FormData();for(const [k,v]of Object.entries({saleId:'sale',spotId:'door',campaignId:'existing-campaign',rules:'on',expectedAmount:'10000'}))data.set(k,v);
  await assert.rejects(forms['prepare-booking'](data),/price changed/);assert(calls.includes('/api/workspace?contract=offer'));assert.equal(live.catalog.snapshots[0].state.next_price,'20000');assert.equal(location.pathname,'/checkout/sale');assert(!calls.some(p=>p.includes('wallet-requests')||p.includes('/relay')));
 });
+
+test('default reservation creates only exact-price private bookkeeping and opens no payment during preparation',async()=>{
+ reset({wallet:'owner.near'});live.config.production=false;
+ const offer={id:'sale',publication:{manifest:{asset:{title:'City van'}}},spots:[{id:'door',name:'Door panel',contractId:'offer'}]},calls=[];live.catalog.sales=[offer];live.data=workspace('owner.near');
+ globalThis.fetch=async(path,options)=>{
+  calls.push(path);
+  if(path==='/api/campaigns'){assert.deepEqual(JSON.parse(options.body),{name:'City van · Door panel',budgetMicroUsdc:'10000'});return response({id:'private-group'});}
+  if(path==='/api/bookings'){assert.equal(JSON.parse(options.body).campaignId,'private-group');return response({id:'reservation',saleId:'sale',spotId:'door',contractId:'offer',amount:'10000'});}
+  if(path.startsWith('/api/workspace'))return response(workspace('owner.near'));
+  throw Error('Unexpected request '+path);
+ };
+ const {forms}=await import('../src/integration/actions.mjs'),data=new FormData();for(const [key,value]of Object.entries({saleId:'sale',spotId:'door',rules:'on',expectedAmount:'10000',name:'Ignored campaign name',budget:'99999'}))data.set(key,value);
+ await forms['prepare-booking'](data);assert.equal(location.pathname,'/payments/reservation');assert(!calls.some(p=>p.includes('wallet-requests')||p.includes('/relay')));
+});
+
+test('a changed price exceeding an automatic reservation cap requires a new price review instead of silently increasing the budget',async()=>{
+ reset({wallet:'owner.near'});const offer={id:'sale',publication:{manifest:{asset:{title:'Van'}}},spots:[{id:'door',contractId:'offer'}]},calls=[];live.catalog.sales=[offer];live.data=workspace('owner.near');
+ globalThis.fetch=async path=>{
+  calls.push(path);
+  if(path==='/api/campaigns')return response({id:'auto'});
+  if(path==='/api/bookings')return Response.json({error:{code:'CAMPAIGN_BUDGET',message:'Budget exceeded'}},{status:400});
+  if(path==='/api/workspace?local=1')return response(workspace('owner.near',true,{sales:[offer]}));
+  if(path==='/api/workspace?contract=offer')return response(workspace('owner.near',false,{sales:[offer],scopedContracts:['offer'],snapshots:[{accountId:'offer',state:{next_price:'20000'}}]}));
+  if(path==='/api/wallet/balances')return response({intentsUsdc:'100000'});
+  throw Error('Unexpected request '+path);
+ };
+ const {forms}=await import('../src/integration/actions.mjs'),data=new FormData();for(const [key,value]of Object.entries({saleId:'sale',spotId:'door',rules:'on',expectedAmount:'10000'}))data.set(key,value);
+ await assert.rejects(forms['prepare-booking'](data),/price changed/);assert.equal(live.catalog.snapshots[0].state.next_price,'20000');assert.equal(location.pathname,'/checkout/sale');assert(!location.search.includes('campaign'));assert(!calls.some(p=>p.includes('wallet-requests')||p.includes('/relay')));
+});
+
+test('retrying an automatic group with an existing reservation returns to its original payment instead of preparing a second one',async()=>{
+ reset({wallet:'owner.near'});const offer={id:'sale',publication:{manifest:{asset:{title:'Van'}}},spots:[{id:'door',contractId:'offer'}]},calls=[],original={id:'original-reservation',campaignId:'auto',saleId:'sale',spotId:'door',status:'submitted'};live.catalog.sales=[offer];live.data=workspace('owner.near');
+ globalThis.fetch=async path=>{
+  calls.push(path);
+  if(path==='/api/bookings')return Response.json({error:{code:'CAMPAIGN_BUDGET',message:'Budget exceeded'}},{status:400});
+  if(path==='/api/workspace?local=1')return response(workspace('owner.near',true,{sales:[offer],dashboard:{assets:[],sales:[],campaigns:[],incomingBookings:[],bookings:[original]}}));
+  throw Error('Unexpected request '+path);
+ };
+ const {forms}=await import('../src/integration/actions.mjs'),data=new FormData();for(const [key,value]of Object.entries({saleId:'sale',spotId:'door',rules:'on',expectedAmount:'10000',bookingCampaignId:'auto'}))data.set(key,value);
+ assert.equal((await forms['prepare-booking'](data)).id,original.id);assert.equal(location.pathname,'/payments/original-reservation');assert.equal(calls.filter(p=>p==='/api/bookings').length,1);assert(!calls.includes('/api/campaigns'));assert(!calls.some(p=>p.includes('wallet-requests')||p.includes('/relay')));
+});
+
+test('an explicitly created ad group keeps its user-chosen budget and rejects a cap below the reservation before any request',async()=>{
+ reset({wallet:'owner.near'});live.catalog.sales=[{id:'sale',spots:[{id:'door',contractId:'offer'}]}];live.data=workspace('owner.near');globalThis.fetch=async()=>assert.fail('An insufficient group budget must not prepare a payment');
+ const {forms}=await import('../src/integration/actions.mjs'),data=new FormData();for(const [key,value]of Object.entries({saleId:'sale',spotId:'door',rules:'on',expectedAmount:'20000',campaignId:'new',name:'Summer launch',budget:'0.01'}))data.set(key,value);
+ await assert.rejects(forms['prepare-booking'](data),/ad group budget must cover/);
+});

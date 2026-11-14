@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {fundingAmount,campaignSchedule} from '../src/integration/checkout-state.mjs';
+import {fundingAmount,campaignSchedule,reservationGroup} from '../src/integration/checkout-state.mjs';
+test('an ordinary reservation group is capped at the exact quote without floating point rounding or an unrelated default budget',()=>{
+ assert.deepEqual(reservationGroup('City van','Cargo panel','10000'),{name:'City van · Cargo panel',budgetMicroUsdc:'10000'});
+ assert.equal(reservationGroup('Vehicle','Panel','9007199254740993').budgetMicroUsdc,'9007199254740993');
+ assert.equal(reservationGroup('A'.repeat(100),'Panel','10000').name.length,100);
+ for(const value of [null,'0','-1','1.5','unknown'])assert.throws(()=>reservationGroup('Van','Panel',value),/current reservation price/);
+});
 test('funding keeps the route minimum and exact shortfall without floating point rounding',()=>{
  assert.equal(fundingAmount('10000','0'),'150000');assert.equal(fundingAmount('2000000','1500000'),'500000');assert.equal(fundingAmount('9007199254740993','1'),'9007199254740992');
 });

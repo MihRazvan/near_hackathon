@@ -1,3 +1,7 @@
+export function reservationGroup(title,surface,price){
+ if(!/^\d+$/.test(String(price??''))||BigInt(price)<=0n)throw new Error('Refresh this spot to get its current reservation price.');
+ return {name:[title,surface].filter(v=>typeof v==='string'&&v.trim()).join(' · ').slice(0,100)||'Ad reservation',budgetMicroUsdc:BigInt(price).toString()};
+}
 // A route has a minimum useful size; keep its surplus available to this wallet.
 export function fundingAmount(price,balance,{minimum='150000'}={}){
  const missing=BigInt(price)-BigInt(balance);return (missing>BigInt(minimum)?missing:BigInt(minimum)).toString();

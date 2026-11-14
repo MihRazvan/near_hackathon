@@ -40,7 +40,7 @@ export function placementProgress(snapshot,wallet,now=Date.now(),{automaticRecei
  if(state.outcome==='failure')return {key:'cancelled',title:'This campaign was cancelled.',text:'Any refundable payment is available to the wallet that paid for it.'};
  if(!current&&!controller&&!nominee)return {key:'outbid',title:'Another advertiser took over this spot.',text:'Your original payment and any earned takeover reward stay with your wallet.'};
  if(state.outcome==='success')return {key:'completed',title:'Your campaign is complete.',text:'The owner has completed delivery and the campaign has settled.'};
- if(!rights.bidding_closed)return {key:'reserved',title:'Your spot is booked.',text:'You can prepare your creative now. Final artwork control is assigned when booking closes.'};
+ if(!rights.bidding_closed)return {key:'reserved',title:'Your spot is reserved.',text:'You can send artwork after reservations close, if this spot is still yours.'};
  if(!state.nft_minted){
   if(automaticReceipt&&current){
    const due=millis(campaign.terms?.artwork_due_ns);

@@ -8,7 +8,7 @@ import { navigate,toast } from '../store.mjs';
 import { live,initialize,currentPerson } from './runtime.mjs';
 import { publicView } from './public.mjs';
 import { ownerView } from './owner.mjs';
-import { buyerView } from './buyer.mjs';
+import { buyerView,mountCheckout } from './buyer.mjs';
 import { accountView,sharedView,opsView,testingView } from './shared.mjs';
 import { actions,forms } from './actions.mjs';
 import { esc,link,act,notice,heading,empty } from './ui.mjs';
@@ -67,7 +67,7 @@ export function legacyAction(target,r){
 }
 export function mountConnected(r){
  unmountSpotWorkspace();mountSetupPreview();
- mountOnboarding(r);mountCapture(r);mountOffer();mountCreationHints();
+ mountOnboarding(r);mountCapture(r);mountOffer();mountCreationHints();mountCheckout();
  if(r.id==='P10')mountCampaignRecord(r.params.id);
  const providers=document.querySelector('form[data-live-form="connect-evm"] select');
  if(providers){const old=providers.value;providers.innerHTML=live.providers.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')||'<option value="">No injected EVM wallet detected</option>';if(live.providers.some(p=>p.id===old))providers.value=old;}

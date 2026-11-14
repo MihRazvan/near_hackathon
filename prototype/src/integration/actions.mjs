@@ -4,7 +4,7 @@ export {assetFields} from './asset-fields.mjs';
 import {isTeamTest} from './campaign-kind.mjs';
 import { navigate,toast } from '../store.mjs';
 import { live,api,refresh,refreshBalances,connect,disconnect,review,nativePlan,intentPlan,nativeAction,poll,sale,snapshot,allSales,booking,rawAsset,amount,fileData,upload,rerender,nativeUnits,ensureSigningWallet } from './runtime.mjs';
-import { fundingAmount,campaignSchedule } from './checkout-state.mjs';
+import { fundingAmount,campaignSchedule,reservationGroup } from './checkout-state.mjs';
 import { photoData } from './photos.mjs';
 import {verifyOriginalIntent} from './recovery-state.mjs';
 import { workspaceForms } from './workspace-actions.mjs';
@@ -36,26 +36,38 @@ async function refreshRecovered(requests){
 }
 function localDate(value){const d=new Date(value);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
 async function payBooking(id){
- const b=booking(id);if(!b||b.owner!==live.session.wallet)throw new Error('Open a booking belonging to this wallet.');let request;
+ const b=booking(id);if(!b||b.owner!==live.session.wallet)throw new Error('Open a reservation belonging to this wallet.');let request;
  if(live.session.wallet.startsWith('0x'))request=await intentPlan(await api('intents/'+b.planId),'Pay '+(Number(b.amount)/1e6).toFixed(2)+' USDC for this placement');
  else request=await nativePlan(await api('bookings/'+b.id+'/native-plan',{}),'Pay for this placement from your NEAR wallet');
  const deadline=performance.now()+20000;
  for(let i=0;i<20&&performance.now()<deadline;i++){if(request?.id&&!['confirmed','failed'].includes(request.status))request=await api('wallet-requests/'+request.id+'/reconcile',{});await refresh({local:true,render:false});
   if(['accepted','rejected','failed'].includes(booking(b.id)?.status))break;await new Promise(r=>setTimeout(r,300));}
  if(booking(b.id)?.accepted)await refresh({contracts:[b.contractId],render:false});
- rerender();toast(booking(b.id)?.accepted?'Your placement is confirmed.':'Your payment is recorded. We are checking its original receipt.');
+ rerender();toast(booking(b.id)?.accepted?'Your reservation is confirmed.':'Your payment is recorded. We are checking its original receipt.');
 }
 async function prepareBooking(data,{pay=live.config.production}={}){
  if(!data.has('rules'))throw new Error('Agree to the published rules before booking.');
  if(isTeamTest(sale(String(data.get('saleId'))))&&!data.has('testCampaignAcknowledged'))throw new Error('Acknowledge that this team test uses real USDC with no physical delivery.');
- let campaignId=String(data.get('campaignId'));
- if(!campaignId){campaignId=(await api('campaigns',{name:String(data.get('name')),budgetMicroUsdc:amount(data.get('budget'))})).id;
-  // Keep this campaign selected after wallet rejection, without creating duplicates.
-  const field=document.querySelector('form[data-live-form="prepare-booking"] [name="campaignId"]');
-  if(field){const option=document.createElement('option');option.value=campaignId;option.textContent=String(data.get('name'));field.append(option);field.value=campaignId;}}
- const b=await api('bookings',{campaignId,saleId:String(data.get('saleId')),spotId:String(data.get('spotId')),testCampaignAcknowledged:data.has('testCampaignAcknowledged')});
- if(data.get('expectedAmount')&&String(data.get('expectedAmount'))!==b.amount){await api('bookings/'+b.id+'/cancel',{});await refresh({contracts:[b.contractId],render:false});navigate('/checkout/'+b.saleId+'?spot='+b.spotId+'&campaign='+encodeURIComponent(campaignId));throw new Error('The price changed while you were booking. Review the updated price before paying.');}
- await refresh({local:true,render:false});navigate('/payments/'+b.id);if(pay)await payBooking(b.id);return b;
+ const selection=String(data.get('campaignId')??''),automatic=!selection,offer=sale(String(data.get('saleId'))),spot=offer?.spots.find(p=>p.id===String(data.get('spotId')));
+ let campaignId=String(data.get('bookingCampaignId')??'')||(selection==='new'?'':selection);
+ if(!campaignId){
+  const group=automatic?reservationGroup(offer?.publication?.manifest.asset.title??offer?.title,offer?.publication?.manifest.asset.spots?.find(p=>p.id===spot?.id)?.name??spot?.name??spot?.id,data.get('expectedAmount')):{name:String(data.get('name')??''),budgetMicroUsdc:amount(data.get('budget'))};
+  if(!automatic&&BigInt(group.budgetMicroUsdc)<BigInt(data.get('expectedAmount')))throw new Error('Your ad group budget must cover this reservation.');
+  campaignId=(await api('campaigns',group)).id;
+  // Retain the exact private group if preparing the reservation is interrupted.
+  const field=document.querySelector('form[data-live-form="prepare-booking"] [name="bookingCampaignId"]');if(field)field.value=campaignId;
+ }
+ let b;try{b=await api('bookings',{campaignId,saleId:String(data.get('saleId')),spotId:String(data.get('spotId')),testCampaignAcknowledged:data.has('testCampaignAcknowledged')});}
+ catch(error){
+  if(error.code!=='CAMPAIGN_BUDGET')throw error;
+  if(!automatic)throw new Error('This reservation exceeds your ad group budget. Choose another group or reserve without one.');
+  await refresh({local:true,render:false});
+  const original=live.data?.dashboard?.bookings?.find(b=>b.campaignId===campaignId&&b.saleId===offer.id&&b.spotId===spot.id&&['prepared','submitted','accepted','outbid'].includes(b.status));
+  if(original){navigate('/payments/'+original.id);return original;}
+  await refresh({contracts:[spot.contractId],render:false});navigate('/checkout/'+offer.id+'?spot='+spot.id);throw new Error('The price changed while you were reserving. Review the updated price before paying.');
+ }
+ if(data.get('expectedAmount')&&String(data.get('expectedAmount'))!==b.amount){await api('bookings/'+b.id+'/cancel',{});await refresh({contracts:[b.contractId],render:false});navigate('/checkout/'+b.saleId+'?spot='+b.spotId+(automatic?'':'&campaign='+encodeURIComponent(campaignId)));throw new Error('The price changed while you were reserving. Review the updated price before paying.');}
+ sessionStorage.removeItem('everywhere-checkout-draft');await refresh({local:true,render:false});navigate('/payments/'+b.id);if(pay)await payBooking(b.id);return b;
 }
 async function ensureUsdcStorage(){
  await refreshBalances({render:false});if(live.balances?.tokenStorageRegistered)return;
@@ -83,7 +95,8 @@ export const actions={
   if(!data.has('rules'))throw new Error('Agree to the published rules before booking.');
  if(isTeamTest(sale(String(data.get('saleId'))))&&!data.has('testCampaignAcknowledged'))throw new Error('Acknowledge that this team test uses real USDC with no physical delivery.');
   const offer=sale(String(data.get('saleId'))),spot=offer?.spots.find(p=>p.id===String(data.get('spotId'))),price=snapshot(spot?.contractId)?.state.next_price;
-  if(!price||live.balances?.intentsUsdc===undefined)throw new Error('Refresh this space and your balance before booking.');
+  if(!price||live.balances?.intentsUsdc===undefined)throw new Error('Refresh this spot and your balance before reserving.');
+  if(data.get('campaignId')==='new'&&BigInt(amount(data.get('budget')))<BigInt(price))throw new Error('Your ad group budget must cover this reservation.');
   const wallet=live.session.wallet,available=BigInt(live.balances.intentsUsdc);
   if(available<BigInt(price)){
    if(wallet.startsWith('0x')){
@@ -92,14 +105,14 @@ export const actions={
     // Review the exact route cost before the Base wallet opens. Continue from the balance page.
     const next='/checkout/'+offer.id+'?spot='+spot.id+(data.get('campaignId')?'&campaign='+encodeURIComponent(data.get('campaignId')):'');
     sessionStorage.setItem('everywhere-checkout-draft',JSON.stringify({wallet,saleId:offer.id,spotId:spot.id,name:data.get('name'),budget:data.get('budget'),campaignId:data.get('campaignId')}));
-    navigate('/profile/balance?next='+encodeURIComponent(next));toast('Your funding quote is ready. Approve the exact cost, then return to your booking.');return;
+    navigate('/profile/balance?next='+encodeURIComponent(next));toast('Your funding quote is ready. Approve the exact cost, then return to your reservation.');return;
    }
    const needed=(BigInt(price)-available).toString();
    if(BigInt(live.balances.nearUsdc??0)<BigInt(needed)){navigate('/profile/balance?next='+encodeURIComponent(location.pathname+location.search));throw new Error('Add USDC to your connected wallet before booking.');}
    await nativePlan(await api('token-actions',{kind:'deposit-intents',amount:needed}),'Add the USDC needed for this booking');
-   if(!await poll(()=>BigInt(live.balances?.intentsUsdc??0)>=BigInt(price)))throw new Error('Your funding is still being confirmed. Return to this booking when your balance updates.');
+   if(!await poll(()=>BigInt(live.balances?.intentsUsdc??0)>=BigInt(price)))throw new Error('Your funding is still being confirmed. Return to this reservation when your balance updates.');
   }
-  if(live.session?.wallet!==wallet)throw new Error('Your wallet changed. Reopen this booking with the original account.');
+  if(live.session?.wallet!==wallet)throw new Error('Your wallet changed. Reopen this reservation with the original account.');
   await prepareBooking(data,{pay:true});
  },
  'start-capture':async()=>{const r=await api('captures',{});sessionStorage.setItem('everywhere-capture-link:'+r.id,r.uploadUrl);await refresh({local:true,render:false});navigate('/host/capture/'+r.id);},

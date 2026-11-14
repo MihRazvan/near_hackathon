@@ -63,8 +63,8 @@ export async function productionBrowser({page,wallets,getHarness,restart}){
  assert.equal(ownerBalanceBefore,'0','a fresh zero-USDC owner must not need an Intents deposit to publish');assert.match(contract,/^offer-/);assert.equal((await snapshot(contract)).state.seller_id,addresses.owner);assert.equal(getHarness().store.list('publication-plan')[0].plan.storageDeposit,'0');checks.push('EVM owner published sponsored shared-hub offer with actual verified ERC191 Intents and zero owner NEAR or USDC');
  async function book(label,{reject=false,interrupt=false}={}){
   await connect(label);await go('/checkout/'+saleId+'?spot=spot-1');
-  const form=page.locator('form[data-live-form=prepare-booking]');if(await form.locator('details:not([open])').count())await form.locator('details:not([open]) summary').click();
-  await form.locator('[name=name]').fill(label+' synthetic campaign');await form.locator('[name=budget]').fill('0.10');await form.locator('[name=rules]').check();
+  const form=page.locator('form[data-live-form=prepare-booking]');
+  assert.equal(await form.locator('[name=campaignId]').inputValue(),'');assert.equal(await form.locator('[name=name]').isVisible(),false);assert.equal(await form.locator('[name=budget]').isDisabled(),true);await form.locator('[name=rules]').check();
   if(reject)await page.evaluate(()=>window.__rejectNextQualificationSignature=true);
   if(interrupt)await page.route('**/api/wallet-requests/*/submit',async route=>{await route.fetch();await route.abort('failed');},{times:1});
   await submit('prepare-booking',{expectedError:reject||interrupt});const bookingId=new URL(page.url()).pathname.split('/')[2];
