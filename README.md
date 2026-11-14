@@ -4,7 +4,7 @@
 
 Everywhere is a marketplace for physical ad space, starting with vehicles. Owners list panels from a photo or description; advertisers reserve them in USDC or take over a booking before production. After booking closes, the final advertiser receives a **NEAR placement NFT** that controls artwork access.
 
-[Live platform](https://everywhere-near.vercel.app/) | [Demo video (coming soon)](docs/DEMO.md#demo-video) | [Project brief](docs/PROJECT-BRIEF.md)
+[Live platform](https://everywhere-near.vercel.app/) | [Watch the demo](https://www.youtube.com/watch?v=I97CLb9dDhY) | [X demo post](https://x.com/magentoooo/status/2121736153464512781) | [Project brief](docs/PROJECT-BRIEF.md)
 
 [Quickstart](#verify-in-5-minutes) | [User flow](docs/USER-FLOW.md) | [Technical architecture](docs/TECHNICAL-ARCHITECTURE.md) | [Contracts](docs/CONTRACTS.md) | [Verify](VERIFY.md) | [Docs](docs/README.md)
 

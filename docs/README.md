@@ -13,7 +13,7 @@ Advertisers book physical ad space in USDC. After booking closes, the final adve
 | [Verification guide](../VERIFY.md) | Which commands establish which claims? What needs a network? |
 | [Build guide](../BUILD.md) | How can the deployed WASM be reproduced exactly? |
 | [Deployment and campaign status](DEPLOYMENTS.md) | Which mainnet records are real, which media are synthetic, and what is pending? |
-| [Demo and submission links](DEMO.md) | Where will the video and X post go, and what can be inspected now? |
+| [Demo and submission links](DEMO.md) | Where can I watch the demo, read the X post and inspect the product? |
 | [Visual provenance](assets/README.md) | Which images are screenshots, illustrations or diagrams, and how are they regenerated? |
 
 ## Start without a wallet

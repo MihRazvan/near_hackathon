@@ -4,11 +4,11 @@
 
 ## Demo video
 
-The demo video is not published yet.
+[Watch Everywhere's NEAR Hackathon demo on YouTube](https://www.youtube.com/watch?v=I97CLb9dDhY).
 
 ## Public demo post
 
-The public X demo post is not published yet.
+[Read the public demo post on X](https://x.com/magentoooo/status/2121736153464512781).
 
 ## Inspect the product now
 
@@ -23,16 +23,6 @@ The public X demo post is not published yet.
 ![Actual marketplace viewed on a phone](assets/marketplace-mobile.png)
 
 *Public site on a phone. The generated vehicle images belong to team tests; no physical ads were installed for them.*
-
-## Suggested recording sequence
-
-A suggested two-to-three-minute walkthrough follows one campaign from setup to payout. The organizers do not prescribe that duration.
-
-1. Start with a vehicle photo or description and show editable spots, then the campaign offer. The edited panels and saved offer show the result of the owner's work.
-2. Reserve a published placement, then take it over with a second buyer before booking closes. The recording should identify real USDC payments, wallet approvals and any local or accelerated scenes.
-3. Transfer the final placement NFT to a studio and submit artwork from that wallet. Refunds and earnings remain with the original wallets.
-4. Approve artwork, submit installation evidence and settle the campaign. Synthetic evidence needs its label; motorcycle installation footage is still pending.
-5. Finish with the public campaign record and its verification links.
 
 ## Submission references
 
