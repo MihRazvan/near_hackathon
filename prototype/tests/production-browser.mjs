@@ -2,10 +2,14 @@ import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import {readFile,mkdir} from 'node:fs/promises';
 import {join} from 'node:path';
+import {createRequire} from 'node:module';
 import { intentPlan, signedErc191 } from '../../backend/src/intents.mjs';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export async function productionBrowser({page,wallets,getHarness,restart}){
  const base=getHarness().config.origin,checks=[],errors=[],signed=[];
+ const sharp=createRequire(new URL('../../backend/package.json',import.meta.url))('sharp');
+ const privateAd={name:'private-test-ad.png',mimeType:'image/png',buffer:await sharp({create:{width:600,height:240,channels:4,background:'#ff3d9a'}}).png().toBuffer()};
+ let mediaWrites=0;page.on('request',r=>{if(r.method()==='POST'&&new URL(r.url()).pathname.startsWith('/api/media'))mediaWrites++;});
  // Pointer geometry checks use the user's reduced-motion preference so a smooth
  // scroll cannot move a resize handle between measuring it and pressing it.
  await page.emulateMedia({reducedMotion:'reduce'});
@@ -73,8 +77,18 @@ export async function productionBrowser({page,wallets,getHarness,restart}){
  await page.locator('[name=publishPhotos]').check();await act('publish');assert.ok(getHarness().store.get('asset',assetId).coverUri);assert.equal(getHarness().store.get('sale',saleId).publication.manifest.asset.photoDataUrl,undefined);assert.ok(getHarness().store.get('sale',saleId).publication.manifest.asset.coverUri);checks.push('A single-photo vehicle saved as a draft published its actual cover through the interface before the offer signature, without exposing private draft bytes');await waitFor(()=>getHarness().store.get('sale',saleId)?.status==='published','published sale');
  const sale=getHarness().store.get('sale',saleId),contract=sale.spots[0].contractId,ownerBalanceBefore=await getHarness().reads.view('verifier.sandbox','mt_balance_of',{account_id:addresses.owner,token_id:'nep141:usdc.sandbox'});
  assert.equal(ownerBalanceBefore,'0','a fresh zero-USDC owner must not need an Intents deposit to publish');assert.match(contract,/^offer-/);assert.equal((await snapshot(contract)).state.seller_id,addresses.owner);assert.equal(getHarness().store.list('publication-plan')[0].plan.storageDeposit,'0');checks.push('EVM owner published sponsored shared-hub offer with actual verified ERC191 Intents and zero owner NEAR or USDC');
+ const previewScreens=join(getHarness().config.stateDir,'private-preview-screenshots');await mkdir(previewScreens,{recursive:true});
+ await go('/settings/wallets');await act('disconnect');await go('/spaces/'+assetId+'?sale='+saleId+'&spot=spot-1');
+ await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();const beforePreviewUploads=mediaWrites,beforePreviewSignatures=signed.length;
+ await page.locator('[data-ad-preview-picker] summary').click();await page.locator('[data-ad-preview-file]').setInputFiles(privateAd);
+ await page.waitForFunction(()=>document.querySelector('.private-ad-image')?.getAttribute('href')?.startsWith('blob:'));
+ await page.reload();await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();assert.match(await page.locator('.private-ad-image').getAttribute('href'),/^blob:/);
+ assert.equal(mediaWrites,beforePreviewUploads);assert.equal(signed.length,beforePreviewSignatures);
+ for(const width of [1440,390]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:join(previewScreens,'guest-preview-'+width+'.png'),animations:'disabled'});}
+ await page.setViewportSize({width:1280,height:1000});checks.push('Guest fitted a local image into the exact vehicle spot and restored it after reload, with zero uploads, signatures or transactions');
  async function book(label,{reject=false,interrupt=false}={}){
   await connect(label);await go('/checkout/'+saleId+'?spot=spot-1');
+  await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();if(label==='a')assert.match(await page.locator('.private-ad-image').getAttribute('href'),/^blob:/);
   const form=page.locator('form[data-live-form=prepare-booking]');
   assert.equal(await form.locator('[name=campaignId]').inputValue(),'');assert.equal(await form.locator('[name=name]').isVisible(),false);assert.equal(await form.locator('[name=budget]').isDisabled(),true);await form.locator('[name=rules]').check();
   if(reject)await page.evaluate(()=>window.__rejectNextQualificationSignature=true);
@@ -85,8 +99,19 @@ export async function productionBrowser({page,wallets,getHarness,restart}){
   await waitFor(()=>getHarness().store.get('booking',bookingId)?.accepted===true,label+' accepted booking');return bookingId;
  }
  const aBooking=await book('a',{reject:true});await waitFor(()=>getHarness().store.get('booking',aBooking)?.accepted===true,'Buyer A accepted');assert.equal((await snapshot(contract)).state.round,'1');
+ await go('/payments/'+aBooking);await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();assert.match(await page.locator('.private-ad-image').getAttribute('href'),/^blob:/);
+ await go('/profile/placements/'+aBooking);await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();assert.match(await page.locator('.private-ad-image').getAttribute('href'),/^blob:/);assert.equal(await page.locator('form[data-live-form=artwork]').count(),0,'a private draft must not open on-chain artwork before booking closes');
+ await page.reload();await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();assert.match(await page.locator('.private-ad-image').getAttribute('href'),/^blob:/);
+ await connect('b');await go('/spaces/'+assetId+'?sale='+saleId+'&spot=spot-1');await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();assert.equal(await page.locator('.private-ad-image').getAttribute('href'),null,'switching wallets must not expose A’s draft');
+ const outsider=await page.context().browser().newContext(),outsiderPage=await outsider.newPage();
+ try{await outsider.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort('blockedbyclient'));await outsiderPage.goto(base+'/spaces/'+assetId+'?sale='+saleId+'&spot=spot-1');await outsiderPage.locator('[data-ad-preview][data-preview-ready=true]').waitFor();assert.equal(await outsiderPage.locator('.private-ad-image').getAttribute('href'),null,'another browser must not see private drafts');}finally{await outsider.close();}
+ await connect('a');await go('/profile/placements/'+aBooking);await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();await page.locator('[data-ad-preview-reset]').click();await page.waitForFunction(()=>!document.querySelector('.private-ad-image')?.getAttribute('href'));await page.reload();await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();assert.equal(await page.locator('.private-ad-image').getAttribute('href'),null);
+ assert.equal(mediaWrites,beforePreviewUploads);checks.push('Private image carried through sign-in, a rejected payment, confirmed payment and reservation reload; another wallet/browser saw none, and Reset removed it durably');
  const bBooking=await book('b',{interrupt:true});assert.equal((await snapshot(contract)).state.round,'2');checks.push('Buyer A booked 0.01 USDC; distinct Buyer B took over for 0.02 USDC');
+ await go('/profile/placements/'+bBooking);await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();await page.locator('[data-ad-preview-picker] summary').click();await page.locator('[data-ad-preview-file]').setInputFiles(privateAd);await page.waitForFunction(()=>document.querySelector('.private-ad-image')?.getAttribute('href')?.startsWith('blob:'));
  await getHarness().advance(steps.biddingClose+3000);await getHarness().keeper.tick();await waitFor(async()=>(await snapshot(contract)).state.nft_minted,'automatic final NFT mint');assert.equal((await snapshot(contract)).rights.current_owner_id,addresses.b);checks.push('Actual qualified background keeper minted final NFT directly to the EVM final buyer');
+ await go('/profile/placements/'+bBooking);await page.locator('[data-ad-preview][data-preview-ready=true]').waitFor();assert.equal(await page.locator('form[data-live-form=artwork] [name=file]').evaluate(el=>el.files[0]?.name),'private-test-ad.png');assert.equal(await page.locator('form[data-live-form=artwork] [name=public]').isChecked(),false);assert.equal((await snapshot(contract)).rights.revision,'0');assert.equal(mediaWrites,beforePreviewUploads);await page.locator('[data-ad-preview-reset]').click();await page.waitForFunction(()=>!document.querySelector('.private-ad-image')?.getAttribute('href'));
+ checks.push('After the real bidding cutoff and NFT mint, the private image was ready in the artwork form; public consent stayed unchecked and no artwork or upload was sent automatically');
  async function transferTo(recipient){await page.getByText('Transfer creative control',{exact:true}).first().click();const transfer=page.locator('form[data-live-form=nft-transfer]');await transfer.locator('[name=receiverId]').fill(recipient);await transfer.locator('[name=transferAcknowledged]').check();await submit('nft-transfer');await waitFor(async()=>(await snapshot(contract)).rights.current_owner_id===recipient,'creative controller transfer');}
  await go('/profile/placements/'+bBooking);await transferTo(addresses.a);
  await go('/profile/placements/'+bBooking);assert.equal(await page.locator('form[data-live-form=artwork]').count(),0,'former NFT controller cannot submit artwork');
@@ -124,7 +149,7 @@ export async function productionBrowser({page,wallets,getHarness,restart}){
  await artworkForm.locator('[name=mediaId]').selectOption(selectedFile);assert.equal(await artworkForm.locator('[name=file]').evaluate(el=>el.files.length),0);
  assert.equal((await snapshot(contract)).rights.revision,'2','choosing a saved file must not submit it');
  await page.locator('form[data-live-form=artwork] [name=public]').check();await submit('artwork');await waitFor(async()=>(await snapshot(contract)).rights.revision==='3','third artwork revision');assert.equal((await snapshot(contract)).rights.proposal.submitted_by,addresses.b);
- await page.getByRole('img',{name:'Submitted artwork · awaiting approval',exact:true}).waitFor();assert.equal(await page.locator('form[data-live-form=artwork]').count(),1,'current revision remains visible beside the update form');
+ await page.locator('.artwork-original summary').click();await page.getByRole('img',{name:'Submitted artwork · awaiting approval',exact:true}).waitFor();await page.locator('.artwork-original summary').click();assert.equal(await page.locator('form[data-live-form=artwork]').count(),1,'current revision remains visible beside the update form');
  checks.push('Buyer B saved a digest-verified image in Profile, explicitly selected its reservation, previewed it without a transaction and submitted revision 3 through a real wallet signature');
  await connect('owner');await go('/host/sales/'+saleId+'/fulfillment?contract='+contract);await page.getByRole('img',{name:'Submitted artwork · awaiting approval',exact:true}).waitFor();await page.locator('.artwork-preview').first().screenshot({path:join(screenshots,'owner-review.png')});
  await go('/spaces/'+assetId+'?sale='+saleId);await page.locator('.placement-price-pending').filter({hasText:'Booking closed'}).waitFor();assert.equal(await page.locator('.placement-artwork').count(),0,'unapproved artwork must not be shown on the public vehicle');

@@ -10,6 +10,7 @@ import { photoData } from './photos.mjs';
 import {verifyOriginalIntent} from './recovery-state.mjs';
 import { workspaceForms } from './workspace-actions.mjs';
 import {affectedContracts} from './workspace-refresh.mjs';
+import {adoptGuestPreview} from './ad-preview-store.mjs';
 
 const cents=value=>{const n=BigInt(amount(String(value)));if(n%10000n)throw new Error('Spot prices must use whole USDC cents.');return (n/10000n).toString();};
 const currentForm=()=>document.querySelector('form[data-live-form="asset-edit"]');
@@ -50,6 +51,8 @@ async function prepareBooking(data,{pay=live.config.production}={}){
  if(!data.has('rules'))throw new Error('Agree to the published rules before booking.');
  if(isTeamTest(sale(String(data.get('saleId'))))&&!data.has('testCampaignAcknowledged'))throw new Error('Acknowledge that this team test uses real USDC with no physical delivery.');
  const selection=String(data.get('campaignId')??''),automatic=!selection,offer=sale(String(data.get('saleId'))),spot=offer?.spots.find(p=>p.id===String(data.get('spotId')));
+ const previewWallet=live.session?.wallet;await adoptGuestPreview(offer,spot,previewWallet);
+ if(live.session?.wallet!==previewWallet)throw new Error('Your wallet changed. Review this reservation with the connected wallet.');
  let campaignId=String(data.get('bookingCampaignId')??'')||(selection==='new'?'':selection);
  if(!campaignId){
   const group=automatic?reservationGroup(offer?.publication?.manifest.asset.title??offer?.title,offer?.publication?.manifest.asset.spots?.find(p=>p.id===spot?.id)?.name??spot?.name??spot?.id,data.get('expectedAmount')):{name:String(data.get('name')??''),budgetMicroUsdc:amount(data.get('budget'))};
