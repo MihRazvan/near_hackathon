@@ -49,6 +49,25 @@ test('keeper defaults disabled and requires a pinned mainnet fixed relayer when 
   finally { store.close(); }
 });
 
+test('keeper batches share one finalized block, renew slow reads and never reuse a block across ticks', async () => {
+  const f = fixture(), seen = []; let blocks = 0;
+  f.snapshot.state.nft_minted = true; f.snapshot.state.artwork_locked = false;
+  const second = f.addOffer('offer-' + 'b'.repeat(32)); second.state.nft_minted = true; second.state.artwork_locked = false;
+  const original = f.chain.snapshot;
+  f.chain.reads = { block: async options => { assert.equal(options.priority, 'background'); return { header: { hash: String(++blocks) } }; } };
+  let slow = false;
+  f.chain.snapshot = async (id, wallets, options) => {
+    assert.equal(options.priority, 'background'); assert.deepEqual(wallets, []); seen.push(options.block.header.hash);
+    if (slow) f.advance(21000);
+    return original(id, wallets, options);
+  };
+  try {
+    await f.keeper.tick(); assert.equal(blocks, 1); assert.deepEqual(seen, ['1', '1']); assert.equal(f.calls.length, 0);
+    f.advance(); await f.keeper.tick(); assert.equal(blocks, 2); assert.deepEqual(seen.slice(2), ['2', '2']);
+    f.advance(); slow = true; await f.keeper.tick(); assert.equal(blocks, 4); assert.deepEqual(seen.slice(4), ['3', '4']); assert.equal(f.calls.length, 0);
+  } finally { f.close(); }
+});
+
 test('mint uses the original bounded zero-deposit call and a qualified finalized chain clock', async () => {
   const f = fixture();
   try {

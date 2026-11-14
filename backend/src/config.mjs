@@ -112,7 +112,7 @@ export function configFromEnv(env = {}) {
     },
     treasuryFloor: units(env.INTEGRATION_MIN_TREASURY_NEAR || "12", 24),
     nearRpc: env.INTEGRATION_NEAR_RPC_URL || "https://near.drpc.org",
-    nearRpcIntervalMs:Number(env.APP_NEAR_RPC_INTERVAL_MS||(production?'250':'120')),
+    nearRpcIntervalMs:Number(env.APP_NEAR_RPC_INTERVAL_MS||'100'),
     baseRpc: env.INTEGRATION_BASE_RPC_URL || "https://mainnet.base.org",
     artifact: resolve(ROOT, env.APP_ARTIFACT_PATH||"target/proof-artifacts/campaign-marketplace.wasm"),
     chatgptCredentials: resolve(

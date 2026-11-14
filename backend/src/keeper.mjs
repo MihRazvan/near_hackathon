@@ -105,7 +105,7 @@ export function productionKeeper({ store, chain, config, now = Date.now, interva
     if (['success', 'failure'].includes(state.outcome) && state.storage_reclaimed === false && uint(state.total_received) === uint(state.total_withdrawn) && uint(state.total_pending) === 0n) return { action: 'reclaim-storage', method: 'reclaim_storage_reserve', gas: '40000000000000' };
     return null;
   }
-  async function processOffer(id) {
+  async function processOffer(id, getBlock) {
     const published = publishedOffer(id);
     if (!published) return 'skipped';
     let job = store.get('keeper-offer', jobId(id));
@@ -120,7 +120,8 @@ export function productionKeeper({ store, chain, config, now = Date.now, interva
     }
     if(completedJob(job,published,id))return 'complete';
     if ((job?.nextCheckAt ?? 0) > now()) return 'deferred';
-    const snapshot = await chain.snapshot(id, [], { priority: 'background' });
+    const block = getBlock ? await getBlock() : undefined;
+    const snapshot = await chain.snapshot(id, [], { priority: 'background', ...(block ? { block } : {}) });
     assert(ownsLease(), 'KEEPER_LEASE_LOST', 'Keeper lease expired while reading the offer');
     assert(qualifies(snapshot, published, id), 'KEEPER_SCOPE_CHANGED', 'Keeper can only maintain the published qualified offer');
     if(fullyComplete(snapshot.state)){saveJob(id,{offerId:id,phase:'complete',completion:completionEvidence(snapshot,published,id),failures:0,nextCheckAt:0});return 'complete';}
@@ -170,10 +171,22 @@ export function productionKeeper({ store, chain, config, now = Date.now, interva
       const cursor = store.get('keeper-cursor', leaseId)?.after ?? '';
       let rows = store.db.prepare('SELECT id FROM objects WHERE kind=? AND id>? ORDER BY id LIMIT ?').all('spot-index', cursor, batchSize);
       if (!rows.length && cursor) rows = store.db.prepare('SELECT id FROM objects WHERE kind=? ORDER BY id LIMIT ?').all('spot-index', batchSize);
+      // Offers in a batch share immutable hub/token reads at one finalized block.
+      // Renew slow batches before the snapshot's 60-second freshness bound.
+      // This cache belongs only to this tick; dispatch still qualifies a fresh
+      // transaction and each later tick obtains another finalized block.
+      let batchBlock, blockLoadedAt;
+      const getBlock = chain.reads?.block ? async () => {
+        if (!batchBlock || now() - blockLoadedAt >= 20000) {
+          batchBlock = await chain.reads.block({ priority: 'background' });
+          blockLoadedAt = now();
+        }
+        return batchBlock;
+      } : undefined;
       for (const { id } of rows) {
         if (!ownsLease()) break;
         try {
-          const outcome = await processOffer(id);
+          const outcome = await processOffer(id, getBlock);
           result.checked++;
           if (outcome === 'submitted') result.submitted++;
           if (outcome === 'reconciled') result.reconciled++;

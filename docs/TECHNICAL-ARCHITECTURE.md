@@ -23,6 +23,8 @@ The API stores vehicle listings and coordinates wallet actions. The shared NEAR 
 
 The [lockfiles](../README.md#documentation) pin dependencies. Runtime AI and hosting configuration are described in [deployment details](DEPLOYMENTS.md#ai-and-hosting).
 
+RPC requests are spaced 100 ms apart by default, configurable with `APP_NEAR_RPC_INTERVAL_MS`. Concurrent visitors share identical in-flight reads and a five-second public display cache. Each keeper batch shares one finalized block for immutable hub/token reads and renews it during slow batches. Payment preparation still reads fresh finalized state.
+
 ## From a vehicle to an offer
 
 1. A signed-in owner creates a private vehicle draft from a photo, a private phone capture, a description or the labelled sample.
