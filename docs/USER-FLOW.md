@@ -15,6 +15,8 @@ Marketplace is for finding and booking space. Owners manage listings in Dashboar
 5. Use the dashboard to follow artwork and installation tasks. Approve the exact artwork revision, arrange printing and installation, then upload evidence before the relevant deadlines.
 6. After service and issue review close, the contract checks the delivery requirements before settlement. Claim available earnings and withdraw through the supported wallet path. Unused offer reserves can be reclaimed by their original funder after all obligations settle.
 
+For older listings published without a cover, the owner can add the original vehicle photo from the listing dashboard. This is labelled as a photo added after publication; it does not rewrite the signed manifest, prices or spot geometry.
+
 ![The actual placement editor using a controlled documentation fixture](assets/editor.png)
 
 *The working editor with fixture data. This capture made no paid AI call or publication.*

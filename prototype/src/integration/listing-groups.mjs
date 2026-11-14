@@ -3,7 +3,7 @@ const assetFor=s=>s.publication?.manifest?.asset;
 const windowFields=['artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'];
 const windowValue=value=>Number.isFinite(Date.parse(value))?new Date(value).toISOString():value??'';
 export function listingGroupKey(s){
- const a=assetFor(s);return JSON.stringify([s.assetId,s.owner,s.campaignType??s.publication?.manifest?.campaignType??'physical',a?.coverSha256??a?.coverUri??'',...windowFields.map(k=>windowValue(s.schedule?.[k])),...(a?.photoViews?.length?[a.primaryPhotoSide??'',a.photoViews.map(v=>[v.id,v.coverSha256??v.coverUri])]:[])]);
+ const a=assetFor(s);return JSON.stringify([s.assetId,s.owner,s.campaignType??s.publication?.manifest?.campaignType??'physical',a?.coverSha256??a?.coverUri??s.presentation?.coverSha256??'',...windowFields.map(k=>windowValue(s.schedule?.[k])),...(a?.photoViews?.length?[a.primaryPhotoSide??'',a.photoViews.map(v=>[v.id,v.coverSha256??v.coverUri])]:[])]);
 }
 export function listingPlacements(offer,sales){
  const key=listingGroupKey(offer),seen=new Set();

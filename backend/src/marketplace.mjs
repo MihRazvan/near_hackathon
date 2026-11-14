@@ -4,6 +4,7 @@ import { hubPriceAtRound } from './hub.mjs';
 import { randomUUID } from 'node:crypto';
 import { assert, walletId, text, uint, hashObject } from './core.mjs';
 import { validateDraft, imageInput } from './asset-ai.mjs';
+import {withListingPhoto} from './listing-photo.mjs';
 import {assetPhotos,photoDataValues,publicPhotoViews} from './asset-photos.mjs';
 
 const DATE_KEYS=['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'];
@@ -97,6 +98,8 @@ export class Marketplace {
    assert(!overlaps||!other.spots.some(a=>sale.spots.some(b=>a.id===b.id)),'OVERLAPPING_SALE','A published campaign already uses this physical spot during these dates');
   }
   if(!allowStarted)dates(sale.schedule,this.now());const asset=owned(this.store,'asset',sale.assetId,owner);
+  const priorPhotoPlan=this.store.list('publication-plan',sale.owner).some(p=>p.plan.saleId===id&&p.plan.saleVersion===sale.version)||this.store.list('provision-plan',sale.owner).some(p=>p.plan.saleId===id&&p.plan.saleVersion===sale.version);
+  assert(!asset.photoDataUrl||asset.coverUri||allowStarted||priorPhotoPlan,'PUBLIC_PHOTO_REQUIRED','Publish the vehicle photo before publishing this listing. Your private draft is still saved.',400);
   assert(sale.spots.length>0&&sale.spots.every(p=>asset.spots.some(a=>a.id===p.id)),'INVALID_SPOT','A campaign spot was removed from this vehicle. Update your draft campaign before publishing.',400);
   const manifest={version:1,saleId:sale.id,title:sale.title,sellerId:sale.owner,arbiterId:sale.arbiterId,
    asset:{id:asset.id,title:asset.title,description:asset.description,assetType:asset.assetType,city:asset.city,spots:asset.spots,...assetProvenance(asset),...publicPhotoViews(asset),...(asset.coverUri?{coverUri:asset.coverUri,coverSha256:asset.coverSha256}:{})},
@@ -155,9 +158,9 @@ export class Marketplace {
  }
 
  browse({city,assetType}={}){
-  return this.store.list('sale').filter(s=>s.status==='published').filter(s=>(!city||s.publication.manifest.asset.city.toLowerCase().includes(city.toLowerCase()))&&(!assetType||s.publication.manifest.asset.assetType===assetType));
+  return this.store.list('sale').filter(s=>s.status==='published').filter(s=>(!city||s.publication.manifest.asset.city.toLowerCase().includes(city.toLowerCase()))&&(!assetType||s.publication.manifest.asset.assetType===assetType)).map(s=>withListingPhoto(this.store,s));
  }
- sale(id){const sale=this.store.get('sale',id);assert(sale?.status==='published','NOT_FOUND','Published sale not found',404);return sale;}
+ sale(id){const sale=this.store.get('sale',id);assert(sale?.status==='published','NOT_FOUND','Published sale not found',404);return withListingPhoto(this.store,sale);}
  createCampaign(owner,{name,budgetMicroUsdc}){
   assert(uint(budgetMicroUsdc)>0n,'INVALID_BUDGET','Campaign budget must be positive',400);
   return this.store.insert('buyer-campaign',randomUUID(),walletId(owner),{name:text(name,'campaign name',100),budgetMicroUsdc,status:'active'});
@@ -282,7 +285,7 @@ export class Marketplace {
   return this.store.insert('issue',randomUUID(),wallet,data);
  }
  dashboard(owner){
-  const wallet=walletId(owner),sales=this.store.list('sale',wallet),bookings=this.store.list('booking',wallet),campaigns=this.store.list('buyer-campaign',wallet);
+  const wallet=walletId(owner),sales=this.store.list('sale',wallet).map(s=>withListingPhoto(this.store,s)),bookings=this.store.list('booking',wallet),campaigns=this.store.list('buyer-campaign',wallet);
   return {assets:this.store.list('asset',wallet),sales,campaigns,bookings,incomingBookings:this.store.list('booking').filter(b=>b.sellerId===wallet),stats:{publishedSales:sales.filter(s=>s.status==='published').length,
    bookedPrincipalMicroUsdc:bookings.filter(b=>b.accepted||['accepted','outbid'].includes(b.status)).reduce((sum,b)=>sum+uint(b.amount),0n).toString(),
    exposureImpressions:null,exposureMeasurement:'Not measured by the on-chain integration'}};

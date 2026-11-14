@@ -5,6 +5,7 @@ import { assert, AppError, walletId } from './core.mjs';
 import { sessionToken,sessionCookie } from './session-http.mjs';
 import { serveWalletAssets } from './wallet-assets.mjs';
 import { serveReferencePhoto } from './reference-photo.mjs';
+import {listingPhotoSource,attachListingPhoto} from './listing-photo.mjs';
 import {privateAssetMetadata} from './asset-photos.mjs';
 import { USDC_ABI } from './base-executor.mjs';
 
@@ -104,6 +105,10 @@ export function httpApp({config,store,auth,marketplace,chain,nativeActions,publi
    else if(method==='GET'&&path[1]==='integration')result={network:config.network,executionEnabled:config.enabled,budget:budget.totals()};
    else if(method==='GET'&&path[1]==='publication-capacity')result=await publication.capacity(wallet,{background:url.searchParams.get('preview')==='1'});
    else if(method==='GET'&&path[1]==='sale-requests'&&path.length===3)result=marketplace.saleRequest(wallet,path[2]);
+   else if(method==='POST'&&path[1]==='sales'&&path[3]==='listing-photo'&&path.length===4){
+    const {image}=listingPhotoSource(store,wallet,path[2],body),artifact=await media.upload({owner:wallet,bytes:image.bytes,mime:image.mime,publicContentAcknowledged:true});
+    result=attachListingPhoto(store,wallet,path[2],{...body,mediaId:artifact.id});product?.invalidate();
+   }
    else if(method==='POST'&&path[1]==='assets'&&path.length===2){result=marketplace.createAsset(wallet,body);status=201;}
    else if(method==='PATCH'&&path[1]==='assets'&&path.length===3)result=marketplace.updateAsset(wallet,path[2],body.version,body.asset);
    else if(method==='POST'&&path[1]==='ai'&&path[2]==='jobs'){result=aiJobs.start(wallet,body);status=202;}

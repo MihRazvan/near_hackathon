@@ -68,3 +68,8 @@
 @media(max-width:800px) { .placement-layout { grid-template-columns:minmax(0,1fr); gap:22px; } .placement-booking { position:static; grid-row:2; } .placement-choices { grid-template-columns:repeat(2,minmax(0,1fr)); } .placement-choice { display:grid; grid-template-columns:auto 1fr; } .placement-choice-price { grid-column:2; margin:0; } .listing-heading { margin-bottom:20px; } }
 @media(max-width:560px) { .listing-topline { padding-top:12px; gap:16px; font-size:12px; } .listing-heading { gap:12px; margin-top:12px; } .listing-heading h1 { font-size:30px; } .listing-save { padding:8px; } .listing-save > span { display:none; } .placement-photo figcaption { padding-top:8px; font-size:11px; } .placement-booking { padding:18px; } .placement-picker > h2 { font-size:22px; } .placement-choice { padding:10px; gap:6px; } .placement-choice-description small { font-size:11px; } .placement-booking-price { margin-top:20px; } .placement-booking-price strong { font-size:34px; } .placement-booking-dates { font-size:12px; } .team-test-notice summary span { flex-basis:100%; } }
 @media(max-width:360px) { .placement-choice-number { width:22px; height:22px; } .placement-choice-description strong { font-size:13px; } .placement-choice { gap:6px; padding:8px; } }
+
+.listing-photo-missing { min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; background: var(--paper); text-align: center; }
+.listing-photo-missing > .icon { width: 48px; height: 48px; margin-bottom: 20px; }
+.listing-photo-missing h2 { font-size: 24px; }
+.listing-photo-missing p { max-width: 35ch; }

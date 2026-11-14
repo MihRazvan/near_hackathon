@@ -9,3 +9,10 @@ export const referenceImage = asset => {
  if (!/^ipfs:\/\/baf[a-z2-7]+$/.test(asset?.coverUri ?? '')) return null;
  return (asset.imageProvenance === 'ai-generated' && generatedReferences[asset.coverSha256]) || asset.coverUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
 };
+
+// Supplemental display media never changes the original, on-chain-bound manifest.
+export function listingAsset(offer){
+ const asset=offer.publication?.manifest.asset,photo=offer.presentation;
+ if(!asset||asset.coverUri||photo?.publishedTermsHash!==offer.publication?.publishedTermsHash||photo?.provenance!=='photo-added-after-publication')return asset;
+ return {...asset,coverUri:photo.coverUri,coverSha256:photo.coverSha256,imageProvenance:photo.imageProvenance,photoAddedAfterPublication:true};
+}

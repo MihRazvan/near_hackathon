@@ -1,3 +1,4 @@
+import {listingAsset} from './reference-images.mjs';
 import {listingView} from './listing-view.mjs';
 import {listingPlacements,groupedListings} from './listing-groups.mjs';
 import { live,sale,snapshot,usdc } from './runtime.mjs';
@@ -7,7 +8,7 @@ import { homeView, categoryLinks } from './marketing.mjs';
 import {isTeamTest} from './campaign-kind.mjs';
 import {marketCard} from './market-card.mjs';
 const clock=()=>Date.parse(live.catalog?.time)||Date.now();
-const assetFor=offer=>offer.publication?.manifest.asset;
+const assetFor=listingAsset;
 const stateFor=(offer,spot)=>listingAvailability(spot,snapshot(spot.contractId),clock());
 const placements=offer=>listingPlacements(offer,live.catalog?.sales??[]);
 const availablePlacements=offer=>placements(offer).filter(e=>stateFor(e.sale,e.spot).available);

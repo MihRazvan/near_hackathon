@@ -61,7 +61,7 @@ test('private reference photos stay out of published terms and stable panel iden
   assert.equal(edited.spots[0].id,'stable-panel');assert.equal(edited.photoDataUrl,photo);
   const dates=Object.fromEntries(['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'].map((key,i)=>[key,new Date(now+(i+1)*60000).toISOString()]));
   const sale=m.createSale(owner,{assetId:a.id,title:'Period',schedule:dates,takeoverDefault:true,spots:[{id:'stable-panel',priceCents:'10'}],arbiterId:'arbiter.near',rules:'Synthetic rules'});
-  assert.equal('photoDataUrl' in m.publication(owner,sale.id).manifest.asset,false);
+  assert.throws(()=>m.publication(owner,sale.id),{code:'PUBLIC_PHOTO_REQUIRED'});store.insert('media','cover',owner,{status:'verified',public:true,mime:'image/png',uri:'ipfs://baf'+'a'.repeat(40),sha256:'a'.repeat(64)});m.updateAsset(owner,a.id,edited.version,{...edited,coverMediaId:'cover'});assert.equal('photoDataUrl' in m.publication(owner,sale.id).manifest.asset,false);
   assert.throws(()=>m.createAsset(owner,{...input,spots:[input.spots[0],input.spots[0]]}),{code:'INVALID_SPOT'});
  }finally{store.close();}
 });

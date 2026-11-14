@@ -31,7 +31,7 @@ test('publication requires verified owned photo artifacts and commits every view
  const {store,m}=setup();try{
   let a=m.createAsset('owner.near',draft);const now=Date.now(),schedule=Object.fromEntries(['biddingClose','artworkDue','installationDue','serviceStart','serviceEnd','reviewEnd'].map((k,i)=>[k,new Date(now+(i+1)*600000).toISOString()]));
   const sale=m.createSale('owner.near',{assetId:a.id,title:'Multi-view offer',arbiterId:'arbiter.near',rules:'Owner prints and installs',takeoverDefault:true,schedule,spots:a.spots.map(p=>({id:p.id,priceCents:'100'}))});
-  assert.throws(()=>m.publication('owner.near',sale.id),{code:'PHOTO_NOT_PUBLIC'});
+  assert.throws(()=>m.publication('owner.near',sale.id),{code:'PUBLIC_PHOTO_REQUIRED'});
   const media=(id,owner)=>store.insert('media',id,owner,{status:'verified',mime:'image/png',uri:'ipfs://baf'+id.repeat(40),sha256:id.repeat(64)});media('a','owner.near');media('b','owner.near');media('c','other.near');
   assert.throws(()=>m.updateAsset('owner.near',a.id,a.version,{...a,photoViews:[{...a.photoViews[0],coverMediaId:'c'}]}),{code:'NOT_FOUND'});
   a=m.updateAsset('owner.near',a.id,a.version,{...a,coverMediaId:'a',photoViews:[{...a.photoViews[0],coverMediaId:'b'}]});

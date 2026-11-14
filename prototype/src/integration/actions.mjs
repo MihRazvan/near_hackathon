@@ -123,7 +123,7 @@ export const actions={
  'mainnet-test-dates':()=>setDates([10,20,25,25,30,35]),'quick-dates':()=>setDates([3,8,12,12,14,16]),'relaxed-dates':()=>setDates([30,60,90,90,110,120]),
  publish:async el=>{
   const offer=sale(el.dataset.id),asset=offer&&rawAsset(offer.assetId);
-  if(asset?.photoViews?.length&&privateListingPhotos(asset).length)await publishVehiclePhotos(asset,{acknowledged:document.querySelector('[name=publishPhotos]')?.checked===true});
+  if(asset&&privateListingPhotos(asset).length&&![...(live.data.publicationPlans??[]),...(live.data.provisionPlans??[])].some(p=>p.plan.saleId===offer.id&&p.plan.saleVersion===offer.version))await publishVehiclePhotos(asset,{acknowledged:document.querySelector('[name=publishPhotos]')?.checked===true});
   const result=await api('sales/'+el.dataset.id+'/publication-options',{});
   if(result.mode==='recoverable'){
    await review('Publish with recoverable NEAR collateral',{spots:result.plan.spots.map(p=>({spotId:p.spotId,contractId:p.contractId})),collateralNEAR:nativeUnits(result.plan.collateralPerSpot),...result.assessment});
@@ -136,6 +136,7 @@ export const actions={
   for(const record of result.plans){if(record.status==='confirmed')continue;await nativePlan(record.plan,'Publish advertising spot '+record.plan.spotId);}
   await refreshSale(el.dataset.id);toast(sale(el.dataset.id)?.status==='published'?'Your sale is published.':'Publication is pending. Recover the original requests to continue.');
  },
+ 'add-listing-photo':async el=>{const wallet=live.session.wallet,offer=sale(el.dataset.id);if(!document.querySelector('[name=listingPhotoAcknowledged]')?.checked)throw new Error('Agree to publish your vehicle photo first.');await api('sales/'+offer.id+'/listing-photo',{publicContentAcknowledged:true,publishedTermsHash:offer.publication.publishedTermsHash});if(live.session?.wallet!==wallet)throw new Error('Your photo was published. Reconnect the listing owner to view it.');await refresh({local:true,render:false});rerender();toast('Your vehicle photo is now visible on the listing.');},
  'cancel-unsent-request':async el=>{await api('wallet-requests/'+el.dataset.id+'/cancel-unsent',{});await refresh({local:true});toast('The unopened request was cancelled.');},
  'cancel-unsent-funding':async el=>{await api('wallet-funding/'+el.dataset.id+'/cancel-unsent',{});await refresh({local:true});toast('The unopened Base request was cancelled.');},
  'resume-intent':async el=>{await ensureSigningWallet();const r=await api('wallet-requests/'+el.dataset.id+'/resume-intent',{});if(r.status==='rejected'){const plan=await verifyOriginalIntent(await api('intents/'+r.planId),r);await intentPlan(plan,'Retry your original payment with the same amount and nonce');}await refreshRecovered([r]);toast('Your original request has been checked.');},
