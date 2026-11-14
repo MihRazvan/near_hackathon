@@ -8,3 +8,8 @@
 !prototype/vite.config.mjs
 !prototype/src
 !prototype/src/**
+!prototype/public
+!prototype/public/**
+!deployments
+!deployments/qualification.json
+!deployments/team-campaigns.json
