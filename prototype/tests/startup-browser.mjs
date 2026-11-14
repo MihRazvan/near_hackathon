@@ -156,7 +156,7 @@ try{
   if(process.env.ACCOUNT_SCREENSHOT_DIR){await mkdir(process.env.ACCOUNT_SCREENSHOT_DIR,{recursive:true});await test.page.screenshot({path:resolve(process.env.ACCOUNT_SCREENSHOT_DIR,'first-campaign-'+width+'.png'),fullPage:true});}
   await test.page.goto(origin+'/profile');await test.page.locator('#orders').waitFor();
   assert.equal(await test.page.locator('h1').count(),1);
-  assert.match(await test.page.locator('#main').innerText(),/Your first booking starts in the marketplace/);
+  assert.match(await test.page.locator('#main').innerText(),/Your first reservation starts in the marketplace/);
   assert.equal(await test.page.locator('.site-nav a[aria-current=page]').innerText(),'Profile');
   assert.equal(await test.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await test.page.locator('#details summary').click();await test.page.locator('[name=displayName]').fill('New account name');
