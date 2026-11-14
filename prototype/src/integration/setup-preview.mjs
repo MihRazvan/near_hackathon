@@ -1,9 +1,3 @@
-const chapters=[
- ['Scan it. Or describe it.','AI turns your vehicle into a starting layout.'],
- ['Your spots. Your terms.','Adjust the panels, price and campaign dates.'],
- ['Reserve. Or take over.','Bookings can change hands before printing.'],
- ['Own the creative right.','Booking closes. The final advertiser receives the placement NFT.']
-];
 const cargo='M182 374 Q182 355 202 355 L957 355 Q978 355 978 374 L971 488 Q971 504 952 504 L202 504 Q182 504 182 488 Z';
 const cab='M1052 561 L1238 581 L1222 626 L1056 626 Z';
 const pause='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
@@ -19,7 +13,7 @@ export function setupPreview(){
   <div class="story-booking" aria-hidden="true"><span class="story-reserved">Daybreak reserves this spot.</span><span class="story-taken">Everywhere takes over.</span></div>
   <div class="story-refund" aria-hidden="true">Refund rights stay with the original buyer.</div>
   <div class="story-nft" aria-hidden="true"><span>NEAR</span><strong>Placement NFT</strong><p>Final advertiser.<br>Creative control.</p><small>Artwork rights, held in your wallet.</small></div>
- </div><figcaption><span class="sr-only">Illustration: scan or describe a vehicle, edit advertising spots, reserve or take over a booking, then receive the final placement NFT after booking closes. No real transaction is performed.</span><div class="story-captions" aria-hidden="true">${chapters.map(([title,description],i)=>`<div data-story-caption="${i}"><strong>${title}</strong><p>${description}</p></div>`).join('')}</div><div class="story-progress" aria-hidden="true">${chapters.map((_,i)=>`<span data-story-part="${i}"></span>`).join('')}</div></figcaption></figure>`;
+ </div><figcaption class="sr-only">Illustration: scan or describe a vehicle, edit advertising spots, reserve or take over a booking, then receive the final placement NFT after booking closes. No real transaction is performed.</figcaption></figure>`;
 }
 
 let cleanup,state;
@@ -36,7 +30,6 @@ export function mountSetupPreview(){
   root.style.setProperty('--coffee-opacity',fade(5400));root.style.setProperty('--takeover-opacity',fade(7600));root.style.setProperty('--nft-progress',fade(10000));
   root.style.setProperty('--story-trace',Math.min(1,Math.max(0,(t-2400)/850)));
   root.querySelector('[data-story-cargo]').setAttribute('transform',`translate(182 0) scale(${.82+.18*Math.min(1,Math.max(0,(t-3350)/900))} 1) translate(-182 0)`);
-  for(const segment of root.querySelectorAll('[data-story-part]'))segment.dataset.active=String(Number(segment.dataset.storyPart)===scene);
   button.hidden=state.complete;if(button.dataset.paused!==String(state.paused)){button.dataset.paused=String(state.paused);button.setAttribute('aria-label',state.paused?'Resume illustration':'Pause illustration');button.innerHTML=state.paused?play:pause;}
  };
  const stop=()=>{cancelAnimationFrame(frame);frame=undefined;last=undefined;};
