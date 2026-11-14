@@ -35,6 +35,6 @@ Earlier prototype font assets, Barlow Condensed (Jeremy Tribby and contributors)
 
 The four JPEGs in `images/team-tests/` were generated with OpenAI's built-in image-generation tool on 12 November 2026, then converted to JPEG for listing covers. They depict fictional reference vehicles: a red sport motorcycle, blue hatchback, white van and green cargo bicycle. These images are used in labelled team-run mainnet test campaigns. They do not establish vehicle ownership, location, availability or physical installation. The [prompt manifest](images/team-tests/prompts.json) contains the complete prompt for each image.
 
-## Homepage listing walkthrough
+## Homepage placement illustration
 
-The homepage walkthrough uses `images/setup-van.webp`, a compressed WebP copy of `images/team-tests/van.jpg`, the generated reference described above. Its two illustrative SVG placement contours match that photo. Photo, editable spots and listing preview are client-side presentation states; moving the sample handle changes only this preview. It does not perform a new AI analysis, create a listing, request a wallet signature or send a transaction. Real photo/description analysis and the saved editor remain in the owner setup flow.
+The homepage uses `images/setup-van.webp`, a compressed WebP copy of `images/team-tests/van.jpg`, the generated reference described above. Two illustrative SVG contours match that photo. They reveal automatically once in two seconds, then remain still; reduced-motion and data-saving visitors see the completed illustration immediately. This presentation makes no AI request, creates no listing, and requests no wallet signature or transaction. Actual analysis and editing remain in owner setup.
